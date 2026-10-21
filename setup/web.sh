@@ -31,7 +31,15 @@ if [ -n "$GENERIC_PHP_PACKAGES" ]; then
 	apt_get_quiet purge $GENERIC_PHP_PACKAGES
 fi
 
-apt_install nginx php${PHP_VER}-cli php${PHP_VER}-fpm idn2
+# The imap extension is no longer bundled with PHP since PHP 8.4, and distributions
+# stopped packaging it, so it comes from the same repository as PHP itself. Z-Push
+# needs it (and other PHP applications users may run might too).
+apt_install nginx php${PHP_VER}-cli php${PHP_VER}-fpm php${PHP_VER}-imap idn2
+phpenmod -v $PHP_VER imap
+if ! php$PHP_VER -m | grep -qx imap; then
+	echo "The PHP imap extension could not be installed for PHP $PHP_VER."
+	exit 1
+fi
 
 # Several PHP versions may be installed side by side (e.g. the distribution's default
 # version, or the one used by a previous version of Mail-in-a-Box). Make sure the `php`
@@ -133,18 +141,11 @@ sed -i 's/\[www\]/[miab]/' /etc/php/$PHP_VER/fpm/pool.d/miab.conf
 # since it depends on what domains we're serving, which we don't know
 # until mail accounts have been created.
 
-# Create the iOS/OS X Mobile Configuration file which is exposed via the
-# nginx configuration at /mailinabox-mobileconfig.
+# The iOS/OS X Mobile Configuration file, which is exposed via the nginx
+# configuration at /mailinabox.mobileconfig, depends on which optional
+# services are turned on, so management/services.py writes it (see start.sh).
 mkdir -p /var/lib/mailinabox
 chmod a+rx /var/lib/mailinabox
-cat conf/ios-profile.xml \
-	| sed "s/PRIMARY_HOSTNAME/$PRIMARY_HOSTNAME/" \
-	| sed "s/UUID1/$(cat /proc/sys/kernel/random/uuid)/" \
-	| sed "s/UUID2/$(cat /proc/sys/kernel/random/uuid)/" \
-	| sed "s/UUID3/$(cat /proc/sys/kernel/random/uuid)/" \
-	| sed "s/UUID4/$(cat /proc/sys/kernel/random/uuid)/" \
-	 > /var/lib/mailinabox/mobileconfig.xml
-chmod a+r /var/lib/mailinabox/mobileconfig.xml
 
 # Create the Mozilla Auto-configuration file which is exposed via the
 # nginx configuration at /.well-known/autoconfig/mail/config-v1.1.xml.

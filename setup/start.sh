@@ -145,6 +145,11 @@ do
 	sleep 2
 done
 
+# Turn off the optional services (Nextcloud, Z-Push, webmail and Munin) that the
+# administrator turned off in the control panel. They are always installed and
+# updated above, so that they can be turned back on at any time.
+management/services.py apply > /dev/null
+
 # ...and then have it write the DNS and nginx configuration files and start those
 # services.
 tools/dns_update

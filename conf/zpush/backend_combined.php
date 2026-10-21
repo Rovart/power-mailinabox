@@ -8,6 +8,31 @@
 
 class BackendCombinedConfig {
     public static function GetBackendCombinedConfig() {
+        // Contacts and calendars come from Nextcloud, so they are only synchronized
+        // while Nextcloud is turned on (see management/services.py).
+        $services = @json_decode((string) @file_get_contents('/var/lib/mailinabox/services.json'), true);
+        if (is_array($services) && isset($services['nextcloud']) && !$services['nextcloud']) {
+            return array(
+                'backends' => array(
+                    'i' => array(
+                        'name' => 'BackendIMAP',
+                    ),
+                ),
+                'delimiter' => '/',
+                'folderbackend' => array(
+                    SYNC_FOLDER_TYPE_INBOX => 'i',
+                    SYNC_FOLDER_TYPE_DRAFTS => 'i',
+                    SYNC_FOLDER_TYPE_WASTEBASKET => 'i',
+                    SYNC_FOLDER_TYPE_SENTMAIL => 'i',
+                    SYNC_FOLDER_TYPE_OUTBOX => 'i',
+                    SYNC_FOLDER_TYPE_OTHER => 'i',
+                    SYNC_FOLDER_TYPE_USER_MAIL => 'i',
+                    SYNC_FOLDER_TYPE_UNKNOWN => 'i',
+                ),
+                'rootcreatefolderbackend' => 'i',
+            );
+        }
+
         return array(
 			'backends' => array(
 				'i' => array(

@@ -22,6 +22,29 @@ Operating systems:
 * Dovecot 2.4 (Debian 13) is supported. Its configuration is written from scratch in the new
   syntax, and spam/ham learning uses IMAPSieve since the antispam plugin no longer exists.
 
+Optional services:
+
+* Nextcloud (contacts, calendar and files), Z-Push (Exchange ActiveSync), Roundcube (webmail)
+  and Munin (monitoring) can be turned off and on again from the control panel (System →
+  Services) or with `management/cli.py system services enable|disable <service>`. A service
+  that is turned off is no longer served by nginx and its background jobs stop; its data is
+  kept and backed up, and it keeps being updated by the setup so that it can be turned back on
+  at any time. When Nextcloud is off, the webmail's address book, the contacts and calendars of
+  Exchange ActiveSync and the CalDAV/CardDAV accounts of the iOS/macOS profile go away too.
+
+Control panel:
+
+* Redesigned: new navigation bar (with the current page highlighted), a dashboard, light, dark
+  and automatic color themes (Bootstrap color modes instead of CSS overrides), cards, tables
+  and status reports that work on phones, and pages that can be bookmarked and navigated with
+  the browser's back and forward buttons.
+* Security: fixed cross-site scripting issues where data from the server, DNS or PGP keys was
+  inserted into the page as HTML, error messages are always shown as text, the panel sends a
+  Content-Security-Policy, and "Remember me" is now respected (the session was always kept
+  in the browser's local storage).
+* Accessibility: labelled forms and buttons, table headers, keyboard focus management,
+  skip link, accessible dialogs and status messages.
+
 Package updates:
 
 * Nextcloud updated to 34.0.5 (contacts to 8.9.1, calendar to 6.6.2, user_external to 4.0.0).
@@ -51,6 +74,15 @@ Changes ported from Mail-in-a-Box (up to v77):
 * The Nextcloud app store is disabled, calendar reminders are sent by a cron job, and
   nextcloud.log is rotated.
 * Several SSH ports are handled when configuring the firewall. Ubuntu MOTD ads are disabled.
+* The management daemon only listens on 127.0.0.1, and fail2ban is enabled at boot.
+* OCSP stapling is no longer configured (Let's Encrypt stopped providing OCSP), and
+  certificates that expired more than a week ago are moved out of the way daily.
+* Backups to S3-compatible services other than AWS work with boto3 1.36 and later.
+* DNS timeouts and Spamhaus errors for domain lookups are handled by the status checks, and a
+  corrupt status cache no longer breaks the daily status email.
+* Nextcloud sends mail through the box's own mail server, Z-Push's obsolete settings are
+  removed, SSHFP records are generated on boxes without IPv6, and Munin's zoomable graphs
+  work again.
 
 Other fixes:
 
@@ -60,6 +92,8 @@ Other fixes:
 * systemd-resolved is only configured when it is installed (it usually isn't on Debian 12+).
 * spampd 2.60+ (Debian 13) is configured through /etc/spampd.cfg.
 * Regular expressions in the management daemon no longer trigger warnings on Python 3.12+.
+* The PHP imap extension, needed by Z-Push and no longer part of PHP since 8.4, is installed
+  explicitly and the setup stops if it isn't available.
 
 Version 60.1 (October 30, 2022)
 -------------------------------

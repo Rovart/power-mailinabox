@@ -147,7 +147,7 @@ chmod 640 /var/lib/mailinabox/api.key
 
 source $venv/bin/activate
 export PYTHONPATH=$(pwd)/management
-exec gunicorn -b localhost:10222 -w 1 --timeout 630 wsgi:app
+exec gunicorn -b 127.0.0.1:10222 -w 1 --timeout 630 wsgi:app
 EOF
 chmod +x $inst_dir/start
 install_systemd_unit mailinabox.service conf/mailinabox.service

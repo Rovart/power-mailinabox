@@ -149,6 +149,7 @@ def index():
 	import boto3.s3
 	backup_s3_hosts = [(r, f"s3.{r}.amazonaws.com") for r in boto3.session.Session().get_available_regions('s3')]
 
+	from services import get_enabled_services
 
 	return render_template(
 		'index.html',
@@ -158,6 +159,7 @@ def index():
 		no_admins_exist=no_admins_exist,
 		backup_s3_hosts=backup_s3_hosts,
 		csr_country_codes=csr_country_codes,
+		services=get_enabled_services(env),
 	)
 
 
@@ -842,6 +844,29 @@ def privacy_status_set():
 	return "OK"
 
 
+@app.route('/system/services', methods=["GET"])
+@authorized_personnel_only()
+def system_services_get():
+	from services import get_services_status
+	return json_response(get_services_status(env))
+
+
+@app.route('/system/services', methods=["POST"])
+@authorized_personnel_only()
+def system_services_set():
+	from services import SERVICES, set_service_enabled
+	from web_update import do_web_update
+	name = request.form.get('service', '')
+	enabled = request.form.get('enabled', '') == "true"
+	try:
+		set_service_enabled(name, enabled, env)
+		do_web_update(env)
+	except ValueError as e:
+		return (str(e), 400)
+	return "%s is now turned %s." % (SERVICES[name]["title"],
+									"on" if enabled else "off")
+
+
 @app.route('/system/smtp/relay', methods=["GET"])
 @authorized_personnel_only()
 def smtp_relay_get():
@@ -1155,8 +1180,23 @@ def default_quota_set():
 # MUNIN
 
 
+def munin_enabled(f):
+
+	@wraps(f)
+	def g(*args, **kwargs):
+		from services import is_enabled
+		if not is_enabled("munin", env):
+			return Response("Munin is turned off.",
+							status=404,
+							mimetype='text/plain')
+		return f(*args, **kwargs)
+
+	return g
+
+
 @app.route('/munin/')
 @authorized_personnel_only()
+@munin_enabled
 def munin_start():
 	# Munin pages, static images, and dynamically generated images are served
 	# outside of the AJAX API. We'll start with a 'start' API that sets a cookie
@@ -1204,6 +1244,7 @@ def authorized_personnel_only_via_cookie(f):
 
 @app.route('/munin/<path:filename>')
 @authorized_personnel_only_via_cookie
+@munin_enabled
 def munin_static_file(filename=""):
 	# Proxy the request to static files.
 	if filename == "":
@@ -1213,6 +1254,7 @@ def munin_static_file(filename=""):
 
 @app.route('/munin/cgi-graph/<path:filename>')
 @authorized_personnel_only_via_cookie
+@munin_enabled
 def munin_cgi(filename):
 	""" Relay munin cgi dynazoom requests
 	/usr/lib/munin/cgi/munin-cgi-graph is a perl cgi script in the munin package
@@ -1230,7 +1272,7 @@ def munin_cgi(filename):
 	support infrastructure like spawn-fcgi.
 	"""
 
-	COMMAND = 'su - munin --preserve-environment --shell=/bin/bash -c /usr/lib/munin/cgi/munin-cgi-graph'
+	COMMAND = 'su munin --preserve-environment --shell=/bin/bash -c /usr/lib/munin/cgi/munin-cgi-graph'
 	# su changes user, we use the munin user here
 	# --preserve-environment retains the environment, which is where Popen's `env` data is
 	# --shell=/bin/bash ensures the shell used is bash

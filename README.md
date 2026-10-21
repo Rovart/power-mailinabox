@@ -17,6 +17,7 @@ It's main difference to the main project is focused on ad-hoc, advanced features
 - Publish OpenPGP keys authoritatively via a WKD server;
 - - **In the future:** Allow usage of OpenPGP keys to encrypt backups;
 - Per-domain nginx configuration;
+- Turn optional services (Nextcloud, Z-Push/Exchange ActiveSync, Roundcube webmail, Munin) on or off from the admin panel (*System → Services*) or with `management/cli.py system services`;
 
 ## Goals
 - **Easy of use** - deployment shouldn't take too many technical details to understand. Power Mail-in-a-Box already comes with default configurations which should be good for most users.

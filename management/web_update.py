@@ -10,6 +10,7 @@ from mailconfig import get_mail_domains
 from dns_update import get_custom_dns_config, get_dns_zones
 from ssl_certificates import get_ssl_certificates, get_domain_ssl_files, check_certificate
 from utils import shell, safe_domain_name, sort_domains, get_php_version
+from services import get_enabled_services, filter_template
 
 
 def get_web_domains(env,
@@ -69,8 +70,8 @@ def get_domains_with_a_records(env):
 	domains = set()
 	dns = get_custom_dns_config(env)
 	for domain, rtype, value, ttl in dns:
-		if rtype == "CNAME" or (rtype in ("A", "AAAA")
-								and value not in ("local", env['PUBLIC_IP'])):
+		if rtype == "CNAME" or (rtype in ("A", "AAAA") and value not in (
+				"local", env['PUBLIC_IP'], env['PUBLIC_IPV6'])):
 			domains.add(domain)
 	return domains
 
@@ -174,12 +175,18 @@ def do_web_update(env):
 									"listen 443 ssl;\n\thttp2 on;")
 		template0 = template0.replace("listen [::]:443 ssl http2;",
 									"listen [::]:443 ssl;")
-	template1 = open(
-		os.path.join(os.path.dirname(__file__),
-					"../conf/nginx-alldomains.conf")).read()
-	template2 = open(
-		os.path.join(os.path.dirname(__file__),
-					"../conf/nginx-primaryonly.conf")).read()
+	# Leave out the locations of the optional services that are turned off.
+	enabled_services = get_enabled_services(env)
+	template1 = filter_template(
+		open(
+			os.path.join(os.path.dirname(__file__),
+						"../conf/nginx-alldomains.conf")).read(),
+		enabled_services)
+	template2 = filter_template(
+		open(
+			os.path.join(os.path.dirname(__file__),
+						"../conf/nginx-primaryonly.conf")).read(),
+		enabled_services)
 	template3 = "\trewrite ^(.*) https://$REDIRECT_DOMAIN$1 permanent;\n"
 	template4 = open(
 		os.path.join(os.path.dirname(__file__),

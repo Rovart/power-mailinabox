@@ -134,6 +134,11 @@ cat > $RCM_CONFIG <<EOF;
 \$config['support_url'] = 'https://power-mailinabox.net/';
 \$config['product_name'] = '$PRIMARY_HOSTNAME Webmail';
 \$config['plugins'] = array('html5_notifier', 'archive', 'zipdownload', 'password', 'managesieve', 'jqueryui', 'persistent_login', 'carddav', 'enigma');
+/* The address book of Nextcloud is only available while Nextcloud is turned on (see management/services.py). */
+\$services = @json_decode((string) @file_get_contents('/var/lib/mailinabox/services.json'), true);
+if (is_array(\$services) && isset(\$services['nextcloud']) && !\$services['nextcloud']) {
+	\$config['plugins'] = array_values(array_diff(\$config['plugins'], array('carddav')));
+}
 \$config['cipher_method'] = 'AES-256-CBC'; # persistent login cookie and potentially other things
 \$config['des_key'] = '$SECRET_KEY'; # 37 characters -> ~256 bits for AES-256, see above
 \$config['skin'] = 'elastic';

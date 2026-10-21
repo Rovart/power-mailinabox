@@ -1,224 +1,452 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="light">
 
 	<head>
-		<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<meta name="robots" content="noindex, nofollow">
+		<meta name="color-scheme" content="light dark">
 
 		<title>{{hostname}} - Mail-in-a-Box Control Panel</title>
 
-		<meta name="robots" content="noindex, nofollow">
+		<script>
+			// Apply the color theme before anything is drawn, so that there is no flash
+			// of the wrong theme. The preference is "light", "dark" or missing (automatic).
+			function get_theme_preference() {
+				try {
+					var pref = localStorage.getItem("miab-theme-preference");
+					if (pref === "light" || pref === "dark") return pref;
+				} catch (_) {
+				}
+				return "auto";
+			}
+			function apply_theme() {
+				var pref = get_theme_preference();
+				var theme = pref;
+				if (pref === "auto")
+					theme = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+				document.documentElement.setAttribute("data-bs-theme", theme);
+				return pref;
+			}
+			apply_theme();
+		</script>
 
 		<link rel="stylesheet" href="/admin/assets/bootstrap/css/bootstrap.min.css">
 		<link rel="stylesheet" href="/admin/assets/fontawesome/css/fontawesome.min.css">
 		<link rel="stylesheet" href="/admin/assets/fontawesome/css/solid.min.css">
 
 		<style>
+			:root {
+				--miab-brand: #2f6fb4;
+				--miab-brand-rgb: 47, 111, 180;
+			}
+
+			[data-bs-theme="dark"] {
+				--miab-brand: #6ea8e8;
+				--miab-brand-rgb: 110, 168, 232;
+			}
+
+			html {
+				scroll-padding-top: 5rem;
+			}
+
 			body {
 				overflow-y: scroll;
-				padding-bottom: 20px;
+				min-height: 100vh;
+				display: flex;
+				flex-direction: column;
+				background-color: var(--bs-body-bg);
+			}
+
+			main {
+				flex: 1 0 auto;
 			}
 
 			p {
 				margin-bottom: 1.25em;
 			}
 
-			h1,
-			h2,
-			h3,
-			h4 {
-				font-family: sans-serif;
-				font-weight: bold;
-			}
-
 			h2 {
-				margin: 1em 0;
+				font-size: 1.75rem;
+				font-weight: 600;
+				margin: 0 0 .75rem;
 			}
 
 			h3 {
-				font-size: 130%;
-				border-bottom: 1px solid black;
-				padding-bottom: 3px;
-				margin-bottom: 13px;
-				margin-top: 30px;
+				font-size: 1.25rem;
+				font-weight: 600;
+				border-bottom: 1px solid var(--bs-border-color);
+				padding-bottom: .4rem;
+				margin: 2rem 0 1rem;
 			}
 
-			.panel-heading h3 {
+			.card-header h3,
+			h3.h5,
+			.modal h3 {
 				border: none;
 				padding: 0;
 				margin: 0;
 			}
 
 			h4 {
-				font-size: 110%;
-				margin-bottom: 13px;
-				margin-top: 18px;
+				font-size: 1.05rem;
+				font-weight: 600;
+				margin: 1.25rem 0 .75rem;
 			}
 
 			h4:first-child {
-				margin-top: 6px;
-			}
-
-			.admin_panel {
-				display: none;
-			}
-
-			table.table {
-				margin: 1.5em 0;
+				margin-top: .25rem;
 			}
 
 			ol li {
 				margin-bottom: 1em;
 			}
 
-			.if-logged-in {
-				display: none;
+			pre {
+				white-space: pre-wrap;
+				word-break: break-word;
 			}
 
-			.if-logged-in-admin {
+			.page-header {
+				margin-bottom: 1.5rem;
+				padding-bottom: 1rem;
+				border-bottom: 1px solid var(--bs-border-color);
+			}
+
+			.page-header p:last-child {
+				margin-bottom: 0;
+			}
+
+			.admin_panel {
 				display: none;
+				padding-top: 1.75rem;
+				padding-bottom: 2rem;
+			}
+
+			main:focus {
+				outline: none;
+			}
+
+			/* What is shown depends on who is logged in (see show_hide_menus). */
+			body:not(.logged-in) .if-logged-in,
+			body:not(.logged-in-admin) .if-logged-in-admin,
+			body:not(.logged-in-not-admin) .if-logged-in-not-admin,
+			body.logged-in .if-not-logged-in {
+				display: none !important;
+			}
+
+			/* Navigation bar */
+			.miab-navbar {
+				background-color: var(--bs-tertiary-bg);
+				border-bottom: 1px solid var(--bs-border-color);
+			}
+
+			.miab-navbar .navbar-brand {
+				font-weight: 600;
+				max-width: 60vw;
+			}
+
+			.brand-mark {
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				width: 2rem;
+				height: 2rem;
+				border-radius: .5rem;
+				background-color: var(--miab-brand);
+				color: var(--bs-body-bg);
+				font-size: .95rem;
+				flex-shrink: 0;
+			}
+
+			.miab-navbar .nav-link {
+				border-radius: .375rem;
+				padding-left: .75rem !important;
+				padding-right: .75rem !important;
+			}
+
+			.miab-navbar .nav-link:hover,
+			.miab-navbar .nav-link:focus-visible {
+				background-color: var(--bs-secondary-bg);
+			}
+
+			.miab-navbar .nav-link.active {
+				color: var(--miab-brand);
+				background-color: rgba(var(--miab-brand-rgb), .12);
+				font-weight: 500;
+			}
+
+			.miab-navbar .dropdown-item.active,
+			.miab-navbar .dropdown-item:active {
+				color: var(--bs-emphasis-color);
+				background-color: rgba(var(--miab-brand-rgb), .18);
+			}
+
+			.miab-navbar .dropdown-item .fa-solid,
+			.miab-navbar .nav-link .fa-solid {
+				width: 1.25em;
+				text-align: center;
+				opacity: .85;
+			}
+
+			.account-email {
+				max-width: 16rem;
+			}
+
+			/* Dashboard */
+			.tile {
+				display: flex;
+				gap: 1rem;
+				align-items: flex-start;
+				height: 100%;
+				padding: 1.1rem 1.25rem;
+				border: 1px solid var(--bs-border-color);
+				border-radius: .75rem;
+				background-color: var(--bs-body-bg);
+				color: var(--bs-body-color);
+				text-decoration: none;
+				transition: border-color .15s, box-shadow .15s, transform .15s;
+			}
+
+			a.tile:hover,
+			a.tile:focus-visible {
+				border-color: rgba(var(--miab-brand-rgb), .6);
+				box-shadow: 0 .25rem .75rem rgba(0, 0, 0, .08);
+				color: var(--bs-body-color);
+			}
+
+			.tile-icon {
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				width: 2.5rem;
+				height: 2.5rem;
+				border-radius: .6rem;
+				background-color: rgba(var(--miab-brand-rgb), .12);
+				color: var(--miab-brand);
+				flex-shrink: 0;
+			}
+
+			.tile-title {
+				font-weight: 600;
+				margin-bottom: .15rem;
+			}
+
+			.tile-text {
+				color: var(--bs-secondary-color);
+				font-size: .9rem;
+				margin: 0;
+			}
+
+			.stat-value {
+				font-size: 1.75rem;
+				font-weight: 600;
+				line-height: 1.1;
+			}
+
+			/* Loading indicator */
+			#ajax_loading_indicator {
+				display: none;
+				position: fixed;
+				inset: 0;
+				z-index: 2000;
+				background-color: rgba(var(--bs-body-bg-rgb), .55);
+				backdrop-filter: blur(1px);
+				cursor: progress;
+			}
+
+			#ajax_loading_indicator .loading-box {
+				position: absolute;
+				top: 35%;
+				left: 50%;
+				transform: translate(-50%, -50%);
+				opacity: 0;
+				transition: opacity .2s;
+			}
+
+			#ajax_loading_indicator.visible .loading-box {
+				opacity: 1;
+			}
+
+			#ajax_progress {
+				position: fixed;
+				top: 0;
+				left: 0;
+				height: 3px;
+				width: 0;
+				z-index: 2001;
+				background-color: var(--miab-brand);
+				transition: width 4s cubic-bezier(.1, .7, .2, 1), opacity .3s;
+				opacity: 0;
+			}
+
+			#ajax_progress.running {
+				width: 85%;
+				opacity: 1;
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+
+				.tile,
+				#ajax_progress,
+				#ajax_loading_indicator .loading-box {
+					transition: none;
+				}
 			}
 		</style>
 	</head>
 
-	<body class="">
+	<body>
+		<a class="visually-hidden-focusable position-absolute top-0 start-0 m-2 btn btn-primary" href="#main"
+			onclick="document.getElementById('main').focus(); return false;">Skip to content</a>
 
-		<div class="navbar navbar-expand-lg navbar-light" role="navigation">
-			<div class="container bg-light pt-2 pb-2">
-				<div class="if-logged-in">
-					<button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent"
-						aria-controls="#navbarContent" aria-expanded="false" aria-label="Toggle navigation">
+		<div id="ajax_progress" aria-hidden="true"></div>
+
+		<header class="navbar navbar-expand-lg miab-navbar sticky-top">
+			<nav class="container-xl" aria-label="Main navigation">
+				<a class="navbar-brand d-flex align-items-center gap-2" href="#welcome">
+					<span class="brand-mark" aria-hidden="true"><span class="fa-solid fa-envelope"></span></span>
+					<span class="text-truncate">{{hostname}}</span>
+				</a>
+
+				<div class="d-flex align-items-center gap-1 order-lg-last">
+					<div class="dropdown">
+						<button class="btn btn-link nav-link px-2" type="button" id="theme-menu" data-bs-toggle="dropdown"
+							aria-expanded="false" aria-label="Color theme" title="Color theme">
+							<span class="fa-solid fa-circle-half-stroke" id="theme-icon" aria-hidden="true"></span>
+						</button>
+						<ul class="dropdown-menu dropdown-menu-end" aria-labelledby="theme-menu">
+							<li><button type="button" class="dropdown-item" data-theme-value="light"><span
+										class="fa-solid fa-sun me-2" aria-hidden="true"></span>Light</button></li>
+							<li><button type="button" class="dropdown-item" data-theme-value="dark"><span
+										class="fa-solid fa-moon me-2" aria-hidden="true"></span>Dark</button></li>
+							<li><button type="button" class="dropdown-item" data-theme-value="auto"><span
+										class="fa-solid fa-circle-half-stroke me-2" aria-hidden="true"></span>Automatic</button></li>
+						</ul>
+					</div>
+
+					<div class="dropdown if-logged-in">
+						<button class="btn btn-link nav-link px-2 d-flex align-items-center gap-2" type="button"
+							id="account-menu" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Your account">
+							<span class="fa-solid fa-circle-user fs-5" aria-hidden="true"></span>
+							<span class="account-email text-truncate d-none d-xl-inline"></span>
+						</button>
+						<ul class="dropdown-menu dropdown-menu-end" aria-labelledby="account-menu">
+							<li>
+								<h6 class="dropdown-header">Signed in as<br><span
+										class="account-email d-inline-block text-truncate fw-semibold text-body"></span></h6>
+							</li>
+							<li><a class="dropdown-item" href="#manage-password"><span class="fa-solid fa-key me-2"
+										aria-hidden="true"></span>Change password</a></li>
+							<li><a class="dropdown-item" href="#mfa"><span class="fa-solid fa-shield-halved me-2"
+										aria-hidden="true"></span>Two-factor authentication</a></li>
+							<li>
+								<hr class="dropdown-divider">
+							</li>
+							<li><button type="button" class="dropdown-item" onclick="do_logout(); return false;"><span
+										class="fa-solid fa-right-from-bracket me-2" aria-hidden="true"></span>Log out</button></li>
+						</ul>
+					</div>
+
+					<button class="navbar-toggler if-logged-in ms-1" type="button" data-bs-toggle="collapse"
+						data-bs-target="#navbarContent" aria-controls="navbarContent" aria-expanded="false"
+						aria-label="Toggle navigation">
 						<span class="navbar-toggler-icon"></span>
 					</button>
 				</div>
-				<div class="navbar-brand ms-2">
-					<span class="fas fa-envelope"></span>
-					<b>{{hostname}}</b>
-				</div>
-				<div class="ms-2">
-					<span class="me-1 fas fa-sun"></span>
-					<span class="form-switch">
-						<input class="form-check-input" type="checkbox" role="switch" id="toggle-theme">
-						<label class="ms-1 fas fa-moon"></label>
-					</span>
-				</div>
+
 				<div class="collapse navbar-collapse" id="navbarContent">
-					<ul class="navbar-nav ms-auto">
-						<li class="nav-item me-1 me-xl-4 dropdown if-logged-in-admin">
-							<button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown"
-								aria-expanded="false">System</button>
-							<ul class="dropdown-menu">
-								<li><a class="dropdown-item" href="#system_status" onclick="return show_panel(this);">Status
-										Checks</a></li>
-								<li><a class="dropdown-item" href="#tls" onclick="return show_panel(this);">TLS (SSL)
-										Certificates</a></li>
-								<li><a class="dropdown-item" href="#system_backup" onclick="return show_panel(this);">Backup
-										Status</a></li>
-								<li><a class="dropdown-item" href="#smtp_relays" onclick="return show_panel(this);">SMTP
-										Relays</a></li>
-							</ul>
+					<ul class="navbar-nav me-auto mt-2 mt-lg-0 if-logged-in">
+						<li class="nav-item">
+							<a class="nav-link" href="#welcome"><span class="fa-solid fa-gauge-high me-1"
+									aria-hidden="true"></span>Dashboard</a>
 						</li>
-						<li class="nav-item me-1 me-xl-4 dropdown if-logged-in-admin">
-							<button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown"
-								aria-expanded="false">Advanced</button>
+
+						<li class="nav-item dropdown if-logged-in-admin">
+							<button class="nav-link dropdown-toggle" type="button" data-bs-toggle="dropdown"
+								aria-expanded="false" data-panels="users aliases mail-guide sync_guide">Mail</button>
 							<ul class="dropdown-menu">
-								<li><a class="dropdown-item" href="#custom_dns" onclick="return show_panel(this);">Custom
-										DNS</a></li>
-								<li><a class="dropdown-item" href="#external_dns"
-										onclick="return show_panel(this);">External DNS</a></li>
-								<li><a class="dropdown-item" href="#pgp_keyring" onclick="return show_panel(this);">PGP
-										Keyring Management</a></li>
-								<li><a class="dropdown-item" href="#wkd" onclick="return show_panel(this);">WKD
-										Management</a></li>
-								<li><a class="dropdown-item" href="#munin" onclick="return show_panel(this);">Munin
-										Monitoring</a></li>
-							</ul>
-						</li>
-						<li class="nav-item me-1 me-xl-4 dropdown if-logged-in-not-admin">
-							<button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">Your Account</button>
-							<ul class="dropdown-menu">
-								<li><a class="dropdown-item" href="#manage-password" onclick="return show_panel(this);">Manage Password</a></li>
-								<li><a class="dropdown-item" href="#mfa" onclick="return show_panel(this);">Two-Factor Authentication</a></li>
-							</ul>
-						</li>
-						<li class="nav-item me-1 me-xl-4 btn if-logged-in-not-admin" type="button" href="#mail-guide"
-							onclick="return show_panel(this);">
-							Mail Guide
-						</li>
-						<li class="nav-item me-1 me-xl-4 dropdown if-logged-in-admin">
-							<button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown"
-								aria-expanded="false">Mail</button>
-							<ul class="dropdown-menu">
-								<li><a class="dropdown-item" href="#mail-guide" onclick="return show_panel(this);">Mail
-										Guide</a></li>
-								<li><a class="dropdown-item" href="#users" onclick="return show_panel(this);">Users</a></li>
-								<li><a class="dropdown-item" href="#aliases" onclick="return show_panel(this);">Aliases</a>
+								<li><a class="dropdown-item" href="#users"><span class="fa-solid fa-users me-2"
+											aria-hidden="true"></span>Users</a></li>
+								<li><a class="dropdown-item" href="#aliases"><span class="fa-solid fa-at me-2"
+											aria-hidden="true"></span>Aliases</a></li>
+								<li>
+									<hr class="dropdown-divider">
 								</li>
-								<li class="divider"></li>
-								<li class="dropdown-header">Your Account</li>
-								<li><a class="dropdown-item" href="#mfa" onclick="return show_panel(this);">Two-Factor
-										Authentication</a></li>
+								<li><a class="dropdown-item" href="#mail-guide"><span class="fa-solid fa-book-open me-2"
+											aria-hidden="true"></span>Mail guide</a></li>
+								<li class="requires-service-nextcloud"><a class="dropdown-item" href="#sync_guide"><span
+											class="fa-solid fa-address-book me-2" aria-hidden="true"></span>Contacts &amp;
+										calendar guide</a></li>
 							</ul>
 						</li>
-						<li><button class="nav-item me-1 me-xl-4 btn if-logged-in" type="button" href="#sync_guide"
-								onclick="return show_panel(this);">Contacts/Calendar</button></li>
-						<li><button class="nav-item me-1 me-xl-4 btn if-logged-in-admin" type="button" href="#web"
-								onclick="return show_panel(this);">Web</button></li>
-						<li><button class="nav-item btn btn-secondary if-logged-in" type="button"
-								onclick="do_logout(); return false;"><b>Logout</b></button></li>
+
+						<li class="nav-item if-logged-in-not-admin">
+							<a class="nav-link" href="#mail-guide"><span class="fa-solid fa-book-open me-1"
+									aria-hidden="true"></span>Mail guide</a>
+						</li>
+						<li class="nav-item if-logged-in-not-admin requires-service-nextcloud">
+							<a class="nav-link" href="#sync_guide"><span class="fa-solid fa-address-book me-1"
+									aria-hidden="true"></span>Contacts &amp; calendar</a>
+						</li>
+
+						<li class="nav-item dropdown if-logged-in-admin">
+							<button class="nav-link dropdown-toggle" type="button" data-bs-toggle="dropdown"
+								aria-expanded="false"
+								data-panels="system_status services tls system_backup smtp_relays munin">System</button>
+							<ul class="dropdown-menu">
+								<li><a class="dropdown-item" href="#system_status"><span
+											class="fa-solid fa-heart-pulse me-2" aria-hidden="true"></span>Status checks</a>
+								</li>
+								<li><a class="dropdown-item" href="#services"><span class="fa-solid fa-toggle-on me-2"
+											aria-hidden="true"></span>Services</a></li>
+								<li><a class="dropdown-item" href="#tls"><span class="fa-solid fa-certificate me-2"
+											aria-hidden="true"></span>TLS (SSL) certificates</a></li>
+								<li><a class="dropdown-item" href="#system_backup"><span
+											class="fa-solid fa-cloud-arrow-up me-2" aria-hidden="true"></span>Backups</a></li>
+								<li><a class="dropdown-item" href="#smtp_relays"><span class="fa-solid fa-paper-plane me-2"
+											aria-hidden="true"></span>SMTP relays</a></li>
+								<li class="requires-service-munin"><a class="dropdown-item" href="#munin"><span
+											class="fa-solid fa-chart-line me-2" aria-hidden="true"></span>Monitoring
+										(Munin)</a></li>
+							</ul>
+						</li>
+
+						<li class="nav-item dropdown if-logged-in-admin">
+							<button class="nav-link dropdown-toggle" type="button" data-bs-toggle="dropdown"
+								aria-expanded="false" data-panels="custom_dns external_dns pgp_keyring wkd">DNS &amp;
+								Keys</button>
+							<ul class="dropdown-menu">
+								<li><a class="dropdown-item" href="#custom_dns"><span class="fa-solid fa-sitemap me-2"
+											aria-hidden="true"></span>Custom DNS</a></li>
+								<li><a class="dropdown-item" href="#external_dns"><span class="fa-solid fa-globe me-2"
+											aria-hidden="true"></span>External DNS</a></li>
+								<li>
+									<hr class="dropdown-divider">
+								</li>
+								<li><a class="dropdown-item" href="#pgp_keyring"><span class="fa-solid fa-key me-2"
+											aria-hidden="true"></span>PGP keyring</a></li>
+								<li><a class="dropdown-item" href="#wkd"><span class="fa-solid fa-fingerprint me-2"
+											aria-hidden="true"></span>Web Key Directory</a></li>
+							</ul>
+						</li>
+
+						<li class="nav-item if-logged-in-admin">
+							<a class="nav-link" href="#web"><span class="fa-solid fa-globe me-1"
+									aria-hidden="true"></span>Web</a>
+						</li>
 					</ul>
 				</div>
-			</div>
-		</div>
+			</nav>
+		</header>
 
-		<div class="container">
-			<div id="panel_smtp_relays" class="admin_panel">
-				{% include "smtp-relays.html" %}
-			</div>
-
+		<main id="main" class="container-xl" tabindex="-1">
 			<div id="panel_welcome" class="admin_panel">
 				{% include "welcome.html" %}
 			</div>
 
-			<div id="panel_system_status" class="admin_panel">
-				{% include "system-status.html" %}
-			</div>
-
-			<div id="panel_system_backup" class="admin_panel">
-				{% include "system-backup.html" %}
-			</div>
-
-			<div id="panel_external_dns" class="admin_panel">
-				{% include "external-dns.html" %}
-			</div>
-
-			<div id="panel_custom_dns" class="admin_panel">
-				{% include "custom-dns.html" %}
-			</div>
-
-			<div id="panel_pgp_keyring" class="admin_panel">
-				{% include "pgp-keyring.html" %}
-			</div>
-
-			<div id="panel_wkd" class="admin_panel">
-				{% include "wkd.html" %}
-			</div>
-
-			<div id="panel_manage-password" class="admin_panel">
-				{% include "manage-password.html" %}
-			</div>
-
-			<div id="panel_mfa" class="admin_panel">
-				{% include "mfa.html" %}
-			</div>
-
 			<div id="panel_login" class="admin_panel">
 				{% include "login.html" %}
-			</div>
-
-			<div id="panel_mail-guide" class="admin_panel">
-				{% include "mail-guide.html" %}
 			</div>
 
 			<div id="panel_users" class="admin_panel">
@@ -229,219 +457,219 @@
 				{% include "aliases.html" %}
 			</div>
 
+			<div id="panel_mail-guide" class="admin_panel">
+				{% include "mail-guide.html" %}
+			</div>
+
 			<div id="panel_sync_guide" class="admin_panel">
 				{% include "sync-guide.html" %}
 			</div>
 
-			<div id="panel_web" class="admin_panel">
-				{% include "web.html" %}
+			<div id="panel_system_status" class="admin_panel">
+				{% include "system-status.html" %}
+			</div>
+
+			<div id="panel_services" class="admin_panel">
+				{% include "services.html" %}
 			</div>
 
 			<div id="panel_tls" class="admin_panel">
 				{% include "ssl.html" %}
 			</div>
 
+			<div id="panel_system_backup" class="admin_panel">
+				{% include "system-backup.html" %}
+			</div>
+
+			<div id="panel_smtp_relays" class="admin_panel">
+				{% include "smtp-relays.html" %}
+			</div>
+
 			<div id="panel_munin" class="admin_panel">
 				{% include "munin.html" %}
 			</div>
 
-			<hr>
+			<div id="panel_custom_dns" class="admin_panel">
+				{% include "custom-dns.html" %}
+			</div>
 
-			<footer>
-				<p>This is a <a href="https://power-mailinabox.net">Power Mail-in-a-Box</a>.</p>
-			</footer>
-		</div> <!-- /container -->
+			<div id="panel_external_dns" class="admin_panel">
+				{% include "external-dns.html" %}
+			</div>
 
-		<div id="ajax_loading_indicator"
-			style="display: none; position: fixed; left: 0; top: 0; width: 100%; height: 100%; z-index: 100000; text-align: center; background-color: rgba(0,0,0,.8)">
-			<div class="justify-content-center" style="margin: 20%;">
-				<div class="spinner-border text-light" role="status" style="width: 4rem; height: 4rem;"></div>
-				<div class="text-light display-5">Loading... please wait!</div>
+			<div id="panel_pgp_keyring" class="admin_panel">
+				{% include "pgp-keyring.html" %}
+			</div>
+
+			<div id="panel_wkd" class="admin_panel">
+				{% include "wkd.html" %}
+			</div>
+
+			<div id="panel_web" class="admin_panel">
+				{% include "web.html" %}
+			</div>
+
+			<div id="panel_manage-password" class="admin_panel">
+				{% include "manage-password.html" %}
+			</div>
+
+			<div id="panel_mfa" class="admin_panel">
+				{% include "mfa.html" %}
+			</div>
+		</main>
+
+		<footer class="border-top bg-body-tertiary py-3 mt-auto">
+			<div class="container-xl d-flex flex-wrap justify-content-between gap-2 small text-body-secondary">
+				<span>This is a <a href="https://power-mailinabox.net" target="_blank" rel="noopener">Power
+						Mail-in-a-Box</a><span id="footer-version"></span>.</span>
+				<span>{{hostname}}</span>
+			</div>
+		</footer>
+
+		<div id="ajax_loading_indicator" aria-hidden="true">
+			<div class="loading-box card shadow-sm">
+				<div class="card-body d-flex align-items-center gap-3 px-4">
+					<div class="spinner-border text-primary" role="presentation"></div>
+					<span class="fw-medium">Loading&hellip;</span>
+				</div>
 			</div>
 		</div>
+		<div id="ajax_status" class="visually-hidden" role="status" aria-live="polite"></div>
 
-		<div id="global_modal" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="errorModalTitle"
-			aria-hidden="true">
-			<div class="modal-dialog modal-lg">
+		<div id="global_modal" class="modal fade" tabindex="-1" aria-labelledby="global_modal_title" aria-modal="true"
+			role="dialog">
+			<div class="modal-dialog modal-lg modal-dialog-scrollable">
 				<div class="modal-content">
 					<div class="modal-header">
-						<h4 class="modal-title" id="errorModalTitle"> </h4>
-						<button type="button" class="btn-close" data-bs-dismiss="modal" aria-hidden="true"></button>
+						<h2 class="modal-title fs-5" id="global_modal_title"></h2>
+						<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
 					</div>
-					<div class="modal-body">
-						<p> </p>
+					<div class="modal-body text-break">
 					</div>
 					<div class="modal-footer">
-						<button type="button" class="btn btn-default" data-bs-dismiss="modal">OK</button>
-						<button type="button" class="btn btn-danger" data-bs-dismiss="modal">Yes</button>
+						<button type="button" class="btn btn-outline-secondary" id="global_modal_cancel"
+							data-bs-dismiss="modal">OK</button>
+						<button type="button" class="btn btn-danger" id="global_modal_ok"
+							data-bs-dismiss="modal">Yes</button>
 					</div>
 				</div>
 			</div>
 		</div>
 
-		<style>
-			.darkmode,
-			.darkmode .form-control,
-			.darkmode .form-select {
-				background-color: rgb(20, 20, 20) !important;
-			}
-
-			.darkmode .btn-light,
-			.darkmode .bg-light,
-			.darkmode .dropdown-menu,
-			.darkmode .input-group-text,
-			.darkmode .modal-content,
-			.darkmode .form-control:disabled,
-			.darkmode .form-select:disabled {
-				background-color: rgb(36, 36, 36) !important;
-			}
-
-			.darkmode .form-control,
-			.darkmode .form-select,
-			.darkmode .btn-light,
-			.darkmode .input-group-text,
-			.darkmode .table,
-			.darkmode .tr,
-			.darkmode .thead,
-			.darkmode .card,
-			.darkmode .modal-header,
-			.darkmode .modal-footer {
-				border-color: rgb(56, 56, 56) !important;
-			}
-
-			.darkmode h3 {
-				border-color: rgb(206, 212, 218) !important;
-			}
-
-			.darkmode .table>:not(:first-child) {
-				border-top: 2px solid rgb(206, 212, 218) !important;
-			}
-
-			.darkmode a,
-			.darkmode b,
-			.darkmode p,
-			.darkmode label,
-			.darkmode span,
-			.darkmode small,
-			.darkmode div,
-			.darkmode td,
-			.darkmode hr,
-			.darkmode .form-control,
-			.darkmode .form-select {
-				color: rgb(206, 212, 218);
-			}
-
-			.darkmode .btn,
-			.darkmode h1,
-			.darkmode h2,
-			.darkmode h3,
-			.darkmode h4,
-			.darkmode h5,
-			.darkmode .navbar-brand,
-			.darkmode .dropdown-menu,
-			.darkmode th,
-			.darkmode .navbar-brand>span,
-			.darkmode .navbar-brand>b,
-			.darkmode .nav-item>*,
-			.darkmode .input-group-text,
-			.darkmode .input-group-text>* {
-				color: rgb(255, 255, 255) !important;
-			}
-
-			.darkmode .btn-close,
-			.darkmode .navbar-toggler {
-				filter: invert(97%) sepia(2%) saturate(1242%) hue-rotate(180deg) brightness(93%) contrast(82%);
-			}
-
-			.darkmode .status-error .status-text {
-				color: rgb(255, 191, 191);
-			}
-
-			.darkmode .status-warning .status-text {
-				color: rgb(255, 241, 191);
-			}
-
-			.darkmode .status-ok .status-text {
-				color: rgb(191, 255, 191);
-			}
-
-			.darkmode .status-na .status-text {
-				color: rgb(155, 155, 155);
-			}
-		</style>
-
 		<script src="/admin/assets/jquery.min.js"></script>
 		<script src="/admin/assets/bootstrap/js/bootstrap.bundle.min.js"></script>
 
 		<script>
+			// The optional services that are turned on (see management/services.py).
+			var miab_services = {{ services|tojson }};
+
+			// HTML-escapes a string, for the rare cases where HTML must be built as a string.
+			// Prefer jQuery's .text() and .attr().
+			function escape_html(s) {
+				return String(s === null || s === undefined ? "" : s)
+					.replace(/&/g, "&amp;")
+					.replace(/</g, "&lt;")
+					.replace(/>/g, "&gt;")
+					.replace(/"/g, "&quot;")
+					.replace(/'/g, "&#39;");
+			}
+
+			/* Color theme */
+
+			function update_theme_menu() {
+				var pref = get_theme_preference();
+				var icons = { light: "fa-sun", dark: "fa-moon", auto: "fa-circle-half-stroke" };
+				$("#theme-icon").removeClass("fa-sun fa-moon fa-circle-half-stroke").addClass(icons[pref]);
+				$("[data-theme-value]").each(function () {
+					var active = $(this).attr("data-theme-value") === pref;
+					$(this).toggleClass("active", active).attr("aria-pressed", active ? "true" : "false");
+				});
+			}
+
+			$("[data-theme-value]").on("click", function () {
+				var pref = $(this).attr("data-theme-value");
+				try {
+					if (pref === "auto")
+						localStorage.removeItem("miab-theme-preference");
+					else
+						localStorage.setItem("miab-theme-preference", pref);
+				} catch (_) {
+				}
+				apply_theme();
+				update_theme_menu();
+			});
+
+			if (window.matchMedia) {
+				window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function () {
+					if (get_theme_preference() === "auto") apply_theme();
+				});
+			}
+
+			update_theme_menu();
+
+			/* Optional services */
+
+			function apply_service_visibility() {
+				Object.keys(miab_services).forEach(function (name) {
+					$(".requires-service-" + name).toggleClass("d-none", !miab_services[name]);
+					$(".requires-service-off-" + name).toggleClass("d-none", !!miab_services[name]);
+				});
+			}
+
+			$(apply_service_visibility);
+
+			/* Modal dialogs */
+
 			var global_modal_state = null;
 			var global_modal_funcs = null;
-
-			const toggle = document.getElementById("toggle-theme")
-			function set_dark_mode(isdark) {
-				if (isdark) {
-					$("body").addClass("darkmode")
-				} else {
-					$("body").removeClass("darkmode")
-				}
-			}
-
-			if (typeof localStorage != 'undefined' && localStorage.getItem("miab-theme-preference")) {
-				let themepref = localStorage.getItem("miab-theme-preference")
-				if (themepref === "dark") {
-					toggle.checked = true
-					set_dark_mode(true)
-				} else if (themepref === "light") {
-					set_dark_mode(false)
-				}
-			} else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-				// Toggle dark mode right now
-				toggle.checked = true
-				set_dark_mode(true)
-			}
-
-			$("#toggle-theme").change(() => {
-				if (typeof localStorage != 'undefined') {
-					localStorage.setItem("miab-theme-preference", toggle.checked ? "dark" : "light")
-				}
-				set_dark_mode(toggle.checked)
-			})
+			var global_modal = new bootstrap.Modal(document.getElementById("global_modal"));
 
 			$(function () {
-				$('#global_modal').on('shown.bs.modal', function (e) {
-					// set focus to first input in the global modal's body
-					var input = $('#global_modal .modal-body input');
-					if (input.length > 0) $(input[0]).focus();
-				})
-				$('#global_modal .btn-danger').click(function () {
+				$('#global_modal').on('shown.bs.modal', function () {
+					// Set focus to the first input in the modal's body, or else to the
+					// primary button.
+					var input = $('#global_modal .modal-body').find('input, select, textarea').filter(':visible');
+					if (input.length > 0)
+						$(input[0]).trigger('focus');
+					else
+						$('#global_modal .modal-footer .btn:visible').last().trigger('focus');
+				});
+				$('#global_modal_ok').on('click', function () {
 					// Don't take action now. Wait for the modal to be totally hidden
 					// so that we don't attempt to show another modal while this one
 					// is closing.
 					global_modal_state = 0; // OK
-				})
-				$('#global_modal .btn-default').click(function () {
+				});
+				$('#global_modal_cancel').on('click', function () {
 					global_modal_state = 1; // Cancel
-				})
-				$('#global_modal').on('hidden.bs.modal', function (e) {
-					// do the cancel function
-					if (global_modal_state == null) global_modal_state = 1; // cancel if the user hit ESC or clicked outside of the modal
-					if (global_modal_funcs && global_modal_funcs[global_modal_state])
-						global_modal_funcs[global_modal_state]();
-				})
-			})
+				});
+				$('#global_modal').on('hidden.bs.modal', function () {
+					// Cancel if the user hit ESC or clicked outside of the modal.
+					if (global_modal_state == null) global_modal_state = 1;
+					var funcs = global_modal_funcs;
+					global_modal_funcs = null;
+					if (funcs && funcs[global_modal_state])
+						funcs[global_modal_state]();
+				});
+			});
 
-			const global_modal = new bootstrap.Modal($("#global_modal"))
+			// Puts a message in the body of the modal: a string is shown as text,
+			// anything else (a jQuery object or a DOM node) as is.
+			function set_modal_body(message) {
+				var body = $('#global_modal .modal-body').empty();
+				if (message === null || message === undefined)
+					return;
+				if (typeof message == 'string' || typeof message == 'number')
+					body.append($('<p class="mb-0"/>').text(message).css('white-space', 'pre-line'));
+				else
+					body.append(message);
+			}
 
 			function show_modal_error(title, message, callback) {
-				$('#global_modal h4').text(title);
-				$('#global_modal .modal-body').html("<p/>");
-				if (typeof question == 'string') {
-					$('#global_modal p').text(message);
-				} else {
-					$('#global_modal p').html("").append(message);
-				}
-				$('#global_modal .btn-default').show().text("OK");
-				$('#global_modal .btn-danger').hide();
+				$('#global_modal_title').text(title);
+				set_modal_body(message);
+				$('#global_modal_cancel').show().text("OK").removeClass('btn-outline-secondary').addClass('btn-primary');
+				$('#global_modal_ok').hide();
 				global_modal_funcs = [callback, callback];
 				global_modal_state = null;
 				global_modal.show();
@@ -449,19 +677,15 @@
 			}
 
 			function show_modal_confirm(title, question, verb, yes_callback, cancel_callback) {
-				$('#global_modal h4').text(title);
-				if (typeof question == 'string') {
-					$('#global_modal .modal-body').html("<p/>");
-					$('#global_modal p').text(question);
-				} else {
-					$('#global_modal .modal-body').html("").append(question);
-				}
+				$('#global_modal_title').text(title);
+				set_modal_body(question);
+				$('#global_modal_cancel').removeClass('btn-primary').addClass('btn-outline-secondary');
 				if (typeof verb == 'string') {
-					$('#global_modal .btn-default').show().text("Cancel");
-					$('#global_modal .btn-danger').show().text(verb);
+					$('#global_modal_cancel').show().text("Cancel");
+					$('#global_modal_ok').show().text(verb);
 				} else {
-					$('#global_modal .btn-default').show().text(verb[1]);
-					$('#global_modal .btn-danger').show().text(verb[0]);
+					$('#global_modal_cancel').show().text(verb[1]);
+					$('#global_modal_ok').show().text(verb[0]);
 				}
 				global_modal_funcs = [yes_callback, cancel_callback];
 				global_modal_state = null;
@@ -469,27 +693,43 @@
 				return false; // handy when called from onclick
 			}
 
+			/* API calls */
+
 			var ajax_num_executing_requests = 0;
+			var ajax_indicator_timer = null;
 			function ajax_with_indicator(options) {
-				setTimeout("if (ajax_num_executing_requests > 0) $('#ajax_loading_indicator').fadeIn()", 100);
+				// Block the page right away (so that nothing is submitted twice) but only
+				// show that we're loading when the request takes a moment.
+				if (ajax_num_executing_requests == 0) {
+					$('#ajax_progress').addClass('running');
+					$('#ajax_loading_indicator').removeClass('visible').show();
+					$('#ajax_status').text('Loading...');
+					ajax_indicator_timer = setTimeout(function () {
+						$('#ajax_loading_indicator').addClass('visible');
+					}, 300);
+				}
 				function hide_loading_indicator() {
 					ajax_num_executing_requests--;
-					if (ajax_num_executing_requests == 0)
-						$('#ajax_loading_indicator').stop(true).hide(); // stop() prevents an ongoing fade from causing the thing to be shown again after this call
+					if (ajax_num_executing_requests == 0) {
+						clearTimeout(ajax_indicator_timer);
+						$('#ajax_loading_indicator').hide().removeClass('visible');
+						$('#ajax_progress').removeClass('running');
+						$('#ajax_status').text('');
+					}
 				}
 				var old_success = options.success;
 				var old_error = options.error;
 				options.success = function (data) {
 					hide_loading_indicator();
-					if (data.status == "error")
-						show_modal_error("Error", data.message);
+					if (data && data.status == "error")
+						show_modal_error("Error", data.message || data.reason);
 					else if (old_success)
 						old_success(data);
 				};
 				options.error = function (jqxhr) {
 					hide_loading_indicator();
 					if (!old_error)
-						show_modal_error("Error", "Something went wrong, sorry.")
+						show_modal_error("Error", "Something went wrong, sorry.");
 					else
 						old_error(jqxhr.responseText, jqxhr);
 				};
@@ -500,36 +740,9 @@
 
 			var api_credentials = null;
 			function api(url, method, data, callback, callback_error, headers) {
-				// from http://www.webtoolkit.info/javascript-base64.html
-				function base64encode(input) {
-					_keyStr = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
-					var output = "";
-					var chr1, chr2, chr3, enc1, enc2, enc3, enc4;
-					var i = 0;
-					while (i < input.length) {
-						chr1 = input.charCodeAt(i++);
-						chr2 = input.charCodeAt(i++);
-						chr3 = input.charCodeAt(i++);
-						enc1 = chr1 >> 2;
-						enc2 = ((chr1 & 3) << 4) | (chr2 >> 4);
-						enc3 = ((chr2 & 15) << 2) | (chr3 >> 6);
-						enc4 = chr3 & 63;
-						if (isNaN(chr2)) {
-							enc3 = enc4 = 64;
-						} else if (isNaN(chr3)) {
-							enc4 = 64;
-						}
-						output = output +
-							_keyStr.charAt(enc1) + _keyStr.charAt(enc2) +
-							_keyStr.charAt(enc3) + _keyStr.charAt(enc4);
-					}
-
-					return output;
-				}
-
 				function default_error(text, xhr) {
 					if (xhr.status != 403) // else handled below
-						show_modal_error("Error", "Something went wrong, sorry.")
+						show_modal_error("Error", "Something went wrong, sorry.");
 				}
 
 				ajax_with_indicator({
@@ -546,68 +759,153 @@
 						// We don't store user credentials in a cookie to avoid the hassle of CSRF
 						// attacks. The Authorization header only gets set in our AJAX calls triggered
 						// by user actions.
-						if (api_credentials)
-							xhr.setRequestHeader(
-								'Authorization',
-								'Basic ' + base64encode(api_credentials.username + ':' + api_credentials.session_key));
+						if (api_credentials) {
+							var token = new TextEncoder().encode(api_credentials.username + ':' + api_credentials.session_key);
+							xhr.setRequestHeader('Authorization', 'Basic ' + btoa(String.fromCharCode.apply(null, token)));
+						}
 					},
 					success: callback,
 					error: callback_error || default_error,
 					statusCode: {
 						403: function (xhr) {
-							// Credentials are no longer valid. Try to login again.
-							do_logout();
-							switch_back_to_panel = null;
+							// Credentials are no longer valid. Log in again, and then go back
+							// to where the user was.
+							if (url == "/login" || url == "/logout" || api_credentials == null)
+								return;
+							var panel = current_panel;
+							clear_credentials();
+							show_panel('login');
+							switch_back_to_panel = panel;
 						}
 					}
-				})
+				});
 			}
+
+			/* Navigation */
 
 			var current_panel = null;
 			var switch_back_to_panel = null;
 
-			function do_logout() {
-				// Clear the session from the backend.
-				api("/logout", "POST");
-
-				// Forget the token.
+			function clear_credentials() {
 				api_credentials = null;
-				if (typeof localStorage != 'undefined')
+				try {
 					localStorage.removeItem("miab-cp-credentials");
-				if (typeof sessionStorage != 'undefined')
 					sessionStorage.removeItem("miab-cp-credentials");
-
-				// Return to the start.
-				show_panel('login');
-
-				// Reset menus.
+				} catch (_) {
+				}
 				show_hide_menus();
 			}
 
+			function do_logout() {
+				// Clear the session from the backend.
+				if (api_credentials)
+					api("/logout", "POST");
+
+				// Forget the token.
+				clear_credentials();
+
+				// Return to the start.
+				show_panel('login');
+			}
+
+			function panel_exists(panelid) {
+				return /^[\w-]+$/.test(panelid || "") && $('#panel_' + panelid).length > 0;
+			}
+
 			function show_panel(panelid) {
-				if (panelid.getAttribute)
+				if (panelid && panelid.getAttribute)
 					// we might be passed an HTMLElement <a>.
 					panelid = panelid.getAttribute('href').substring(1);
+				if (!panel_exists(panelid))
+					panelid = api_credentials ? 'welcome' : 'login';
+				if (panelid != 'login' && api_credentials == null) {
+					// Log in first, then come back.
+					show_panel('login');
+					switch_back_to_panel = panelid;
+					return false;
+				}
 
+				// Keep the address bar in sync, so that the browser's back and forward buttons
+				// and bookmarks work.
+				var hash = panelid == 'login' ? '' : '#' + panelid;
+				if (window.location.hash != hash) {
+					if (current_panel == null || current_panel == 'login')
+						history.replaceState(null, '', hash || window.location.pathname);
+					else
+						history.pushState(null, '', hash || window.location.pathname);
+				}
+
+				var is_new_panel = (panelid != current_panel);
 				$('.admin_panel').hide();
 				$('#panel_' + panelid).show();
-				if (typeof localStorage != 'undefined')
-					localStorage.setItem("miab-cp-lastpanel", panelid);
-				if (window["show_" + panelid])
-					window["show_" + panelid]();
+				if (panelid != 'login') {
+					try {
+						localStorage.setItem("miab-cp-lastpanel", panelid);
+					} catch (_) {
+					}
+				}
+
+				// Highlight where we are in the navigation bar.
+				$('.miab-navbar .nav-link, .miab-navbar .dropdown-item').removeClass('active').removeAttr('aria-current');
+				$('.miab-navbar a[href="#' + panelid + '"]').addClass('active').attr('aria-current', 'page');
+				$('.miab-navbar [data-panels]').each(function () {
+					$(this).toggleClass('active', $(this).attr('data-panels').split(' ').indexOf(panelid) >= 0);
+				});
+				bootstrap.Collapse.getInstance(document.getElementById('navbarContent'))?.hide();
+
+				// Use the panel's heading as the page title.
+				var heading = $('#panel_' + panelid + ' h2').first().text().trim();
+				document.title = (heading && panelid != 'welcome' ? heading + ' - ' : '') + {{ hostname|tojson }} + ' - Mail-in-a-Box Control Panel';
 
 				current_panel = panelid;
 				switch_back_to_panel = null;
 
+				if (window["show_" + panelid])
+					window["show_" + panelid]();
+
+				if (is_new_panel) {
+					// Move the focus to the new content, for keyboard and screen reader users.
+					window.scrollTo(0, 0);
+					if (panelid != 'login')
+						document.getElementById('main').focus({ preventScroll: true });
+				}
+
 				return false; // when called from onclick, cancel navigation
+			}
+
+			// Navigation links ("#panel") work through the location hash.
+			$(window).on('hashchange popstate', function () {
+				var panelid = window.location.hash.substring(1);
+				if (panel_exists(panelid) && panelid != current_panel)
+					show_panel(panelid);
+			});
+
+			$(document).on('click', 'a[href^="#"]', function (e) {
+				// Clicking on the link to the current panel refreshes it.
+				var panelid = $(this).attr('href').substring(1);
+				if (panelid && panelid == current_panel && panel_exists(panelid)) {
+					e.preventDefault();
+					show_panel(panelid);
+				}
+			});
+
+			function show_account_info() {
+				// The version is only shown to administrators.
+				if (api_credentials && api_credentials.privileges && api_credentials.privileges.indexOf('admin') >= 0) {
+					api("/system/version", "GET", {}, function (version) {
+						$('#footer-version').text(" " + String(version).trim());
+					}, function () { });
+				} else {
+					$('#footer-version').text('');
+				}
 			}
 
 			$(function () {
 				// Recall saved user credentials.
 				try {
-					if (typeof sessionStorage != 'undefined' && sessionStorage.getItem("miab-cp-credentials"))
+					if (sessionStorage.getItem("miab-cp-credentials"))
 						api_credentials = JSON.parse(sessionStorage.getItem("miab-cp-credentials"));
-					else if (typeof localStorage != 'undefined' && localStorage.getItem("miab-cp-credentials"))
+					else if (localStorage.getItem("miab-cp-credentials"))
 						api_credentials = JSON.parse(localStorage.getItem("miab-cp-credentials"));
 				} catch (_) {
 				}
@@ -615,15 +913,22 @@
 				// Toggle menu state.
 				show_hide_menus();
 
-				// Recall what the user was last looking at.
-				if (api_credentials != null && typeof localStorage != 'undefined' && localStorage.getItem("miab-cp-lastpanel")) {
-					show_panel(localStorage.getItem("miab-cp-lastpanel"));
-				} else if (api_credentials != null) {
-					show_panel('welcome');
+				// Show the panel in the address bar, or else what the user was last looking at.
+				var requested = window.location.hash.substring(1);
+				var last = null;
+				try {
+					last = localStorage.getItem("miab-cp-lastpanel");
+				} catch (_) {
+				}
+				if (api_credentials != null) {
+					show_account_info();
+					show_panel(panel_exists(requested) ? requested : (panel_exists(last) ? last : 'welcome'));
 				} else {
 					show_panel('login');
+					if (panel_exists(requested) && requested != 'login')
+						switch_back_to_panel = requested;
 				}
-			})
+			});
 
 		</script>
 	</body>

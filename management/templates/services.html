@@ -1,0 +1,124 @@
+<div class="page-header">
+	<h2>Services</h2>
+	<p class="text-body-secondary">Mail, DNS and this control panel are always on. The optional services below can be
+		turned off if you don&rsquo;t use them: they are then no longer served and their background jobs stop. Their
+		data is kept (and still backed up) and they keep being updated, so you can turn them back on at any time.</p>
+</div>
+
+<div class="list-group mb-4" id="services-list" aria-live="polite">
+</div>
+
+<p class="text-body-secondary small">You can also turn services on and off on the box itself with
+	<code>sudo management/cli.py system services enable|disable nextcloud|zpush|webmail|munin</code>.</p>
+
+<template id="service-template">
+	<div class="list-group-item py-3">
+		<div class="d-flex gap-3 align-items-start">
+			<span class="tile-icon service-icon" aria-hidden="true"><span class="fa-solid"></span></span>
+			<div class="flex-grow-1">
+				<div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+					<h3 class="h6 mb-0 service-title"></h3>
+					<span class="badge service-state"></span>
+				</div>
+				<p class="mb-1 text-body-secondary service-description"></p>
+				<p class="mb-0 small service-paths"></p>
+				<p class="mb-0 small text-warning-emphasis service-not-installed d-none">Not installed. Run
+					<code>sudo mailinabox</code> on the box to install it.</p>
+			</div>
+			<div class="form-check form-switch fs-4 mb-0 ms-2">
+				<input class="form-check-input service-toggle" type="checkbox" role="switch">
+			</div>
+		</div>
+	</div>
+</template>
+
+<script>
+	const service_icons = {
+		nextcloud: "fa-address-book",
+		zpush: "fa-mobile-screen",
+		webmail: "fa-envelope-open-text",
+		munin: "fa-chart-line",
+	};
+
+	const service_off_warnings = {
+		nextcloud: "Contacts, calendars and files in Nextcloud will no longer be available, on the web or in apps (CardDAV/CalDAV). The webmail's address book and the contacts and calendars synchronized by Exchange ActiveSync go away too.",
+		zpush: "Phones and Outlook set up with Exchange ActiveSync will stop synchronizing. Mail apps set up with IMAP keep working.",
+		webmail: "Users will no longer be able to read mail in their browser at /mail. Mail apps keep working.",
+		munin: "Resource usage graphs will no longer be collected.",
+	};
+
+	function show_services() {
+		api(
+			"/system/services",
+			"GET",
+			{},
+			function (services) {
+				var list = $('#services-list').empty();
+				services.forEach(function (service) {
+					miab_services[service.name] = service.enabled;
+
+					var item = $($('#service-template').html());
+					var toggle_id = "service-toggle-" + service.name;
+					item.find('.service-icon .fa-solid').addClass(service_icons[service.name] || "fa-gear");
+					item.find('.service-title').text(service.title).attr('id', toggle_id + "-label");
+					item.find('.service-description').text(service.description).attr('id', toggle_id + "-description");
+					item.find('.service-state')
+						.text(service.enabled ? "On" : "Off")
+						.addClass(service.enabled ? "text-bg-success" : "text-bg-secondary");
+					if (service.paths.length) {
+						item.find('.service-paths').append(
+							$('<span class="text-body-secondary"/>').text(service.paths.length > 1 ? "Addresses: " : "Address: "));
+						service.paths.forEach(function (path, i) {
+							if (i > 0) item.find('.service-paths').append(", ");
+							item.find('.service-paths').append($('<code/>').text(path));
+						});
+					}
+					item.find('.service-not-installed').toggleClass('d-none', service.installed);
+					item.find('.service-toggle')
+						.attr('id', toggle_id)
+						.attr('aria-labelledby', toggle_id + "-label")
+						.attr('aria-describedby', toggle_id + "-description")
+						.prop('checked', service.enabled)
+						.prop('disabled', !service.installed && !service.enabled)
+						.on('change', function () {
+							set_service(service, $(this).is(':checked'), $(this));
+						});
+					list.append(item);
+				});
+				apply_service_visibility();
+			});
+	}
+
+	function set_service(service, enabled, toggle) {
+		function apply() {
+			api(
+				"/system/services",
+				"POST",
+				{
+					service: service.name,
+					enabled: enabled ? "true" : "false"
+				},
+				function (r) {
+					miab_services[service.name] = enabled;
+					apply_service_visibility();
+					show_modal_error("Services", r, show_services);
+				},
+				function (r) {
+					show_modal_error("Services", r || "Something went wrong, sorry.", show_services);
+				});
+		}
+
+		if (enabled) {
+			apply();
+		} else {
+			show_modal_confirm(
+				"Turn off " + service.title + "?",
+				$('<div/>').append(
+					$('<p/>').text(service_off_warnings[service.name] || ""),
+					$('<p class="mb-0"/>').text("Its data is kept, and you can turn it back on at any time.")),
+				"Turn off",
+				apply,
+				function () { toggle.prop('checked', true); });
+		}
+	}
+</script>

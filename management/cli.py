@@ -75,6 +75,8 @@ def setup_key_auth(mgmt_uri):
 if len(sys.argv) < 2:
 	print("""Usage:
 {cli} system default-quota [new default]       (set default quota for system)
+{cli} system services                          (lists the optional services)
+{cli} system services enable|disable nextcloud|zpush|webmail|munin
 {cli} user                                     (lists users)
 {cli} user add user@domain.com [password]
 {cli} user password user@domain.com [password]
@@ -198,6 +200,20 @@ elif sys.argv[1] == "system" and sys.argv[2] == "default-quota" and len(
 elif sys.argv[1] == "system" and sys.argv[2] == "default-quota" and len(
 		sys.argv) == 4:
 	print(mgmt("/system/default-quota", {"default_quota": sys.argv[3]}))
+
+elif sys.argv[1] == "system" and sys.argv[2] == "services" and len(
+		sys.argv) == 3:
+	for service in mgmt("/system/services", is_json=True):
+		print("%-10s %-4s %s" % (service["name"], "on" if service["enabled"]
+								else "off", service["title"]))
+
+elif sys.argv[1] == "system" and sys.argv[2] == "services" and len(
+		sys.argv) == 5 and sys.argv[3] in ("enable", "disable"):
+	print(
+		mgmt("/system/services", {
+			"service": sys.argv[4],
+			"enabled": "true" if sys.argv[3] == "enable" else "false"
+		}))
 
 else:
 	print("Invalid command-line arguments.")

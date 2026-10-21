@@ -393,6 +393,13 @@ include("$STORAGE_ROOT/owncloud/config.php");
 \$CONFIG['memcache.local'] = '\OC\Memcache\APCu';
 \$CONFIG['overwrite.cli.url'] = 'https://${PRIMARY_HOSTNAME}/cloud';
 \$CONFIG['mail_from_address'] = 'administrator'; # just the local part, matches our master administrator address
+\$CONFIG['mail_smtpmode'] = 'sendmail';
+\$CONFIG['mail_smtpauth'] = true; # if smtpmode is smtp
+\$CONFIG['mail_smtphost'] = '127.0.0.1'; # if smtpmode is smtp
+\$CONFIG['mail_smtpport'] = '587'; # if smtpmode is smtp
+\$CONFIG['mail_smtpsecure'] = ''; # if smtpmode is smtp, must be empty string
+\$CONFIG['mail_smtpname'] = ''; # if smtpmode is smtp, set this to a mail user
+\$CONFIG['mail_smtppassword'] = ''; # if smtpmode is smtp, set this to the user's password
 
 \$CONFIG['logtimezone'] = '$TIMEZONE';
 \$CONFIG['logdateformat'] = 'Y-m-d H:i:s';

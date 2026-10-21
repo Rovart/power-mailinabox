@@ -1,3 +1,214 @@
-<h1 class="title">{{hostname}}</h1>
+<div class="page-header">
+	<h2 class="text-break">{{hostname}}</h2>
+	<p class="text-body-secondary">Welcome to your Power Mail-in-a-Box control panel<span
+			class="if-logged-in">, <span class="account-email"></span></span>.</p>
+</div>
 
-<p class="subtitle">Welcome to your Power Mail-in-a-Box control panel.</p>
+<div class="if-logged-in-admin">
+	<div id="welcome-reboot" class="alert alert-warning d-flex align-items-center gap-3 d-none" role="alert">
+		<span class="fa-solid fa-power-off fs-4" aria-hidden="true"></span>
+		<div class="flex-grow-1">The box needs to be rebooted to finish installing software updates.</div>
+		<a class="btn btn-sm btn-warning" href="#system_status">Status checks</a>
+	</div>
+
+	<div class="row g-3 mb-4">
+		<div class="col-sm-4">
+			<a class="tile" href="#users">
+				<span class="tile-icon" aria-hidden="true"><span class="fa-solid fa-users"></span></span>
+				<span>
+					<span class="stat-value d-block" id="welcome-users">&ndash;</span>
+					<span class="tile-text">mail users</span>
+				</span>
+			</a>
+		</div>
+		<div class="col-sm-4">
+			<a class="tile" href="#aliases">
+				<span class="tile-icon" aria-hidden="true"><span class="fa-solid fa-at"></span></span>
+				<span>
+					<span class="stat-value d-block" id="welcome-aliases">&ndash;</span>
+					<span class="tile-text">aliases</span>
+				</span>
+			</a>
+		</div>
+		<div class="col-sm-4">
+			<a class="tile" href="#web">
+				<span class="tile-icon" aria-hidden="true"><span class="fa-solid fa-globe"></span></span>
+				<span>
+					<span class="stat-value d-block" id="welcome-domains">&ndash;</span>
+					<span class="tile-text">mail domains</span>
+				</span>
+			</a>
+		</div>
+	</div>
+
+	<h3>Manage your box</h3>
+	<div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3 mb-4">
+		<div class="col">
+			<a class="tile" href="#system_status">
+				<span class="tile-icon" aria-hidden="true"><span class="fa-solid fa-heart-pulse"></span></span>
+				<span>
+					<span class="tile-title d-block">Status checks</span>
+					<span class="tile-text d-block">Check that the box, its DNS and its certificates are healthy.</span>
+				</span>
+			</a>
+		</div>
+		<div class="col">
+			<a class="tile" href="#users">
+				<span class="tile-icon" aria-hidden="true"><span class="fa-solid fa-user-plus"></span></span>
+				<span>
+					<span class="tile-title d-block">Users</span>
+					<span class="tile-text d-block">Add mail users, set passwords, quotas and administrators.</span>
+				</span>
+			</a>
+		</div>
+		<div class="col">
+			<a class="tile" href="#aliases">
+				<span class="tile-icon" aria-hidden="true"><span class="fa-solid fa-share"></span></span>
+				<span>
+					<span class="tile-title d-block">Aliases</span>
+					<span class="tile-text d-block">Forward addresses to users or to other mailboxes.</span>
+				</span>
+			</a>
+		</div>
+		<div class="col">
+			<a class="tile" href="#system_backup">
+				<span class="tile-icon" aria-hidden="true"><span class="fa-solid fa-cloud-arrow-up"></span></span>
+				<span>
+					<span class="tile-title d-block">Backups</span>
+					<span class="tile-text d-block">Choose where backups go and check that they work.</span>
+				</span>
+			</a>
+		</div>
+		<div class="col">
+			<a class="tile" href="#tls">
+				<span class="tile-icon" aria-hidden="true"><span class="fa-solid fa-certificate"></span></span>
+				<span>
+					<span class="tile-title d-block">TLS certificates</span>
+					<span class="tile-text d-block">Provision and renew the certificates of your domains.</span>
+				</span>
+			</a>
+		</div>
+		<div class="col">
+			<a class="tile" href="#services">
+				<span class="tile-icon" aria-hidden="true"><span class="fa-solid fa-toggle-on"></span></span>
+				<span>
+					<span class="tile-title d-block">Services</span>
+					<span class="tile-text d-block" id="welcome-services">Turn the optional services on or off.</span>
+				</span>
+			</a>
+		</div>
+	</div>
+</div>
+
+<h3>Apps</h3>
+<div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3 mb-4">
+	<div class="col requires-service-webmail">
+		<a class="tile" href="/mail/" target="_blank" rel="noopener">
+			<span class="tile-icon" aria-hidden="true"><span class="fa-solid fa-envelope-open-text"></span></span>
+			<span>
+				<span class="tile-title d-block">Webmail <span class="fa-solid fa-arrow-up-right-from-square small ms-1"
+						aria-hidden="true"></span><span class="visually-hidden">(opens in a new tab)</span></span>
+				<span class="tile-text d-block">Read and send mail from your browser.</span>
+			</span>
+		</a>
+	</div>
+	<div class="col requires-service-nextcloud">
+		<a class="tile" href="/cloud/" target="_blank" rel="noopener">
+			<span class="tile-icon" aria-hidden="true"><span class="fa-solid fa-address-book"></span></span>
+			<span>
+				<span class="tile-title d-block">Contacts &amp; calendar <span
+						class="fa-solid fa-arrow-up-right-from-square small ms-1" aria-hidden="true"></span><span
+						class="visually-hidden">(opens in a new tab)</span></span>
+				<span class="tile-text d-block">Your contacts, calendars and files in Nextcloud.</span>
+			</span>
+		</a>
+	</div>
+	<div class="col">
+		<a class="tile" href="#mail-guide">
+			<span class="tile-icon" aria-hidden="true"><span class="fa-solid fa-mobile-screen"></span></span>
+			<span>
+				<span class="tile-title d-block">Set up your devices</span>
+				<span class="tile-text d-block">Settings for mail apps on your phone and computer.</span>
+			</span>
+		</a>
+	</div>
+	<div class="col if-logged-in-admin requires-service-munin">
+		<a class="tile" href="#munin">
+			<span class="tile-icon" aria-hidden="true"><span class="fa-solid fa-chart-line"></span></span>
+			<span>
+				<span class="tile-title d-block">Monitoring</span>
+				<span class="tile-text d-block">Graphs of the resource usage of the box.</span>
+			</span>
+		</a>
+	</div>
+	<div class="col if-logged-in-not-admin">
+		<a class="tile" href="#mfa">
+			<span class="tile-icon" aria-hidden="true"><span class="fa-solid fa-shield-halved"></span></span>
+			<span>
+				<span class="tile-title d-block">Two-factor authentication</span>
+				<span class="tile-text d-block">Protect your account with a code from your phone.</span>
+			</span>
+		</a>
+	</div>
+	<div class="col if-logged-in-not-admin">
+		<a class="tile" href="#manage-password">
+			<span class="tile-icon" aria-hidden="true"><span class="fa-solid fa-key"></span></span>
+			<span>
+				<span class="tile-title d-block">Change password</span>
+				<span class="tile-text d-block">Set a new password for your mail account.</span>
+			</span>
+		</a>
+	</div>
+</div>
+
+<script>
+	function show_welcome() {
+		if (!api_credentials || (api_credentials.privileges || []).indexOf("admin") < 0)
+			return;
+
+		api(
+			"/mail/users",
+			"GET",
+			{ format: 'json' },
+			function (domains) {
+				var users = 0;
+				domains.forEach(function (domain) {
+					domain.users.forEach(function (user) {
+						if (user.status == "active") users++;
+					});
+				});
+				$('#welcome-users').text(users);
+				$('#welcome-domains').text(domains.length);
+			},
+			function () { });
+
+		api(
+			"/mail/aliases",
+			"GET",
+			{ format: 'json' },
+			function (domains) {
+				var aliases = 0;
+				domains.forEach(function (domain) {
+					domain.aliases.forEach(function (alias) {
+						if (!alias.auto) aliases++;
+					});
+				});
+				$('#welcome-aliases').text(aliases);
+			},
+			function () { });
+
+		api(
+			"/system/reboot",
+			"GET",
+			{},
+			function (needed) {
+				$('#welcome-reboot').toggleClass('d-none', !needed);
+			},
+			function () { });
+
+		var off = Object.keys(miab_services).filter(function (name) { return !miab_services[name]; });
+		$('#welcome-services').text(off.length == 0
+			? "All optional services are on."
+			: off.length + " of " + Object.keys(miab_services).length + " optional services are turned off.");
+	}
+</script>

@@ -280,6 +280,9 @@ def get_duplicity_env_vars(env):
 	if get_target_type(config) == 's3':
 		env["AWS_ACCESS_KEY_ID"] = config["target_user"]
 		env["AWS_SECRET_ACCESS_KEY"] = config["target_pass"]
+		# boto3 1.36+ sends checksums that most non-AWS S3 services don't support.
+		env["AWS_REQUEST_CHECKSUM_CALCULATION"] = "WHEN_REQUIRED"
+		env["AWS_RESPONSE_CHECKSUM_VALIDATION"] = "WHEN_REQUIRED"
 
 	return env
 
