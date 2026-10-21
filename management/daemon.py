@@ -149,7 +149,7 @@ def index():
 	import boto3.s3
 	backup_s3_hosts = [(r, f"s3.{r}.amazonaws.com") for r in boto3.session.Session().get_available_regions('s3')]
 
-	from services import get_enabled_services
+	from services import get_served_services
 
 	return render_template(
 		'index.html',
@@ -159,7 +159,7 @@ def index():
 		no_admins_exist=no_admins_exist,
 		backup_s3_hosts=backup_s3_hosts,
 		csr_country_codes=csr_country_codes,
-		services=get_enabled_services(env),
+		services=get_served_services(env),
 	)
 
 
@@ -854,7 +854,7 @@ def system_services_get():
 @app.route('/system/services', methods=["POST"])
 @authorized_personnel_only()
 def system_services_set():
-	from services import SERVICES, set_service_enabled
+	from services import SERVICES, set_service_enabled, get_served_services
 	from web_update import do_web_update
 	name = request.form.get('service', '')
 	enabled = request.form.get('enabled', '') == "true"
@@ -863,6 +863,9 @@ def system_services_set():
 		do_web_update(env)
 	except ValueError as e:
 		return (str(e), 400)
+	if enabled and not get_served_services(env)[name]:
+		return ("%s will be turned on after you run 'sudo mailinabox' on the box "
+				"to install or update it." % SERVICES[name]["title"])
 	return "%s is now turned %s." % (SERVICES[name]["title"],
 									"on" if enabled else "off")
 
@@ -878,9 +881,9 @@ def get_client_ip():
 @app.route('/system/web-access', methods=["GET"])
 @authorized_personnel_only()
 def system_web_access_get():
-	from services import WEB_ACCESS_AREAS, get_web_access, get_box_addresses, is_address_allowed, get_enabled_services
+	from services import WEB_ACCESS_AREAS, get_web_access, get_box_addresses, is_address_allowed, get_served_services
 	access = get_web_access(env)
-	services = get_enabled_services(env)
+	services = get_served_services(env)
 	client_ip = get_client_ip()
 	return json_response({
 		"areas": [{

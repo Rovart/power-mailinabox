@@ -10,7 +10,7 @@ from mailconfig import get_mail_domains
 from dns_update import get_custom_dns_config, get_dns_zones
 from ssl_certificates import get_ssl_certificates, get_domain_ssl_files, check_certificate
 from utils import shell, safe_domain_name, sort_domains, get_php_version
-from services import get_enabled_services, get_access_rules, filter_template
+from services import get_served_services, get_access_rules, filter_template
 
 
 def get_web_domains(env,
@@ -177,7 +177,7 @@ def do_web_update(env):
 									"listen [::]:443 ssl;")
 	# Leave out the locations of the optional services that are turned off, and
 	# restrict the web applications that are only available locally.
-	enabled_services = get_enabled_services(env)
+	enabled_services = get_served_services(env)
 	access_rules = get_access_rules(env)
 	template1 = filter_template(
 		open(
@@ -343,6 +343,14 @@ def make_domain_config(domain, templates, ssl_certificates, env):
 
 	nginx_conf_extra += "\tinclude %s;\n" % (nginx_conf_custom_include)
 
+	# Some boxes behind a proxy or CDN added a location for Let's Encrypt's
+	# challenges over HTTPS to their custom configuration. The template has it
+	# now, and nginx refuses duplicate locations, so leave the template's out.
+	with open(nginx_conf_custom_include) as f:
+		has_acme_location = re.search(
+			r"^\s*location\s+(\^~\s+|=\s+)?/\.well-known/acme-challenge",
+			f.read(), re.MULTILINE)
+
 	# PUT IT ALL TOGETHER
 
 	# Combine the pieces. Iteratively place each template into the "# ADDITIONAL DIRECTIVES HERE" placeholder
@@ -351,6 +359,11 @@ def make_domain_config(domain, templates, ssl_certificates, env):
 	for t in templates + [nginx_conf_extra]:
 		nginx_conf = re.sub("[ \t]*# ADDITIONAL DIRECTIVES HERE *\n", t,
 							nginx_conf)
+
+	if has_acme_location:
+		nginx_conf = re.sub(
+			r"[ \t]*# BEGIN ACME OVER HTTPS\n.*?# END ACME OVER HTTPS[^\n]*\n", "",
+			nginx_conf, flags=re.DOTALL)
 
 	# Replace substitution strings in the template & return.
 	nginx_conf = nginx_conf.replace("$STORAGE_ROOT", env['STORAGE_ROOT'])

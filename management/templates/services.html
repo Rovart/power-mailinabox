@@ -9,7 +9,10 @@
 </div>
 
 <p class="text-body-secondary small">You can also turn services on and off on the box itself with
-	<code>sudo management/cli.py system services enable|disable nextcloud|zpush|webmail|munin</code>.</p>
+	<code>sudo management/cli.py system services enable|disable nextcloud|zpush|webmail|munin</code>.
+	If you&rsquo;d rather not install and update the web applications you turned off, run
+	<code>sudo management/services.py update-turned-off no</code>: the setup then skips them, and one turned
+	back on is served after the next <code>sudo mailinabox</code>.</p>
 
 <h3 id="web-access-heading">Access from the internet</h3>
 <p>On a box exposed to the internet, you can make web applications you only use from the box itself (through an
@@ -60,6 +63,8 @@
 				<p class="mb-0 small text-break service-paths"></p>
 				<p class="mb-0 small text-warning-emphasis service-not-installed d-none">Not installed. Run
 					<code>sudo mailinabox</code> on the box to install it.</p>
+				<p class="mb-0 small text-warning-emphasis service-needs-setup d-none">Not served yet: it wasn't
+					updated while it was off. Run <code>sudo mailinabox</code> on the box to update it.</p>
 			</div>
 			<div class="form-check form-switch fs-4 mb-0 ms-2">
 				<input class="form-check-input service-toggle" type="checkbox" role="switch">
@@ -117,9 +122,13 @@
 					item.find('.service-icon .fa-solid').addClass(service_icons[service.name] || "fa-gear");
 					item.find('.service-title').text(service.title).attr('id', toggle_id + "-label");
 					item.find('.service-description').text(service.description).attr('id', toggle_id + "-description");
+					// Services that are turned on but not served yet are waiting for the
+					// setup to install or update them (see management/services.py).
+					var served = (service.served === undefined) ? service.enabled : service.served;
+					var waiting = service.enabled && !served;
 					item.find('.service-state')
-						.text(service.enabled ? "On" : "Off")
-						.addClass(service.enabled ? "text-bg-success" : "text-bg-secondary");
+						.text(waiting ? "Waiting for setup" : (service.enabled ? "On" : "Off"))
+						.addClass(waiting ? "text-bg-warning" : (service.enabled ? "text-bg-success" : "text-bg-secondary"));
 					if (service.paths.length) {
 						item.find('.service-paths').append(
 							$('<span class="text-body-secondary"/>').text(service.paths.length > 1 ? "Addresses: " : "Address: "));
@@ -129,12 +138,13 @@
 						});
 					}
 					item.find('.service-not-installed').toggleClass('d-none', service.installed);
+					item.find('.service-needs-setup').toggleClass('d-none', !(waiting && service.installed));
 					item.find('.service-toggle')
 						.attr('id', toggle_id)
 						.attr('aria-labelledby', toggle_id + "-label")
 						.attr('aria-describedby', toggle_id + "-description")
 						.prop('checked', service.enabled)
-						.prop('disabled', !service.installed && !service.enabled)
+						.prop('disabled', !service.installed && !service.enabled && !service.can_wait_for_setup)
 						.on('change', function () {
 							set_service(service, $(this).is(':checked'), $(this));
 						});

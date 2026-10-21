@@ -207,8 +207,9 @@ elif sys.argv[1] == "system" and sys.argv[2] == "default-quota" and len(
 elif sys.argv[1] == "system" and sys.argv[2] == "services" and len(
 		sys.argv) == 3:
 	for service in mgmt("/system/services", is_json=True):
-		print("%-10s %-4s %s" % (service["name"], "on" if service["enabled"]
-								else "off", service["title"]))
+		state = "on" if service.get("served", service["enabled"]) else (
+			"wait" if service["enabled"] else "off")
+		print("%-10s %-4s %s" % (service["name"], state, service["title"]))
 
 elif sys.argv[1] == "system" and sys.argv[2] == "services" and len(
 		sys.argv) == 5 and sys.argv[3] in ("enable", "disable"):

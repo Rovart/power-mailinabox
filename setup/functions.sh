@@ -307,3 +307,38 @@ function get_os_code {
 
 	echo $OS_UNSUPPORTED
 }
+
+# The optional web applications (see management/services.py). The setup installs
+# and updates them even while they're turned off, unless the administrator chose
+# not to ("management/services.py update-turned-off no"). Then it skips the ones
+# that are turned off, and marks them as outdated so that they aren't served
+# until the setup runs again after they're turned back on. The choices are read
+# from a file written by management/services.py, since this runs before its
+# Python environment exists. Without that file (e.g. on a new box, or one
+# upgraded from a version without it) every service is installed and updated.
+SERVICES_SETUP_STATE=/var/lib/mailinabox/services.env
+SERVICES_OUTDATED=/var/lib/mailinabox/services.outdated
+
+function optional_service_should_update {
+	local SERVICE_VAR=SERVICE_${1^^}
+	if [ ! -f $SERVICES_SETUP_STATE ]; then
+		return 0
+	fi
+	(
+		source $SERVICES_SETUP_STATE
+		[ "${UPDATE_TURNED_OFF_SERVICES:-1}" != "0" ] || [ "${!SERVICE_VAR:-1}" != "0" ]
+	)
+}
+
+function optional_service_skipped {
+	mkdir -p $(dirname $SERVICES_OUTDATED)
+	if ! grep -qx "$1" $SERVICES_OUTDATED 2> /dev/null; then
+		echo "$1" >> $SERVICES_OUTDATED
+	fi
+}
+
+function optional_service_updated {
+	if [ -f $SERVICES_OUTDATED ]; then
+		sed -i "/^$1\$/d" $SERVICES_OUTDATED
+	fi
+}

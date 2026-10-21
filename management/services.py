@@ -3,16 +3,25 @@
 # Optional services (Nextcloud, Z-Push, Roundcube and Munin) that the
 # administrator can turn off from the control panel.
 #
-# Every service is always installed and kept up to date by the setup scripts,
-# so that turning one on again is instant and never leaves outdated software
-# behind. Turning a service off stops serving it (its nginx locations are left
-# out of the web configuration) and stops its background jobs. Its data is
-# kept and is still backed up.
+# By default every service is installed and kept up to date by the setup
+# scripts, even while it's turned off, so that turning one on again is instant
+# and never leaves outdated software behind. Turning a service off stops
+# serving it (its nginx locations are left out of the web configuration) and
+# stops its background jobs. Its data is kept and is still backed up.
 #
-# The administrator's choice is stored in the "services" key of
-# $STORAGE_ROOT/settings.yaml. The effective state is also written to
-# /var/lib/mailinabox/services.json so that the PHP applications (Roundcube
-# and Z-Push) can read it.
+# Boxes that don't want to install and update software they don't use can turn
+# that off ("update-turned-off no" below). Then the setup skips the web
+# applications (Roundcube, Nextcloud and Z-Push) that are turned off, and marks
+# the ones it skipped as outdated. An outdated service isn't served, even after
+# it's turned on again, until the setup runs again and updates it.
+#
+# The administrator's choices are stored in the "services" and
+# "update_turned_off_services" keys of $STORAGE_ROOT/settings.yaml. The
+# services that are actually served are written to
+# /var/lib/mailinabox/services.json so that the PHP applications (Roundcube and
+# Z-Push) can read it. The choices are also written to
+# /var/lib/mailinabox/services.env for the setup scripts, which run before this
+# program can (see setup/functions.sh).
 #
 # The web applications can also be restricted to the box itself (e.g. through
 # an SSH tunnel) and, optionally, to trusted networks: requests from anywhere
@@ -91,6 +100,13 @@ SYSTEMD_UNITS = {
 	"munin": ["munin-node.service", "munin.service"],
 }
 
+SETUP_STATE_FILE = "/var/lib/mailinabox/services.env"
+OUTDATED_FILE = "/var/lib/mailinabox/services.outdated"
+
+# The services the setup can skip while they're turned off (see above). Munin
+# is small and part of the system's monitoring, so it's always kept up to date.
+SKIPPABLE_SERVICES = ("webmail", "nextcloud", "zpush")
+
 
 def is_installed(name):
 	return os.path.exists(SERVICES[name]["installed"])
@@ -109,8 +125,52 @@ def is_enabled(name, env):
 	return get_enabled_services(env)[name]
 
 
+def updates_turned_off_services(env):
+	# Whether the setup installs and updates the services that are turned off
+	# (the default).
+	return utils.load_settings(env).get("update_turned_off_services",
+										True) is not False
+
+
+def set_updates_turned_off_services(update, env):
+	config = utils.load_settings(env)
+	config["update_turned_off_services"] = bool(update)
+	utils.write_settings(config, env)
+	return apply_services(env)
+
+
+def get_outdated_services():
+	# The services the setup skipped while they were turned off, and hasn't
+	# installed or updated since (see optional_service_skipped in
+	# setup/functions.sh).
+	try:
+		with open(OUTDATED_FILE) as f:
+			return {name for name in f.read().split() if name in SERVICES}
+	except FileNotFoundError:
+		return set()
+
+
+def get_served_services(env):
+	# Returns {service name: True/False}: whether the service is served, which
+	# is when it's turned on, installed and not outdated.
+	enabled = get_enabled_services(env)
+	outdated = get_outdated_services()
+	return {
+		name: enabled[name] and is_installed(name) and name not in outdated
+		for name in SERVICES
+	}
+
+
+def can_wait_for_setup(name, env):
+	# Whether a service that isn't installed (or is outdated) can be turned on,
+	# to be served after the setup runs again and installs or updates it.
+	return name in SKIPPABLE_SERVICES and not updates_turned_off_services(env)
+
+
 def get_services_status(env):
 	enabled = get_enabled_services(env)
+	served = get_served_services(env)
+	outdated = get_outdated_services()
 	return [{
 		"name": name,
 		"title": service["title"],
@@ -118,13 +178,16 @@ def get_services_status(env):
 		"paths": service["paths"],
 		"enabled": enabled[name],
 		"installed": is_installed(name),
+		"served": served[name],
+		"outdated": name in outdated,
+		"can_wait_for_setup": can_wait_for_setup(name, env),
 	} for name, service in SERVICES.items()]
 
 
 def set_service_enabled(name, enabled, env):
 	if name not in SERVICES:
 		raise ValueError("Unknown service: %s" % name)
-	if enabled and not is_installed(name):
+	if enabled and not is_installed(name) and not can_wait_for_setup(name, env):
 		raise ValueError(
 			"%s is not installed. Run 'sudo mailinabox' on the box to install it."
 			% SERVICES[name]["title"])
@@ -333,24 +396,47 @@ def set_systemd_unit(unit, enabled):
 				trap=True)
 
 
+def get_setup_state(env):
+	# The administrator's choices, as shell variables for the setup scripts.
+	enabled = get_enabled_services(env)
+	lines = [
+		"# Written by management/services.py for the setup scripts. Don't edit.",
+		"UPDATE_TURNED_OFF_SERVICES=%d" % updates_turned_off_services(env),
+	]
+	lines += [
+		"SERVICE_%s=%d" % (name.upper(), enabled[name]) for name in SERVICES
+	]
+	return "\n".join(lines) + "\n"
+
+
+def describe_state(name, enabled, served):
+	if served[name]:
+		return "on"
+	if enabled[name]:
+		return "on after running 'sudo mailinabox' to install or update it"
+	return "off"
+
+
 def apply_services(env):
 	# Makes the system match the enabled services, except for the nginx
 	# configuration, which web_update.py writes. Returns a description of
 	# what was done.
 	enabled = get_enabled_services(env)
+	served = get_served_services(env)
 
-	write_file(STATE_FILE, json.dumps(enabled, indent=2) + "\n")
-	write_mobileconfig(env, enabled)
+	write_file(STATE_FILE, json.dumps(served, indent=2) + "\n")
+	write_file(SETUP_STATE_FILE, get_setup_state(env))
+	write_mobileconfig(env, served)
 
 	for name, jobs in CRON_JOBS.items():
 		for job in jobs:
-			set_cron_job(job, enabled[name])
+			set_cron_job(job, served[name])
 	for name, units in SYSTEMD_UNITS.items():
 		for unit in units:
-			set_systemd_unit(unit, enabled[name])
+			set_systemd_unit(unit, served[name])
 
 	return "".join("%s: %s\n" % (SERVICES[name]["title"],
-								"on" if enabled[name] else "off")
+								describe_state(name, enabled, served))
 				for name in SERVICES)
 
 
@@ -369,11 +455,18 @@ if __name__ == "__main__":
 		sys.exit(0 if is_enabled(sys.argv[2], env) else 1)
 	elif len(sys.argv) == 2 and sys.argv[1] == "apply":
 		print(apply_services(env), end="")
+	elif len(sys.argv) == 3 and sys.argv[1] == "update-turned-off" and sys.argv[2] in ("yes", "no"):
+		# Whether the setup installs and updates the services that are turned
+		# off (see the top of this file).
+		print(set_updates_turned_off_services(sys.argv[2] == "yes", env), end="")
 	elif len(sys.argv) == 2 and sys.argv[1] == "list":
 		for service in get_services_status(env):
-			print("%-10s %-4s %s" % (service["name"], "on" if
-									service["enabled"] else "off", service["title"]))
+			state = "on" if service["served"] else (
+				"wait" if service["enabled"] else "off")
+			print("%-10s %-4s %s" % (service["name"], state, service["title"]))
+		if not updates_turned_off_services(env):
+			print("Services that are turned off are not installed or updated by the setup.")
 	else:
-		print("Usage: %s apply | list | is-enabled {%s} | web-access {all,%s} {local,public}" %
+		print("Usage: %s apply | list | is-enabled {%s} | update-turned-off {yes,no} | web-access {all,%s} {local,public}" %
 			(sys.argv[0], ",".join(SERVICES), ",".join(WEB_ACCESS_AREAS)))
 		sys.exit(2)
