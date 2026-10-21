@@ -1092,6 +1092,9 @@ def import_key():
 	k = request.form.get('key')
 	try:
 		result = import_key(k)
+		if not hasattr(result, "considered"):
+			# gpg returns an error code (or exception) when nothing could be read.
+			raise ValueError("No valid OpenPGP public key could be read.")
 		build_wkd()  # Rebuild the WKD
 		return {
 			"keys_read": result.considered,
@@ -1145,8 +1148,11 @@ def get_wkd_status():
 @app.route('/system/pgp/wkd', methods=["POST"])
 @authorized_personnel_only()
 def update_wkd():
-	from wkd import update_wkd_config, build_wkd
-	update_wkd_config(request.form)
+	from wkd import update_wkd_config, build_wkd, WKDError
+	try:
+		update_wkd_config(request.form)
+	except (ValueError, WKDError) as e:
+		return (str(e), 400)
 	build_wkd()
 	return "OK"
 

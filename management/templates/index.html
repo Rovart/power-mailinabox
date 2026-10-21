@@ -35,6 +35,10 @@
 		<link rel="stylesheet" href="/admin/assets/fontawesome/css/fontawesome.min.css">
 		<link rel="stylesheet" href="/admin/assets/fontawesome/css/solid.min.css">
 
+		<!-- Loaded before the panels, whose scripts may use them right away. -->
+		<script src="/admin/assets/jquery.min.js"></script>
+		<script src="/admin/assets/bootstrap/js/bootstrap.bundle.min.js"></script>
+
 		<style>
 			:root {
 				--miab-brand: #2f6fb4;
@@ -121,6 +125,12 @@
 				display: none;
 				padding-top: 1.75rem;
 				padding-bottom: 2rem;
+			}
+
+			/* Bootstrap's secondary outline buttons don't have enough contrast in dark mode. */
+			[data-bs-theme="dark"] .btn-outline-secondary {
+				--bs-btn-color: #b4bcc4;
+				--bs-btn-border-color: #6c757d;
 			}
 
 			main:focus {
@@ -555,9 +565,6 @@
 				</div>
 			</div>
 		</div>
-
-		<script src="/admin/assets/jquery.min.js"></script>
-		<script src="/admin/assets/bootstrap/js/bootstrap.bundle.min.js"></script>
 
 		<script>
 			// The optional services that are turned on (see management/services.py).

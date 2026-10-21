@@ -1,231 +1,283 @@
-<h2>Users</h2>
-
 <style>
-	#user_table tr.account_inactive td.address {
-		color: #888;
+	#user_table tr.account_inactive .address {
+		color: var(--bs-secondary-color);
 		text-decoration: line-through;
 	}
 
-	#user_table .actions {
-		margin-top: .33em;
-		font-size: 95%;
-	}
-
-	#user_table .account_inactive .if_active {
-		display: none;
-	}
-
-	#user_table .account_active .if_inactive {
-		display: none;
-	}
-
+	#user_table .account_inactive .if_active,
+	#user_table .account_active .if_inactive,
 	#user_table .account_active.if_inactive {
 		display: none;
 	}
+
+	/* An archived account's row is followed by a row about how to restore it. */
+	#user_table tr.account_inactive:not(.if_inactive)>* {
+		border-bottom-width: 0;
+	}
+
+	#user_table .usage-bar {
+		height: .25rem;
+		min-width: 4rem;
+	}
 </style>
 
-<h3>Add a mail user</h3>
-
-<p>Add an email address to this system. This will create a new login username/password.</p>
-
-<form role="form" onsubmit="return do_add_user(); return false;">
-	<div class="mb-3">
-		<div class="row g-3">
-			<div class="col-12 col-lg-6">
-				<div class="input-group">
-					<label class="input-group-text" for="adduserEmail">Email address</label>
-					<input type="email" class="form-control" style="min-width: 15em;" id="adduserEmail"
-						placeholder="me@example.com">
-				</div>
-			</div>
-			<div class="col-12 col-lg-6">
-				<div class="input-group">
-					<label class="input-group-text" for="adduserPassword">Password</label>
-					<input type="password" class="form-control" style="min-width: 10em;" id="adduserPassword"
-						placeholder="Password">
-				</div>
-			</div>
-		</div>
-	</div>
-
-	<div class="col-md-8 col-lg-6 mb-3">
-		<div class="input-group">
-			<label class="input-group-text" for="adduserPrivs">User Type</label>
-			<select class="form-select" id="adduserPrivs">
-				<option value="">Normal User</option>
-				<option value="admin">Administrator</option>
-			</select>
-		</div>
-	</div>
-
-	<div class="col-md-8 col-lg-6 mb-3">
-		<div class="input-group">
-			<label class="input-group-text" for="adduserQuota">Storage Quota</label>
-			<input type="text" class="form-control" id="adduserQuota" placeholder="0">
-		</div>
-	</div>
-
-	<ul style="margin-top: 1em; padding-left: 1.5em; font-size: 90%;">
-		<li>Passwords must be at least eight characters. If you're out of ideas, you can <a href="#"
-				onclick="return generate_random_password()">generate a random password</a>.</li>
-		<li>Use <a href="#" onclick="return show_panel('aliases')">aliases</a> to create email addresses that forward to
-			existing accounts.</li>
-		<li>Administrators get access to this control panel.</li>
-		<li>User accounts cannot contain any international (non-ASCII) characters, but <a href="#"
-				onclick="return show_panel('aliases');">aliases</a> can.</li>
-		<li>Quotas may not contain any spaces, commas or decimal points. Suffixes of G (gigabytes) and M (megabytes) are
-			allowed. For unlimited storage enter 0 (zero)</li>
-	</ul>
-
-	<button type="submit" class="btn btn-primary">Add User</button>
-</form>
-
-<h3>Existing mail users</h3>
-<table id="user_table" class="table col-12">
-	<caption></caption>
-	<thead>
-		<tr>
-			<th width="35%">Email Address</th>
-			<th class="">Messages</th>
-			<th class="">Size</th>
-			<th class="">Used</th>
-			<th class="">Quota</th>
-			<th>Actions</th>
-		</tr>
-	</thead>
-	<tbody>
-	</tbody>
-</table>
-
-<div style="display: none">
-	<table>
-		<tr id="user-template">
-			<td class='address'>
-			</td>
-			<td class="box-count"></td>
-			<td class="box-size"></td>
-			<td class="percent"></td>
-			<td class="quota">
-			</td>
-			<td class='actions'>
-				<span class='privs'>
-				</span>
-
-				<span class="if_active">
-					<a href="#" onclick="users_set_quota(this); return false;" class='setquota' title="Set Quota">
-						set quota
-					</a>
-					|
-				</span>
-
-				<span class="if_active">
-					<a href="#" onclick="users_set_password(this); return false;" class='setpw' title="Set Password">
-						set password
-					</a>
-					|
-				</span>
-
-				<span class='add-privs'>
-				</span>
-
-				<a href="#" onclick="users_remove(this); return false;" class='if_active' title="Archive Account">
-					archive account
-				</a>
-			</td>
-		</tr>
-		<tr id="user-extra-template" class="if_inactive">
-			<td colspan="3" style="border: 0; padding-top: 0">
-				<div class='restore_info' style='color: #888; font-size: 90%'>To restore account, create a new account with this
-					email address. Or to permanently delete the mailbox, delete the directory <tt></tt> on the machine.</div>
-			</td>
-		</tr>
-	</table>
+<div class="page-header">
+	<h2>Users</h2>
+	<p class="text-body-secondary">Mail users are the accounts on this box: each one has its own mailbox and logs in
+		with its email address and password. Administrators can also use this control panel.</p>
 </div>
 
-<h3>Mail user API (advanced)</h3>
+<div class="card mb-4">
+	<div class="card-header">
+		<h3 class="h5 mb-0">Add a mail user</h3>
+	</div>
+	<div class="card-body">
+		<p class="text-body-secondary">Add an email address to this system. This will create a new login
+			username/password.</p>
 
-<p>Use your box&rsquo;s mail user API to add/change/remove users from the command-line or custom services you build.</p>
+		<form id="adduser-form" onsubmit="return do_add_user();">
+			<div class="row g-3 mb-3">
+				<div class="col-md-6">
+					<label class="form-label" for="adduserEmail">Email address</label>
+					<input type="email" class="form-control" id="adduserEmail" placeholder="me@example.com"
+						autocomplete="off" autocapitalize="off" spellcheck="false" required
+						aria-describedby="adduserEmailHelp">
+					<div id="adduserEmailHelp" class="form-text">User accounts cannot contain any international
+						(non-ASCII) characters, but <a href="#aliases">aliases</a> can.</div>
+				</div>
+				<div class="col-md-6">
+					<label class="form-label" for="adduserPassword">Password</label>
+					<input type="password" class="form-control" id="adduserPassword" autocomplete="new-password"
+						required aria-describedby="adduserPasswordHelp">
+					<div id="adduserPasswordHelp" class="form-text">Passwords must be at least eight characters. If
+						you&rsquo;re out of ideas, you can <button type="button"
+							class="btn btn-link btn-sm p-0 align-baseline"
+							onclick="return generate_random_password()">generate a random password</button>.</div>
+				</div>
+				<div class="col-md-6">
+					<label class="form-label" for="adduserPrivs">User type</label>
+					<select class="form-select" id="adduserPrivs" aria-describedby="adduserPrivsHelp">
+						<option value="">Normal user</option>
+						<option value="admin">Administrator</option>
+					</select>
+					<div id="adduserPrivsHelp" class="form-text">Administrators get access to this control panel.</div>
+				</div>
+				<div class="col-md-6">
+					<label class="form-label" for="adduserQuota">Storage quota</label>
+					<input type="text" class="form-control" id="adduserQuota" placeholder="0" autocomplete="off"
+						autocapitalize="off" spellcheck="false" aria-describedby="adduserQuotaHelp">
+					<div id="adduserQuotaHelp" class="form-text">Quotas may not contain any spaces, commas or decimal
+						points. Suffixes of G (gigabytes) and M (megabytes) are allowed. For unlimited storage enter 0
+						(zero).</div>
+				</div>
+			</div>
 
-<p>Usage:</p>
+			<p class="form-text">Use <a href="#aliases">aliases</a> to create email addresses that forward to existing
+				accounts.</p>
 
-<pre>curl -X <b>VERB</b> [-d "<b>parameters</b>"] --user {email}:{password} https://{{hostname}}/admin/mail/users[<b>action</b>]</pre>
+			<button type="submit" class="btn btn-primary"><span class="fa-solid fa-user-plus me-1"
+					aria-hidden="true"></span>Add User</button>
+		</form>
+	</div>
+</div>
 
-<p>Brackets denote an optional argument. Please note that the POST body <code>parameters</code> must be URL-encoded.</p>
+<div class="card mb-4">
+	<div class="card-header">
+		<h3 class="h5 mb-0">Existing mail users</h3>
+	</div>
+	<div class="table-responsive">
+		<table id="user_table" class="table table-hover align-middle mb-0">
+			<caption class="visually-hidden">Mail users, grouped by domain</caption>
+			<thead>
+				<tr>
+					<th scope="col">Email address</th>
+					<th scope="col" class="text-end">Messages</th>
+					<th scope="col" class="text-end">Size</th>
+					<th scope="col">Used</th>
+					<th scope="col" class="text-end">Quota</th>
+					<th scope="col" class="text-end">Actions</th>
+				</tr>
+			</thead>
+			<tbody>
+			</tbody>
+		</table>
+	</div>
+</div>
 
-<p>The email and password given to the <code>--user</code> option must be an administrative user on this system.</p>
-
-<h4 style="margin-bottom: 0">Verbs</h4>
-
-<table class="table" style="margin-top: .5em">
-	<caption></caption>
-	<thead>
-		<th>Verb</th>
-		<th>Action</th>
-		<th></th>
-	</thead>
+<template id="user-template">
 	<tr>
-		<td><b>GET</b< /td>
-		<td><i>(none)</i></td>
-		<td>Returns a list of existing mail users. Adding <code>?format=json</code> to the URL will give JSON-encoded
-			results.</td>
-	</tr>
-	<tr>
-		<td><b>POST</b< /td>
-		<td class="font-monospace">/add</td>
-		<td>Adds a new mail user. Required POST-body parameters are <code>email</code> and <code>password</code>. Optional
-			parameters: <code>privilege=admin</code> and <code>quota</code></td>
-	</tr>
-	<tr>
-		<td><b>POST</b></td>
-		<td class="font-monospace">/remove</td>
-		<td>Removes a mail user. Required POST-by parameter is <code>email</code>.</td>
-	</tr>
-	<tr>
-		<td><b>POST</b></td>
-		<td class="font-monospace">/privileges/add</td>
-		<td>Used to make a mail user an admin. Required POST-body parameters are <code>email</code> and
-			<code>privilege=admin</code>.</td>
-	</tr>
-	<tr>
-		<td><b>POST</b></td>
-		<td class="font-monospace">/privileges/remove</td>
-		<td>Used to remove the admin privilege from a mail user. Required POST-body parameter is <code>email</code>.</td>
-	</tr>
-	<tr>
-		<td><b>GET</b></td>
-		<td class="font-monospace">/quota</td>
-		<td>Get the quota for a mail user. Required POST-body parameters are <code>email</code> and will return JSON result
+		<th scope="row" class="fw-normal">
+			<span class="address"></span>
+			<span class="privs"></span>
+			<span class="if_inactive badge bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle">
+				<span class="fa-solid fa-box-archive me-1" aria-hidden="true"></span>Archived</span>
+		</th>
+		<td class="box-count text-end"></td>
+		<td class="box-size text-end text-nowrap"></td>
+		<td class="percent text-nowrap"></td>
+		<td class="quota text-end"></td>
+		<td class="actions">
+			<div class="if_active">
+				<div class="d-flex justify-content-end gap-1">
+					<button type="button" class="btn btn-sm btn-outline-secondary setquota" title="Set quota"
+						onclick="users_set_quota(this); return false;"><span class="fa-solid fa-hard-drive me-1"
+							aria-hidden="true"></span>Quota</button>
+					<button type="button" class="btn btn-sm btn-outline-secondary setpw" title="Set password"
+						onclick="users_set_password(this); return false;"><span class="fa-solid fa-key me-1"
+							aria-hidden="true"></span>Password</button>
+					<!-- users_priv_button() buttons go here -->
+					<button type="button" class="btn btn-sm btn-outline-danger archive" title="Archive account"
+						onclick="users_remove(this); return false;"><span class="fa-solid fa-box-archive me-1"
+							aria-hidden="true"></span>Archive</button>
+				</div>
+			</div>
 		</td>
 	</tr>
-	<tr>
-		<td><b>POST</b></td>
-		<td class="font-monospace">/quota</td>
-		<td>Set the quota for a mail user. Required POST-body parameters are <code>email</code> and <code>quota</code>.</td>
+</template>
+
+<template id="user-extra-template">
+	<tr class="if_inactive">
+		<td colspan="6" class="pt-0">
+			<div class="restore_info small text-body-secondary">To restore the account, create a new account with this
+				email address. Or to permanently delete the mailbox, delete the directory <code></code> on the machine.
+			</div>
+		</td>
 	</tr>
-</table>
+</template>
 
-<h4>Examples:</h4>
+<div class="card mb-4">
+	<div class="card-header">
+		<h3 class="h5 mb-0">Mail user API (advanced)</h3>
+	</div>
+	<div class="card-body">
+		<p>Use your box&rsquo;s mail user API to add/change/remove users from the command-line or custom services you
+			build.</p>
 
-<p>Try these examples. For simplicity the examples omit the <code>--user me@mydomain.com:yourpassword</code> command
-	line argument which you must fill in with your administrative email address and password.</p>
+		<p class="mb-2">Usage:</p>
 
-<pre># Gives a JSON-encoded list of all mail users
+		<pre class="bg-body-tertiary border rounded p-3"><code>curl -X <b>VERB</b> [-d "<b>parameters</b>"] --user {email}:{password} https://{{hostname}}/admin/mail/users[<b>action</b>]</code></pre>
+
+		<p>Brackets denote an optional argument. Please note that the POST body <code>parameters</code> must be
+			URL-encoded.</p>
+
+		<p>The email and password given to the <code>--user</code> option must be an administrative user on this
+			system.</p>
+
+		<h4>Verbs</h4>
+
+		<div class="table-responsive">
+			<table class="table align-middle">
+				<caption class="visually-hidden">Verbs and actions of the mail user API</caption>
+				<thead>
+					<tr>
+						<th scope="col">Verb</th>
+						<th scope="col">Action</th>
+						<th scope="col">Description</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td><span class="badge text-bg-success">GET</span></td>
+						<td><i>(none)</i></td>
+						<td>Returns a list of existing mail users. Adding <code>?format=json</code> to the URL will give
+							JSON-encoded results.</td>
+					</tr>
+					<tr>
+						<td><span class="badge text-bg-primary">POST</span></td>
+						<td><code>/add</code></td>
+						<td>Adds a new mail user. Required POST-body parameters are <code>email</code> and
+							<code>password</code>. Optional parameters: <code>privileges=admin</code> and
+							<code>quota</code>.</td>
+					</tr>
+					<tr>
+						<td><span class="badge text-bg-primary">POST</span></td>
+						<td><code>/remove</code></td>
+						<td>Removes a mail user. Required POST-body parameter is <code>email</code>.</td>
+					</tr>
+					<tr>
+						<td><span class="badge text-bg-primary">POST</span></td>
+						<td><code>/privileges/add</code></td>
+						<td>Used to make a mail user an admin. Required POST-body parameters are <code>email</code>
+							and <code>privilege=admin</code>.</td>
+					</tr>
+					<tr>
+						<td><span class="badge text-bg-primary">POST</span></td>
+						<td><code>/privileges/remove</code></td>
+						<td>Used to remove the admin privilege from a mail user. Required POST-body parameters are
+							<code>email</code> and <code>privilege=admin</code>.</td>
+					</tr>
+					<tr>
+						<td><span class="badge text-bg-success">GET</span></td>
+						<td><code>/quota</code></td>
+						<td>Gets the quota for a mail user. Required parameter is <code>email</code>; returns a
+							JSON result.</td>
+					</tr>
+					<tr>
+						<td><span class="badge text-bg-primary">POST</span></td>
+						<td><code>/quota</code></td>
+						<td>Sets the quota for a mail user. Required POST-body parameters are <code>email</code> and
+							<code>quota</code>.</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+
+		<h4>Examples</h4>
+
+		<p>Try these examples. For simplicity the examples omit the <code>--user me@mydomain.com:yourpassword</code>
+			command line argument which you must fill in with your administrative email address and password.</p>
+
+		<pre class="bg-body-tertiary border rounded p-3 mb-0"><code># Gives a JSON-encoded list of all mail users
 curl -X GET https://{{hostname}}/admin/mail/users?format=json
 
 # Adds a new email user
-curl -X POST -d "email=new_user@mydomail.com" -d "password=s3curE_pa5Sw0rD" https://{{hostname}}/admin/mail/users/add
+curl -X POST -d "email=new_user@mydomain.com" -d "password=s3curE_pa5Sw0rD" https://{{hostname}}/admin/mail/users/add
 
-# Removes a email user
-curl -X POST -d "email=new_user@mydomail.com" https://{{hostname}}/admin/mail/users/remove
+# Removes an email user
+curl -X POST -d "email=new_user@mydomain.com" https://{{hostname}}/admin/mail/users/remove
 
 # Adds admin privilege to an email user
-curl -X POST -d "email=new_user@mydomail.com" -d "privilege=admin" https://{{hostname}}/admin/mail/users/privileges/add
+curl -X POST -d "email=new_user@mydomain.com" -d "privilege=admin" https://{{hostname}}/admin/mail/users/privileges/add
 
 # Removes admin privilege from an email user
-curl -X POST -d "email=new_user@mydomail.com" https://{{hostname}}/admin/mail/users/privileges/remove
-</pre>
+curl -X POST -d "email=new_user@mydomain.com" -d "privilege=admin" https://{{hostname}}/admin/mail/users/privileges/remove</code></pre>
+	</div>
+</div>
 
 <script>
+	function users_clone_template(id) {
+		// Returns a copy of the row in a <template> element.
+		return $(document.getElementById(id).content.firstElementChild.cloneNode(true));
+	}
+
+	function users_render_usage(cell, percent) {
+		// The server gives a string like " 42%", or "" (no quota), "?" or "Error".
+		cell.text(percent);
+		var value = parseFloat(percent);
+		if (isNaN(value)) return;
+		var bar = $('<div class="progress-bar"></div>').css('width', Math.max(0, Math.min(value, 100)) + '%');
+		if (value >= 90)
+			bar.addClass('bg-danger');
+		else if (value >= 75)
+			bar.addClass('bg-warning');
+		cell.append($('<div class="progress usage-bar mt-1" aria-hidden="true"></div>').append(bar));
+	}
+
+	function users_priv_button(add_remove, priv) {
+		// A button that adds or removes a privilege of the user in the row.
+		var button = $('<button type="button" class="btn btn-sm btn-outline-secondary"></button>')
+			.attr('data-priv', priv)
+			.attr('title', (add_remove == "add" ? "Add the " : "Remove the ") + priv + " privilege")
+			.on('click', function () {
+				mod_priv(this, add_remove);
+				return false;
+			});
+		button.append(
+			$('<span class="fa-solid me-1" aria-hidden="true"></span>').addClass(add_remove == "add" ? "fa-user-shield" : "fa-user"),
+			$('<span></span>').text((add_remove == "add" ? "Make " : "Remove ") + priv));
+		return button;
+	}
+
 	function show_users() {
 		api(
 			"/system/default-quota",
@@ -236,66 +288,67 @@ curl -X POST -d "email=new_user@mydomail.com" https://{{hostname}}/admin/mail/us
 			}
 		);
 
-		$('#user_table tbody').html("<tr><td colspan='6' class='text-muted'>Loading...</td></tr>")
+		$('#user_table tbody').html("<tr><td colspan='6' class='text-body-secondary'>Loading...</td></tr>");
 		api(
 			"/mail/users",
 			"GET",
 			{ format: 'json' },
 			function (r) {
-				$('#user_table tbody').html("");
+				var tbody = $('#user_table tbody').empty();
 				for (var i = 0; i < r.length; i++) {
-					var hdr = $("<tr><th colspan='6' class='bg-light'></th></tr>");
+					var hdr = $("<tr><th scope='colgroup' colspan='6' class='bg-body-tertiary'></th></tr>");
 					hdr.find('th').text(r[i].domain);
-					$('#user_table tbody').append(hdr);
+					tbody.append(hdr);
 
 					for (var k = 0; k < r[i].users.length; k++) {
 						var user = r[i].users[k];
 
-						var n = $("#user-template").clone();
-						var n2 = $("#user-extra-template").clone();
-						n.attr('id', '');
-						n2.attr('id', '');
-						$('#user_table tbody').append(n);
-						$('#user_table tbody').append(n2);
-
+						var n = users_clone_template("user-template");
 						n.addClass("account_" + user.status);
-						n2.addClass("account_" + user.status);
-
 						n.attr('data-email', user.email);
-						n.attr('data-quota', user.quota);
+						if (user.quota !== undefined && user.quota !== null)
+							n.attr('data-quota', user.quota);
 						n.find('.address').text(user.email);
 						n.find('.box-count').text((user.box_count).toLocaleString('en'));
 						if (user.box_count == '?') {
-							n.find('.box-count').attr('title', 'Message count is unkown')
+							n.find('.box-count').attr('title', 'Message count is unknown');
 						}
 						n.find('.box-size').text(user.box_size);
 						if (user.box_size == '?') {
-							n.find('.box-size').attr('title', 'Mailbox size is unkown')
+							n.find('.box-size').attr('title', 'Mailbox size is unknown');
 						}
-						n.find('.percent').text(user.percent);
-						n.find('.quota').text((user.quota == '0') ? 'unlimited' : user.quota);
-						n2.find('.restore_info tt').text(user.mailbox);
+						users_render_usage(n.find('.percent'), user.percent);
+						if (user.status != 'inactive')
+							n.find('.quota').text((user.quota == '0') ? 'unlimited' : user.quota);
+						tbody.append(n);
 
-						if (user.status == 'inactive') continue;
+						if (user.status == 'inactive') {
+							// Explain how to restore the account.
+							var n2 = users_clone_template("user-extra-template");
+							n2.addClass("account_" + user.status);
+							n2.find('.restore_info code').text(user.mailbox);
+							tbody.append(n2);
+							continue;
+						}
 
 						var add_privs = ["admin"];
 
 						for (var j = 0; j < user.privileges.length; j++) {
-							var p = $("<span><b><span class='name'></span></b> (<a href='#' onclick='mod_priv(this, \"remove\"); return false;' title='Remove Privilege'>remove privilege</a>) |</span>");
-							p.find('span.name').text(user.privileges[j]);
-							n.find('.privs').append(p);
-							if (add_privs.indexOf(user.privileges[j]) >= 0)
-								add_privs.splice(add_privs.indexOf(user.privileges[j]), 1);
+							var priv = user.privileges[j];
+							var badge = $('<span class="badge rounded-pill bg-primary-subtle text-primary-emphasis border border-primary-subtle ms-1"></span>')
+								.append($('<span class="fa-solid fa-user-shield me-1" aria-hidden="true"></span>'), $('<span class="name"></span>').text(priv));
+							n.find('.privs').append(badge);
+							n.find('.archive').before(users_priv_button("remove", priv));
+							if (add_privs.indexOf(priv) >= 0)
+								add_privs.splice(add_privs.indexOf(priv), 1);
 						}
 
 						for (var j = 0; j < add_privs.length; j++) {
-							var p = $("<span><a href='#' onclick='mod_priv(this, \"add\"); return false;' title='Add Privilege'>make <span class='name'></span></a> | </span>");
-							p.find('span.name').text(add_privs[j]);
-							n.find('.add-privs').append(p);
+							n.find('.archive').before(users_priv_button("add", add_privs[j]));
 						}
 					}
 				}
-			})
+			});
 	}
 
 	function do_add_user() {
@@ -315,7 +368,7 @@ curl -X POST -d "email=new_user@mydomail.com" https://{{hostname}}/admin/mail/us
 			function (r) {
 				// Responses are multiple lines of pre-formatted text.
 				show_modal_error("Add User", $("<pre/>").text(r));
-				show_users()
+				show_users();
 			},
 			function (r) {
 				show_modal_error("Add User", r);
@@ -324,15 +377,20 @@ curl -X POST -d "email=new_user@mydomail.com" https://{{hostname}}/admin/mail/us
 	}
 
 	function users_set_password(elem) {
-		var email = $(elem).parents('tr').attr('data-email');
+		var email = $(elem).closest('tr').attr('data-email');
 
-		var yourpw = "";
+		var body = $('<div></div>').append(
+			$('<p></p>').append("Set a new password for ", $('<b></b>').text(email), "?"),
+			$('<div class="mb-3"></div>').append(
+				$('<label class="form-label" for="users_set_password_pw">New password</label>'),
+				$('<input type="password" class="form-control" id="users_set_password_pw" autocomplete="new-password" aria-describedby="users_set_password_help">'),
+				$('<div class="form-text" id="users_set_password_help">Passwords must be at least eight characters.</div>')));
 		if (api_credentials != null && email == api_credentials.username)
-			yourpw = "<p class='text-danger'>If you change your own password, you will be logged out of this control panel and will need to log in again.</p>";
+			body.append($('<p class="text-danger-emphasis mb-0">If you change your own password, you will be logged out of this control panel and will need to log in again.</p>'));
 
 		show_modal_confirm(
 			"Set Password",
-			$("<p>Set a new password for <b>" + email + "</b>?</p> <p><label for='users_set_password_pw' style='display: block; font-weight: normal'>New Password:</label><input type='password' id='users_set_password_pw'></p><p><small>Passwords must be at least eight characters.</small>" + yourpw + "</p>"),
+			body,
 			"Set Password",
 			function () {
 				api(
@@ -353,17 +411,17 @@ curl -X POST -d "email=new_user@mydomail.com" https://{{hostname}}/admin/mail/us
 	}
 
 	function users_set_quota(elem) {
-		var email = $(elem).parents('tr').attr('data-email');
-		var quota = $(elem).parents('tr').attr('data-quota');
+		var email = $(elem).closest('tr').attr('data-email');
+		var quota = $(elem).closest('tr').attr('data-quota');
 
 		show_modal_confirm(
 			"Set Quota",
-			$("<p>Set quota for <b>" + email + "</b>?</p>" +
-				"<p>" +
-				"<label for='users_set_quota' style='display: block; font-weight: normal'>Quota:</label>" +
-				"<input type='text' id='users_set_quota' value='" + quota + "'></p>" +
-				"<p><small>Quotas may not contain any spaces or commas.  Suffixes of G (gigabytes) and M (megabytes) are allowed.</small></p>" +
-				"<p><small>For unlimited storage enter 0 (zero)</small></p>"),
+			$('<div></div>').append(
+				$('<p></p>').append("Set quota for ", $('<b></b>').text(email), "?"),
+				$('<div class="mb-3"></div>').append(
+					$('<label class="form-label" for="users_set_quota">Quota</label>'),
+					$('<input type="text" class="form-control" id="users_set_quota" autocomplete="off" spellcheck="false" aria-describedby="users_set_quota_help">').val(quota || ""),
+					$('<div class="form-text" id="users_set_quota_help">Quotas may not contain any spaces or commas. Suffixes of G (gigabytes) and M (megabytes) are allowed. For unlimited storage enter 0 (zero).</div>'))),
 			"Set Quota",
 			function () {
 				api(
@@ -383,7 +441,7 @@ curl -X POST -d "email=new_user@mydomail.com" https://{{hostname}}/admin/mail/us
 	}
 
 	function users_remove(elem) {
-		var email = $(elem).parents('tr').attr('data-email');
+		var email = $(elem).closest('tr').attr('data-email');
 
 		// can't remove yourself
 		if (api_credentials != null && email == api_credentials.username) {
@@ -393,7 +451,9 @@ curl -X POST -d "email=new_user@mydomail.com" https://{{hostname}}/admin/mail/us
 
 		show_modal_confirm(
 			"Archive User",
-			$("<p>Are you sure you want to archive <b>" + email + "</b>?</p> <p>The user's mailboxes will not be deleted (you can do that later), but the user will no longer be able to log into any services on this machine.</p>"),
+			$('<div></div>').append(
+				$('<p></p>').append("Are you sure you want to archive ", $('<b></b>').text(email), "?"),
+				$("<p class='mb-0'>The user's mailboxes will not be deleted (you can do that later), but the user will no longer be able to log into any services on this machine.</p>")),
 			"Archive",
 			function () {
 				api(
@@ -414,8 +474,8 @@ curl -X POST -d "email=new_user@mydomail.com" https://{{hostname}}/admin/mail/us
 	}
 
 	function mod_priv(elem, add_remove) {
-		var email = $(elem).parents('tr').attr('data-email');
-		var priv = $(elem).parents('td').find('.name').text();
+		var email = $(elem).closest('tr').attr('data-email');
+		var priv = $(elem).attr('data-priv');
 
 		// can't remove your own admin access
 		if (priv == "admin" && add_remove == "remove" && api_credentials != null && email == api_credentials.username) {
@@ -426,7 +486,12 @@ curl -X POST -d "email=new_user@mydomail.com" https://{{hostname}}/admin/mail/us
 		var add_remove1 = add_remove.charAt(0).toUpperCase() + add_remove.substring(1);
 		show_modal_confirm(
 			"Modify Privileges",
-			$("<p>Are you sure you want to " + add_remove + " the " + priv + " privilege for <b>" + email + "</b>?</p>"),
+			$('<p class="mb-0"></p>').append(
+				document.createTextNode("Are you sure you want to " + add_remove + " the "),
+				$('<b></b>').text(priv),
+				" privilege for ",
+				$('<b></b>').text(email),
+				"?"),
 			add_remove1,
 			function () {
 				api(
@@ -438,16 +503,28 @@ curl -X POST -d "email=new_user@mydomail.com" https://{{hostname}}/admin/mail/us
 					},
 					function (r) {
 						show_users();
+					},
+					function (r) {
+						show_modal_error("Modify Privileges", r);
 					});
 			});
 	}
 
 	function generate_random_password() {
-		var pw = "";
 		var charset = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789"; // confusable characters skipped
-		for (var i = 0; i < 12; i++)
-			pw += charset.charAt(Math.floor(Math.random() * charset.length));
-		show_modal_error("Random Password", "<p>Here, try this:</p> <p><code style='font-size: 110%'>" + pw + "</code></p>");
+		// Use the browser's cryptographically secure random number generator, and skip
+		// values that would make some characters more likely than others.
+		var limit = Math.floor(4294967296 / charset.length) * charset.length;
+		var random = new Uint32Array(1);
+		var pw = "";
+		while (pw.length < 12) {
+			crypto.getRandomValues(random);
+			if (random[0] < limit)
+				pw += charset.charAt(random[0] % charset.length);
+		}
+		show_modal_error("Random Password", $('<div></div>').append(
+			$('<p>Here, try this:</p>'),
+			$('<p class="mb-0"></p>').append($('<code class="fs-5 user-select-all"></code>').text(pw))));
 		return false; // cancel click
 	}
 </script>
