@@ -1,5 +1,5 @@
 # Power Mail-in-a-Box
-## **[Installation](#installation)** (current version: v60.5)
+## **[Installation](#installation)** (current version: v61.0)
 ## **[Upgrading Quick Start](#upgrading)**
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/davness)
@@ -17,6 +17,8 @@ It's main difference to the main project is focused on ad-hoc, advanced features
 - Publish OpenPGP keys authoritatively via a WKD server;
 - - **In the future:** Allow usage of OpenPGP keys to encrypt backups;
 - Per-domain nginx configuration;
+- Turn optional services (Nextcloud, Z-Push/Exchange ActiveSync, Roundcube webmail, Munin) on or off from the admin panel (*System → Services*) or with `management/cli.py system services`;
+- Make the admin panel, webmail, Nextcloud or ActiveSync reachable only from the box itself (e.g. through an SSH tunnel) and trusted networks, with a 403 for everyone else (`management/cli.py system web-access`; `management/cli.py system web-access all public` undoes it);
 
 ## Goals
 - **Easy of use** - deployment shouldn't take too many technical details to understand. Power Mail-in-a-Box already comes with default configurations which should be good for most users.
@@ -39,13 +41,20 @@ The machine this appliance will be installed on needs to have the following spec
 - 512MB of RAM (**at least 1GB** is recommended);
 - 10GB of disk;
 - **One of the following operating systems:**
-- - Debian GNU/Linux 11 (Bullseye)
-- - Ubuntu LTS 20.04 (Focal Fossa)
+- - Debian GNU/Linux 12 (Bookworm)
+- - Debian GNU/Linux 13 (Trixie)
 - - Ubuntu LTS 22.04 (Jammy Jellyfish)
+- - Ubuntu LTS 24.04 (Noble Numbat)
+
+Regardless of the operating system, the PHP applications (Roundcube, Nextcloud, Z-Push) run on **PHP 8.4**, installed from the [packages.sury.org](https://deb.sury.org) repository (Debian) or the [ondrej/php](https://launchpad.net/~ondrej/+archive/ubuntu/php) PPA (Ubuntu).
 
 ## Legacy Support
 The following distributions are no longer supported for the latest version, but they used to be supported at a earlier time:
 - **Debian 10 (Buster)** <= **v56.5**
+- **Debian 11 (Bullseye)** <= **v60.5**
+- **Ubuntu LTS 20.04 (Focal Fossa)** <= **v60.5**
+
+To upgrade a box running one of these, first upgrade it to the last version supporting its operating system, then upgrade the operating system to a supported release, reboot, and run the setup again. The same applies when upgrading between supported releases (e.g. from Debian 12 to Debian 13): until the setup runs again after the reboot, some services may not work.
 
 <small>_These network requirements are usually not provided by residential ISP's. They are not **strictly required** for Power Mail-in-a-Box to install, but it will take more work to get it running as intended._</small>
 - Static, public IPv4 (most residential connections **do not** provide static addresses);
@@ -79,7 +88,7 @@ sudo dpkg-reconfigure locales
 
 3. Run the following command, and then follow the instructions that appear on the screen:
 ```
-curl -L https://power-mailinabox.net/setup.sh | sudo bash
+curl -L https://raw.githubusercontent.com/Rovart/power-mailinabox/v61.0/setup/bootstrap.sh | sudo bash
 ```
 
 # Upgrading
@@ -87,14 +96,14 @@ curl -L https://power-mailinabox.net/setup.sh | sudo bash
 To upgrade an existing box to the latest version, run the same command as you do to perform a new installation:
 
 ```
-curl -L https://power-mailinabox.net/setup.sh | sudo bash
+curl -L https://raw.githubusercontent.com/Rovart/power-mailinabox/v61.0/setup/bootstrap.sh | sudo bash
 ```
 
 ## Installing or upgrading to a different version
 If for some reason you wish to install a different version (for example, an older version for a workaround, or a beta/release candidate version for testing), you can use the following command.
 
 ```
-curl -L https://power-mailinabox.net/<VERSION>/setup.sh | sudo bash
+curl -L https://raw.githubusercontent.com/Rovart/power-mailinabox/<VERSION>/setup/bootstrap.sh | sudo bash
 ```
 Where `<VERSION>` is the version you want to install. (**Example:** `v60.0`).
 

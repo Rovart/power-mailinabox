@@ -69,6 +69,13 @@ management/editconf.py /etc/postfix/main.cf \
 	maximal_queue_lifetime=2d \
 	bounce_queue_lifetime=1d
 
+# Guard against SMTP smuggling.
+# This "long-term" fix is recommended at https://www.postfix.org/smtp-smuggling.html.
+# It is supported by the Postfix versions shipped with all the operating systems we
+# support (as a backported fix in some of them), and it is the default in Postfix 3.9+.
+management/editconf.py /etc/postfix/main.cf \
+	smtpd_forbid_bare_newline=normalize
+
 # ### Outgoing Mail
 
 # Enable the 'submission' ports 465 and 587 and tweak their settings.
@@ -135,6 +142,12 @@ management/editconf.py /etc/postfix/main.cf \
 	smtpd_tls_exclude_ciphers=aNULL,DES,3DES,MD5,DES+MD5,RC4 \
 	tls_preempt_cipherlist=yes \
 	smtpd_tls_received_header=yes
+
+# Postfix 3.10 and later choose the Diffie-Hellman parameters by themselves (and warn
+# about the setting being deprecated), so don't give them ours.
+if dpkg --compare-versions "$(postconf -h mail_version)" ge 3.10; then
+	management/editconf.py /etc/postfix/main.cf -e smtpd_tls_dh1024_param_file=
+fi
 
 # For ports 465/587 (via the 'mandatory' settings):
 # * Use Mozilla's "Intermediate" TLS recommendations from https://ssl-config.mozilla.org/#server=postfix&server-version=3.3.0&config=intermediate&openssl-version=1.1.1
@@ -214,6 +227,8 @@ management/editconf.py /etc/postfix/main.cf  -e lmtp_destination_recipient_limit
 # * `permit_sasl_authenticated`: Authenticated users (i.e. on port 587) can skip further checks.
 # * `permit_mynetworks`: Mail that originates locally can skip further checks.
 # * `reject_rbl_client`: Reject connections from IP addresses blacklisted in zen.spamhaus.org
+#   (only actual listings, which are reported in the 127.0.0.2-11 range; Spamhaus uses other
+#   addresses to report errors, like when queried through a public DNS resolver)
 # * `reject_unlisted_recipient`: Although Postfix will reject mail to unknown recipients, it's nicer to reject such mail ahead of greylisting rather than after.
 # * `check_policy_service`: Apply greylisting using postgrey.
 #
@@ -223,8 +238,8 @@ management/editconf.py /etc/postfix/main.cf  -e lmtp_destination_recipient_limit
 # whitelisted) then postfix does a DEFER_IF_REJECT, which results in all "unknown user" sorts of messages turning into #NODOC
 # "450 4.7.1 Client host rejected: Service unavailable". This is a retry code, so the mail doesn't properly bounce. #NODOC
 management/editconf.py /etc/postfix/main.cf \
-	smtpd_sender_restrictions="reject_non_fqdn_sender,reject_unknown_sender_domain,reject_authenticated_sender_login_mismatch,reject_rhsbl_sender dbl.spamhaus.org" \
-	smtpd_recipient_restrictions="check_recipient_access sqlite:/etc/postfix/noreply-addresses.cf",permit_sasl_authenticated,permit_mynetworks,"reject_rbl_client zen.spamhaus.org",reject_unlisted_recipient,"check_policy_service inet:127.0.0.1:10023","check_policy_service inet:127.0.0.1:12340"
+	smtpd_sender_restrictions="reject_non_fqdn_sender,reject_unknown_sender_domain,reject_authenticated_sender_login_mismatch,reject_rhsbl_sender dbl.spamhaus.org=127.0.1.[2..99]" \
+	smtpd_recipient_restrictions="check_recipient_access sqlite:/etc/postfix/noreply-addresses.cf",permit_sasl_authenticated,permit_mynetworks,"reject_rbl_client zen.spamhaus.org=127.0.0.[2..11]",reject_unlisted_recipient,"check_policy_service inet:127.0.0.1:10023","check_policy_service inet:127.0.0.1:12340"
 
 # Postfix connects to Postgrey on the 127.0.0.1 interface specifically. Ensure that
 # Postgrey listens on the same interface (and not IPv6, for instance).

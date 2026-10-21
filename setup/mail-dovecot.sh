@@ -31,6 +31,15 @@ apt_install \
 # The `dovecot-imapd`, `dovecot-pop3d`, and `dovecot-lmtpd` packages automatically
 # enable IMAP, POP and LMTP protocols.
 
+# The inotify `max_user_instances` default is 128, which constrains
+# the total number of watched (IMAP IDLE push) folders by open connections.
+# See http://www.dovecot.org/pipermail/dovecot/2013-March/088834.html.
+# A reboot is required for this to take effect (which we don't do as
+# as a part of setup). Test with `cat /proc/sys/fs/inotify/max_user_instances`.
+touch /etc/sysctl.d/90-mailinabox.conf
+management/editconf.py /etc/sysctl.d/90-mailinabox.conf \
+	fs.inotify.max_user_instances=1024
+
 # Set basic daemon options.
 
 # The `default_process_limit` is 100, which constrains the total number
@@ -44,152 +53,310 @@ apt_install \
 # See here for discussion:
 # - https://www.dovecot.org/list/dovecot/2012-August/137569.html
 # - https://www.dovecot.org/list/dovecot/2011-December/132455.html
-management/editconf.py /etc/dovecot/conf.d/10-master.conf \
-	default_process_limit=$(echo "$(nproc) * 250" | bc) \
-	default_vsz_limit=$(echo "$(free -tm  | tail -1 | awk '{print $2}') / 3" | bc)M \
-	log_path=/var/log/mail.log
+DOVECOT_PROCESS_LIMIT=$(echo "$(nproc) * 250" | bc)
+DOVECOT_VSZ_LIMIT=$(echo "$(free -tm  | tail -1 | awk '{print $2}') / 3" | bc)M
 
-# The inotify `max_user_instances` default is 128, which constrains
-# the total number of watched (IMAP IDLE push) folders by open connections.
-# See http://www.dovecot.org/pipermail/dovecot/2013-March/088834.html.
-# A reboot is required for this to take effect (which we don't do as
-# as a part of setup). Test with `cat /proc/sys/fs/inotify/max_user_instances`.
-management/editconf.py /etc/sysctl.conf \
-	fs.inotify.max_user_instances=1024
+if [ "$(dovecot_version)" == "2.3" ]; then
+	management/editconf.py /etc/dovecot/conf.d/10-master.conf \
+		default_process_limit=$DOVECOT_PROCESS_LIMIT \
+		default_vsz_limit=$DOVECOT_VSZ_LIMIT \
+		log_path=/var/log/mail.log
 
-# Set the location where we'll store user mailboxes. '%d' is the domain name and '%n' is the
-# username part of the user's email address. We'll ensure that no bad domains or email addresses
-# are created within the management daemon.
-management/editconf.py /etc/dovecot/conf.d/10-mail.conf \
-	mail_location=maildir:$STORAGE_ROOT/mail/mailboxes/%d/%n \
-	mail_privileged_group=mail \
-	first_valid_uid=0
+	# Set the location where we'll store user mailboxes. '%d' is the domain name and '%n' is the
+	# username part of the user's email address. We'll ensure that no bad domains or email addresses
+	# are created within the management daemon.
+	management/editconf.py /etc/dovecot/conf.d/10-mail.conf \
+		mail_location=maildir:$STORAGE_ROOT/mail/mailboxes/%d/%n \
+		mail_privileged_group=mail \
+		first_valid_uid=0
 
-# Create, subscribe, and mark as special folders: INBOX, Drafts, Sent, Trash, Spam and Archive.
-cp conf/dovecot/conf.d/15-mailboxes.conf /etc/dovecot/conf.d/
-cp conf/dovecot/conf.d/20-imap.conf /etc/dovecot/conf.d/
-cp conf/dovecot/conf.d/90-quota.conf /etc/dovecot/conf.d/
+	# Create, subscribe, and mark as special folders: INBOX, Drafts, Sent, Trash, Spam and Archive.
+	cp conf/dovecot/conf.d/15-mailboxes.conf /etc/dovecot/conf.d/
+	cp conf/dovecot/conf.d/20-imap.conf /etc/dovecot/conf.d/
+	cp conf/dovecot/conf.d/90-quota.conf /etc/dovecot/conf.d/
 
-# ### IMAP/POP
+	# ### IMAP/POP
 
-# Require that passwords are sent over SSL only, and allow the usual IMAP authentication mechanisms.
-# The LOGIN mechanism is supposedly for Microsoft products like Outlook to do SMTP login (I guess
-# since we're using Dovecot to handle SMTP authentication?).
-management/editconf.py /etc/dovecot/conf.d/10-auth.conf \
-	disable_plaintext_auth=yes \
-	"auth_mechanisms=plain login"
+	# Require that passwords are sent over SSL only, and allow the usual IMAP authentication mechanisms.
+	# The LOGIN mechanism is supposedly for Microsoft products like Outlook to do SMTP login (I guess
+	# since we're using Dovecot to handle SMTP authentication?).
+	management/editconf.py /etc/dovecot/conf.d/10-auth.conf \
+		disable_plaintext_auth=yes \
+		"auth_mechanisms=plain login"
 
-# Enable SSL, specify the location of the SSL certificate and private key files.
-# Use Mozilla's "Intermediate" recommendations at https://ssl-config.mozilla.org/#server=dovecot&server-version=2.2.33&config=intermediate&openssl-version=1.1.1,
-# except that the current version of Dovecot does not have a TLSv1.3 setting, so we only use TLSv1.2.
-management/editconf.py /etc/dovecot/conf.d/10-ssl.conf \
-	ssl=required \
-	"ssl_cert=<$STORAGE_ROOT/ssl/ssl_certificate.pem" \
-	"ssl_key=<$STORAGE_ROOT/ssl/ssl_private_key.pem" \
-	"ssl_min_protocol=TLSv1.2" \
-	"ssl_cipher_list=ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384" \
-	"ssl_prefer_server_ciphers=no" \
-	"ssl_dh_parameters_length=2048" \
-	"ssl_dh=<$STORAGE_ROOT/ssl/dh2048.pem"
+	# Enable SSL, specify the location of the SSL certificate and private key files.
+	# Use Mozilla's "Intermediate" recommendations at https://ssl-config.mozilla.org/#server=dovecot&server-version=2.2.33&config=intermediate&openssl-version=1.1.1,
+	# except that the current version of Dovecot does not have a TLSv1.3 setting, so we only use TLSv1.2.
+	management/editconf.py /etc/dovecot/conf.d/10-ssl.conf \
+		ssl=required \
+		"ssl_cert=<$STORAGE_ROOT/ssl/ssl_certificate.pem" \
+		"ssl_key=<$STORAGE_ROOT/ssl/ssl_private_key.pem" \
+		"ssl_min_protocol=TLSv1.2" \
+		"ssl_cipher_list=ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384" \
+		"ssl_prefer_server_ciphers=no" \
+		"ssl_dh_parameters_length=2048" \
+		"ssl_dh=<$STORAGE_ROOT/ssl/dh2048.pem"
 
-# Disable in-the-clear IMAP/POP because there is no reason for a user to transmit
-# login credentials outside of an encrypted connection. Only the over-TLS versions
-# are made available (IMAPS on port 993; POP3S on port 995).
-sed -i "s/#port = 143/port = 0/" /etc/dovecot/conf.d/10-master.conf
-sed -i "s/#port = 110/port = 0/" /etc/dovecot/conf.d/10-master.conf
+	# Disable in-the-clear IMAP/POP because there is no reason for a user to transmit
+	# login credentials outside of an encrypted connection. Only the over-TLS versions
+	# are made available (IMAPS on port 993; POP3S on port 995).
+	sed -i "s/#port = 143/port = 0/" /etc/dovecot/conf.d/10-master.conf
+	sed -i "s/#port = 110/port = 0/" /etc/dovecot/conf.d/10-master.conf
 
-# Make IMAP IDLE slightly more efficient. By default, Dovecot says "still here"
-# every two minutes. With K-9 mail, the bandwidth and battery usage due to
-# this are minimal. But for good measure, let's go to 4 minutes to halve the
-# bandwidth and number of times the device's networking might be woken up.
-# The risk is that if the connection is silent for too long it might be reset
-# by a peer. See [#129](https://github.com/mail-in-a-box/mailinabox/issues/129)
-# and [How bad is IMAP IDLE](http://razor.occams.info/blog/2014/08/09/how-bad-is-imap-idle/).
-management/editconf.py /etc/dovecot/conf.d/20-imap.conf \
-	imap_idle_notify_interval="4 mins"
+	# Make IMAP IDLE slightly more efficient. By default, Dovecot says "still here"
+	# every two minutes. With K-9 mail, the bandwidth and battery usage due to
+	# this are minimal. But for good measure, let's go to 4 minutes to halve the
+	# bandwidth and number of times the device's networking might be woken up.
+	# The risk is that if the connection is silent for too long it might be reset
+	# by a peer. See [#129](https://github.com/mail-in-a-box/mailinabox/issues/129)
+	# and [How bad is IMAP IDLE](http://razor.occams.info/blog/2014/08/09/how-bad-is-imap-idle/).
+	management/editconf.py /etc/dovecot/conf.d/20-imap.conf \
+		imap_idle_notify_interval="4 mins"
 
-# Set POP3 UIDL.
-# UIDLs are used by POP3 clients to keep track of what messages they've downloaded.
-# For new POP3 servers, the easiest way to set up UIDLs is to use IMAP's UIDVALIDITY
-# and UID values, the default in Dovecot.
-management/editconf.py /etc/dovecot/conf.d/20-pop3.conf \
-	pop3_uidl_format="%08Xu%08Xv"
+	# Set POP3 UIDL.
+	# UIDLs are used by POP3 clients to keep track of what messages they've downloaded.
+	# For new POP3 servers, the easiest way to set up UIDLs is to use IMAP's UIDVALIDITY
+	# and UID values, the default in Dovecot.
+	management/editconf.py /etc/dovecot/conf.d/20-pop3.conf \
+		pop3_uidl_format="%08Xu%08Xv"
 
-# ### LDA (LMTP)
+	# ### LDA (LMTP)
 
-# Enable Dovecot's LDA service with the LMTP protocol. It will listen
-# on port 10026, and Spamassassin will be configured to pass mail there.
-#
-# The disabled unix socket listener is normally how Postfix and Dovecot
-# would communicate (see the Postfix setup script for the corresponding
-# setting also commented out).
-#
-# Also increase the number of allowed IMAP connections per mailbox because
-# we all have so many devices lately.
-cat > /etc/dovecot/conf.d/99-local.conf << EOF;
+	# Enable Dovecot's LDA service with the LMTP protocol. It will listen
+	# on port 10026, and Spamassassin will be configured to pass mail there.
+	#
+	# The disabled unix socket listener is normally how Postfix and Dovecot
+	# would communicate (see the Postfix setup script for the corresponding
+	# setting also commented out).
+	#
+	# Also increase the number of allowed IMAP connections per mailbox because
+	# we all have so many devices lately.
+	cat > /etc/dovecot/conf.d/99-local.conf <<- EOF;
+	service lmtp {
+	  #unix_listener /var/spool/postfix/private/dovecot-lmtp {
+	  #  user = postfix
+	  #  group = postfix
+	  #}
+	  inet_listener lmtp {
+	    address = 127.0.0.1
+	    port = 10026
+	  }
+	}
+
+	# Enable imap-login on localhost to allow the user_external plugin
+	# for Nextcloud to do imap authentication. (See #1577)
+	service imap-login {
+	  inet_listener imap {
+	    address = 127.0.0.1
+	    port = 143
+	  }
+	}
+	protocol imap {
+	  mail_max_userip_connections = 40
+	}
+	EOF
+
+	# Setting a `postmaster_address` is required or LMTP won't start. An alias
+	# will be created automatically by our management daemon.
+	management/editconf.py /etc/dovecot/conf.d/15-lda.conf \
+		postmaster_address=postmaster@$PRIMARY_HOSTNAME
+
+	# ### Sieve
+
+	# Enable the Dovecot sieve plugin which let's users run scripts that process
+	# mail as it comes in.
+	sed -i "s/#mail_plugins = .*/mail_plugins = \$mail_plugins sieve/" /etc/dovecot/conf.d/20-lmtp.conf
+
+	# Configure sieve. We'll create a global script that moves mail marked
+	# as spam by Spamassassin into the user's Spam folder.
+	#
+	# * `sieve_before`: The path to our global sieve which handles moving spam to the Spam folder.
+	#
+	# * `sieve_before2`: The path to our global sieve directory for sieve which can contain .sieve files
+	# to run globally for every user before their own sieve files run.
+	#
+	# * `sieve_after`: The path to our global sieve directory which can contain .sieve files
+	# to run globally for every user after their own sieve files run.
+	#
+	# * `sieve`: The path to the user's main active script. ManageSieve will create a symbolic
+	# link here to the actual sieve script. It should not be in the mailbox directory
+	# (because then it might appear as a folder) and it should not be in the sieve_dir
+	# (because then I suppose it might appear to the user as one of their scripts).
+	# * `sieve_dir`: Directory for :personal include scripts for the include extension. This
+	# is also where the ManageSieve service stores the user's scripts.
+	cat > /etc/dovecot/conf.d/99-local-sieve.conf <<- EOF;
+	plugin {
+	  sieve_before = /etc/dovecot/sieve-spam.sieve
+	  sieve_before2 = $STORAGE_ROOT/mail/sieve/global_before
+	  sieve_after = $STORAGE_ROOT/mail/sieve/global_after
+	  sieve = $STORAGE_ROOT/mail/sieve/%d/%n.sieve
+	  sieve_dir = $STORAGE_ROOT/mail/sieve/%d/%n
+	  sieve_redirect_envelope_from = recipient
+	  sieve_vacation_send_from_recipient = yes
+	}
+	EOF
+else
+	# Dovecot 2.4 (Debian 13 and later) has a completely redesigned configuration
+	# syntax, so instead of tweaking the distribution's example configuration (as we
+	# do for Dovecot 2.3 above) we own the whole configuration: dovecot.conf only
+	# includes the files we write in /etc/dovecot/mailinabox.d. The settings below
+	# match the ones used with Dovecot 2.3, see the comments there for the details.
+	mkdir -p /etc/dovecot/mailinabox.d
+	cat > /etc/dovecot/dovecot.conf << EOF;
+## NOTE: This file is automatically generated by Mail-in-a-Box.
+##       Do not edit this file. It is continually updated by
+##       Mail-in-a-Box and your changes will be lost.
+dovecot_config_version = 2.4.0
+dovecot_storage_version = 2.4.0
+
+# Enable installed protocols
+!include_try /usr/share/dovecot/protocols.d/*.protocol
+
+!include /etc/dovecot/mailinabox.d/*.conf
+!include_try local.conf
+EOF
+
+	cat > /etc/dovecot/mailinabox.d/10-mail.conf << EOF;
+## NOTE: This file is automatically generated by Mail-in-a-Box.
+##       Do not edit this file. It is continually updated by
+##       Mail-in-a-Box and your changes will be lost.
+
+default_process_limit = $DOVECOT_PROCESS_LIMIT
+default_vsz_limit = $DOVECOT_VSZ_LIMIT
+log_path = /var/log/mail.log
+
+# Dovecot 2.4 checks that the auth and anvil services can handle every process
+# of the other services, which are now allowed to run many more processes.
+service auth {
+  client_limit = $(( DOVECOT_PROCESS_LIMIT * 6 ))
+}
+service anvil {
+  client_limit = $(( DOVECOT_PROCESS_LIMIT * 6 ))
+}
+
+# User mailboxes. The domain and the user part of the user's email address
+# are used as directories.
+mail_driver = maildir
+mail_home = $STORAGE_ROOT/mail/mailboxes/%{user | domain}/%{user | username}
+mail_path = $STORAGE_ROOT/mail/mailboxes/%{user | domain}/%{user | username}
+mail_privileged_group = mail
+first_valid_uid = 0
+
+namespace inbox {
+  inbox = yes
+}
+
+# Require that passwords are sent over SSL only, and allow the usual
+# authentication mechanisms.
+auth_allow_cleartext = no
+auth_mechanisms = plain login
+
+ssl = required
+ssl_server_cert_file = $STORAGE_ROOT/ssl/ssl_certificate.pem
+ssl_server_key_file = $STORAGE_ROOT/ssl/ssl_private_key.pem
+ssl_server_dh_file = $STORAGE_ROOT/ssl/dh2048.pem
+ssl_min_protocol = TLSv1.2
+ssl_cipher_list = ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384
+ssl_server_prefer_ciphers = client
+
+# Only the over-TLS versions of IMAP and POP are made available to the outside
+# world (IMAPS on port 993; POP3S on port 995). Plain IMAP is only enabled on
+# localhost, to allow the user_external app for Nextcloud to do IMAP
+# authentication (See #1577).
+service imap-login {
+  inet_listener imap {
+    listen = 127.0.0.1
+    port = 143
+  }
+}
+service pop3-login {
+  inet_listener pop3 {
+    port = 0
+  }
+}
+
+protocol imap {
+  imap_idle_notify_interval = 4 mins
+  mail_max_userip_connections = 40
+}
+
+# Use IMAP's UIDVALIDITY and UID values for POP3 UIDLs, like we always did
+# (this produces exactly the same UIDLs as "%08Xu%08Xv" in Dovecot 2.3).
+pop3_uidl_format = %{uid | hex(8)}%{uidvalidity | hex(8)}
+
+# Dovecot's LDA service with the LMTP protocol. It will listen on port 10026,
+# and Spamassassin will be configured to pass mail there.
 service lmtp {
-  #unix_listener /var/spool/postfix/private/dovecot-lmtp {
-  #  user = postfix
-  #  group = postfix
-  #}
   inet_listener lmtp {
-    address = 127.0.0.1
+    listen = 127.0.0.1
     port = 10026
   }
 }
 
-# Enable imap-login on localhost to allow the user_external plugin
-# for Nextcloud to do imap authentication. (See #1577)
-service imap-login {
-  inet_listener imap {
-    address = 127.0.0.1
-    port = 143
-  }
+# Setting a postmaster_address is required or LMTP won't start. An alias
+# will be created automatically by our management daemon.
+postmaster_address = postmaster@$PRIMARY_HOSTNAME
+
+# Quotas
+mail_plugins {
+  quota = yes
 }
 protocol imap {
-  mail_max_userip_connections = 40
+  mail_plugins {
+    imap_quota = yes
+  }
+}
+quota "User quota" {
+  driver = maildir
+}
+quota_status_success = DUNNO
+quota_status_nouser = DUNNO
+quota_status_overquota = "522 5.2.2 Mailbox is full"
+service quota-status {
+  executable = quota-status -p postfix
+  inet_listener quota-status {
+    listen = 127.0.0.1
+    port = 12340
+  }
 }
 EOF
 
-# Setting a `postmaster_address` is required or LMTP won't start. An alias
-# will be created automatically by our management daemon.
-management/editconf.py /etc/dovecot/conf.d/15-lda.conf \
-	postmaster_address=postmaster@$PRIMARY_HOSTNAME
+	# Create, subscribe, and mark as special folders: INBOX, Drafts, Sent, Trash, Spam and Archive.
+	cp conf/dovecot/conf.d/15-mailboxes.conf /etc/dovecot/mailinabox.d/
 
-# ### Sieve
-
-# Enable the Dovecot sieve plugin which let's users run scripts that process
-# mail as it comes in.
-sed -i "s/#mail_plugins = .*/mail_plugins = \$mail_plugins sieve/" /etc/dovecot/conf.d/20-lmtp.conf
-
-# Configure sieve. We'll create a global script that moves mail marked
-# as spam by Spamassassin into the user's Spam folder.
-#
-# * `sieve_before`: The path to our global sieve which handles moving spam to the Spam folder.
-#
-# * `sieve_before2`: The path to our global sieve directory for sieve which can contain .sieve files
-# to run globally for every user before their own sieve files run.
-#
-# * `sieve_after`: The path to our global sieve directory which can contain .sieve files
-# to run globally for every user after their own sieve files run.
-#
-# * `sieve`: The path to the user's main active script. ManageSieve will create a symbolic
-# link here to the actual sieve script. It should not be in the mailbox directory
-# (because then it might appear as a folder) and it should not be in the sieve_dir
-# (because then I suppose it might appear to the user as one of their scripts).
-# * `sieve_dir`: Directory for :personal include scripts for the include extension. This
-# is also where the ManageSieve service stores the user's scripts.
-cat > /etc/dovecot/conf.d/99-local-sieve.conf << EOF;
-plugin {
-  sieve_before = /etc/dovecot/sieve-spam.sieve
-  sieve_before2 = $STORAGE_ROOT/mail/sieve/global_before
-  sieve_after = $STORAGE_ROOT/mail/sieve/global_after
-  sieve = $STORAGE_ROOT/mail/sieve/%d/%n.sieve
-  sieve_dir = $STORAGE_ROOT/mail/sieve/%d/%n
-  sieve_redirect_envelope_from = recipient
-  sieve_vacation_send_from_recipient = yes
+	# Sieve (see the comments in the Dovecot 2.3 section above)
+	cat > /etc/dovecot/mailinabox.d/30-sieve.conf << EOF;
+## NOTE: This file is automatically generated by Mail-in-a-Box.
+##       Do not edit this file. It is continually updated by
+##       Mail-in-a-Box and your changes will be lost.
+protocol lmtp {
+  mail_plugins {
+    sieve = yes
+  }
 }
+
+sieve_script spam {
+  type = before
+  path = /etc/dovecot/sieve-spam.sieve
+}
+sieve_script global_before {
+  type = before
+  path = $STORAGE_ROOT/mail/sieve/global_before
+}
+sieve_script global_after {
+  type = after
+  path = $STORAGE_ROOT/mail/sieve/global_after
+}
+sieve_script personal {
+  type = personal
+  path = $STORAGE_ROOT/mail/sieve/%{user | domain}/%{user | username}
+  active_path = $STORAGE_ROOT/mail/sieve/%{user | domain}/%{user | username}.sieve
+}
+
+sieve_redirect_envelope_from = recipient
+sieve_vacation_send_from_recipient = yes
 EOF
+fi
 
 # Copy the global sieve script into where we've told Dovecot to look for it. Then
 # compile it. Global scripts must be compiled now because Dovecot won't have
@@ -205,13 +372,13 @@ chmod -R o-rwx /etc/dovecot
 
 # Ensure mailbox files have a directory that exists and are owned by the mail user.
 mkdir -p $STORAGE_ROOT/mail/mailboxes
-chown -R mail.mail $STORAGE_ROOT/mail/mailboxes
+chown -R mail:mail $STORAGE_ROOT/mail/mailboxes
 
 # Same for the sieve scripts.
 mkdir -p $STORAGE_ROOT/mail/sieve
 mkdir -p $STORAGE_ROOT/mail/sieve/global_before
 mkdir -p $STORAGE_ROOT/mail/sieve/global_after
-chown -R mail.mail $STORAGE_ROOT/mail/sieve
+chown -R mail:mail $STORAGE_ROOT/mail/sieve
 
 # Allow the IMAP/POP ports in the firewall.
 ufw_allow imaps

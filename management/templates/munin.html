@@ -1,20 +1,42 @@
-<h2>Munin Monitoring</h2>
+<div class="page-header">
+	<h2>Monitoring</h2>
+	<p class="text-body-secondary">Munin keeps graphs of the resource usage of your box (processor, memory, disk,
+		network, mail traffic and more), collected every five minutes.</p>
+</div>
 
-<style>
-</style>
+<div class="card mb-4 requires-service-munin">
+	<div class="card-body d-flex flex-wrap align-items-center gap-3">
+		<span class="tile-icon" aria-hidden="true"><span class="fa-solid fa-chart-line"></span></span>
+		<p class="mb-0 flex-grow-1">The graphs open in a new tab. Your access to them lasts 30 minutes; open them
+			again from here after that.</p>
+		<button type="button" class="btn btn-primary" onclick="open_munin(); return false;">
+			<span class="fa-solid fa-arrow-up-right-from-square me-1" aria-hidden="true"></span> Open Munin
+		</button>
+	</div>
+</div>
 
-<p>Opening munin in a new tab... You may need to allow pop-ups for this site.</p>
+<div class="alert alert-secondary requires-service-off-munin" role="status">
+	Munin is turned off. You can turn it on in <a href="#services">Services</a>.
+</div>
 
 <script>
-	function show_munin() {
-		// Set the cookie.
+	function open_munin() {
+		// Open the tab right away (while handling the click, so that it isn't blocked
+		// as a pop-up) and load Munin in it once the access cookie is set.
+		var tab = window.open("", "_blank");
 		api(
-			"/munin",
+			"/munin/",
 			"GET",
 			{},
+			function () {
+				if (tab)
+					tab.location = "/admin/munin/index.html";
+				else
+					window.location = "/admin/munin/index.html";
+			},
 			function (r) {
-				// Redirect.
-				window.open("/admin/munin/index.html", "_blank");
+				if (tab) tab.close();
+				show_modal_error("Monitoring", r || "Something went wrong, sorry.");
 			});
 	}
 </script>

@@ -185,6 +185,14 @@ def run_services_checks(env, output, pool):
 		fatal = fatal or fatal2
 		output2.playback(output)
 
+	# Check fail2ban.
+	code, ret = shell('check_output', ["fail2ban-client", "status"],
+						capture_stderr=True,
+						trap=True)
+	if code != 0:
+		output.print_error("fail2ban is not running.")
+		all_running = False
+
 	if all_running:
 		output.print_ok("All system services are running.")
 
@@ -322,8 +330,8 @@ def check_ssh_password(env, output):
 	if not os.path.exists("/etc/ssh/sshd_config"):
 		return
 	sshd = open("/etc/ssh/sshd_config").read()
-	if re.search("\nPasswordAuthentication\s+yes", sshd) \
-				or not re.search("\nPasswordAuthentication\s+no", sshd):
+	if re.search(r"\nPasswordAuthentication\s+yes", sshd) \
+				or not re.search(r"\nPasswordAuthentication\s+no", sshd):
 		output.print_error(
 			"""The SSH server on this machine permits password-based login. A more secure
 			way to log in is using a public key. Add your SSH public key to $HOME/.ssh/authorized_keys, check
@@ -521,6 +529,8 @@ def run_network_checks(env, output):
 	# The user might have ended up on an IP address that was previously in use
 	# by a spammer, or the user may be deploying on a residential network. We
 	# will not be able to reliably send mail in these cases.
+	# See https://www.spamhaus.org/news/article/807/using-our-public-mirrors-check-your-return-codes-now.
+	# for information on Spamhaus return codes.
 	rev_ip4 = ".".join(reversed(env['PUBLIC_IP'].split('.')))
 	zen = query_dns(rev_ip4 + '.zen.spamhaus.org', 'A', nxdomain=None)
 	if zen is None:
@@ -528,6 +538,18 @@ def run_network_checks(env, output):
 	elif zen == "[timeout]":
 		output.print_warning(
 			"Connection to zen.spamhaus.org timed out. We could not determine whether your server's IP address is blacklisted. Please try again later."
+		)
+	elif zen == "127.255.255.252":
+		output.print_warning(
+			"Incorrect spamhaus query: %s. We could not determine whether your server's IP address is blacklisted."
+			% (rev_ip4 + '.zen.spamhaus.org'))
+	elif zen == "127.255.255.254":
+		output.print_warning(
+			"Mail-in-a-Box is configured to use a public DNS server. This is not supported by spamhaus. We could not determine whether your server's IP address is blacklisted."
+		)
+	elif zen == "127.255.255.255":
+		output.print_warning(
+			"Too many queries have been performed on the spamhaus server. We could not determine whether your server's IP address is blacklisted."
 		)
 	else:
 		output.print_error(
@@ -934,7 +956,7 @@ def check_dns_zone(domain, env, output, dns_zonefiles):
 		for ns in custom_secondary_ns:
 			# We must first resolve the nameserver to an IP address so we can query it.
 			ns_ips = query_dns(ns, "A")
-			if not ns_ips:
+			if not ns_ips or ns_ips in {'[Not Set]', '[timeout]'}:
 				output.print_error(
 					"Secondary nameserver %s is not valid (it doesn't resolve to an IP address)."
 					% ns)
@@ -1206,12 +1228,26 @@ def check_mail_domain(domain, env, output):
 	# Stop if the domain is listed in the Spamhaus Domain Block List.
 	# The user might have chosen a domain that was previously in use by a spammer
 	# and will not be able to reliably send mail.
+	# See https://www.spamhaus.org/news/article/807/using-our-public-mirrors-check-your-return-codes-now.
+	# for information on Spamhaus return codes.
 	dbl = query_dns(domain + '.dbl.spamhaus.org', "A", nxdomain=None)
 	if dbl is None:
 		output.print_ok("Domain is not blacklisted by dbl.spamhaus.org.")
 	elif dbl == "[timeout]":
 		output.print_warning(
 			"Connection to dbl.spamhaus.org timed out. We could not determine whether the domain {} is blacklisted. Please try again later."
+			.format(domain))
+	elif dbl == "127.255.255.252":
+		output.print_warning(
+			"Incorrect spamhaus query: {}. We could not determine whether the domain {} is blacklisted."
+			.format(domain + '.dbl.spamhaus.org', domain))
+	elif dbl == "127.255.255.254":
+		output.print_warning(
+			"Mail-in-a-Box is configured to use a public DNS server. This is not supported by spamhaus. We could not determine whether the domain {} is blacklisted."
+			.format(domain))
+	elif dbl == "127.255.255.255":
+		output.print_warning(
+			"Too many queries have been performed on the spamhaus server. We could not determine whether the domain {} is blacklisted."
 			.format(domain))
 	else:
 		output.print_error(
@@ -1265,12 +1301,18 @@ def query_dns(qname, rtype, nxdomain='[Not Set]', at=None, as_list=False):
 	# running bind server), or if the 'at' argument is specified, use that host
 	# as the nameserver.
 	resolver = dns.resolver.get_default_resolver()
-	if at:
+
+	# Make sure at is not a string that cannot be used as a nameserver
+	if at and at not in {'[Not Set]', '[timeout]'}:
 		resolver = dns.resolver.Resolver()
 		resolver.nameservers = [at]
 
 	# Set a timeout so that a non-responsive server doesn't hold us back.
 	resolver.timeout = 5
+
+	# The number of seconds to spend trying to get an answer to the question. If the
+	# lifetime expires a dns.exception.Timeout exception will be raised.
+	resolver.lifetime = 5
 
 	# Do the query.
 	try:
@@ -1416,8 +1458,8 @@ def what_version_is_this(env):
 
 
 def get_latest_miab_version():
-	# This pings https://power-mailinabox.net/setup.sh and extracts the tag named in
-	# the script to determine the current product version.
+	# This fetches the setup script on the main branch of the repository and
+	# extracts the tag named in it to determine the current product version.
 	from urllib.request import urlopen, HTTPError, URLError
 	from socket import timeout
 
@@ -1425,7 +1467,7 @@ def get_latest_miab_version():
 		return re.search(
 			b'TAG=(.*)',
 			urlopen(
-				"https://power-mailinabox.net/setup.sh",
+				"https://raw.githubusercontent.com/Rovart/power-mailinabox/main/setup/bootstrap.sh",
 				timeout=5).read()).group(1).decode("utf8")
 	except (HTTPError, URLError, timeout):
 		return None
@@ -1456,7 +1498,7 @@ def check_miab_version(env, output):
 				% this_ver)
 		else:
 			output.print_error(
-				"A new version of Mail-in-a-Box is available. You are running version %s. The latest version is %s. For upgrade instructions, visit https://power-mailinabox.net"
+				"A new version of Mail-in-a-Box is available. You are running version %s. The latest version is %s. For upgrade instructions, visit https://github.com/Rovart/power-mailinabox"
 				% (this_ver, latest_ver))
 
 
@@ -1473,7 +1515,11 @@ def run_and_output_changes(env, pool):
 	# Load previously saved status checks.
 	cache_fn = "/var/cache/mailinabox/status_checks.json"
 	if os.path.exists(cache_fn):
-		prev = json.load(open(cache_fn))
+		try:
+			with open(cache_fn) as f:
+				prev = json.load(f)
+		except json.JSONDecodeError:
+			prev = []
 
 		# Group the serial output into categories by the headings.
 		def group_by_heading(lines):
@@ -1571,8 +1617,8 @@ class FileOutput:
 
 	def print_block(self, message, first_line="   "):
 		print(first_line, end='', file=self.buf)
-		message = re.sub("\n\s*", " ", message)
-		words = re.split("(\s+)", message)
+		message = re.sub(r"\n\s*", " ", message)
+		words = re.split(r"(\s+)", message)
 		linelen = 0
 		for w in words:
 			if self.width and (linelen + len(w) >

@@ -6,16 +6,16 @@ if [ -z "${NONINTERACTIVE:-}" ]; then
 	# use a shell flag instead. Really suppress any output from installing dialog.
 	#
 	# Also install dependencies needed to validate the email address.
-	if [ ! -f /usr/bin/dialog ] || [ ! -f /usr/bin/python3 ] || [ ! -f /usr/bin/pip3 ]; then
+	if [ ! -f /usr/bin/dialog ] || [ ! -f /usr/bin/python3 ] || ! python3 -c "import email_validator, idna" 2> /dev/null; then
 		echo Installing packages needed for setup...
 		apt-get -q -q update
-		apt_get_quiet install dialog file python3 python3-pip  || exit 1
+		apt_get_quiet install dialog file python3 python3-email-validator python3-idna || exit 1
 	fi
 
-	# Installing email_validator is repeated in setup/management.sh, but in setup/management.sh
+	# email_validator is also installed in setup/management.sh, but in setup/management.sh
 	# we install it inside a virtualenv. In this script, we don't have the virtualenv yet
-	# so we install the python package globally.
-	hide_output pip3 install "email_validator>=1.0.0" || exit 1
+	# so we use the distribution's package (installing packages with a system-wide pip
+	# is no longer allowed on modern distributions, see PEP 668).
 
 	message_box "Mail-in-a-Box Installation" \
 		"Hello and thanks for deploying a (Power) Mail-in-a-Box!

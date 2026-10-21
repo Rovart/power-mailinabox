@@ -1,119 +1,102 @@
-<h2>System Status Checks</h2>
-
 <style>
-	#system-checks .message {
-		display: inline;
-	}
-
-	#system-checks .icon {
-		min-width: 2em;
-	}
-
-	#system-checks .heading {
-		font-weight: bold;
-		font-size: 180%;
-		padding-top: 1.75em;
-	}
-
-	#system-checks .heading.first {
-		border-top: none;
-		padding-top: 0;
-	}
-
-	.status-error .fas {
-		color: rgb(190, 0, 0);
-	}
-
+	/* Status colors. These selectors are shared with other panels (e.g. PGP keyring
+	   and WKD), and follow the active Bootstrap color mode (light/dark). */
+	.status-error .fas,
+	.status-error .fa-solid,
+	.status-error .status-icon,
+	.status-error .status-text,
 	.status-error.sym {
-		color: rgb(190, 0, 0);
+		color: var(--bs-danger-text-emphasis);
 	}
 
-	.status-error .status-text {
-		color: rgb(70, 0, 0);
-	}
-
-	.status-warning .fas {
-		color: rgb(191, 150, 0);
-	}
-
+	.status-warning .fas,
+	.status-warning .fa-solid,
+	.status-warning .status-icon,
+	.status-warning .status-text,
 	.status-warning.sym {
-		color: rgb(191, 150, 0);
+		color: var(--bs-warning-text-emphasis);
 	}
 
-	.status-warning .status-text {
-		color: rgb(69, 54, 0);
-	}
-
-	.status-ok .fas {
-		color: rgb(0, 190, 0);
-	}
-
+	.status-ok .fas,
+	.status-ok .fa-solid,
+	.status-ok .status-icon,
+	.status-ok .status-text,
 	.status-ok.sym {
-		color: rgb(0, 190, 0);
+		color: var(--bs-success-text-emphasis);
 	}
 
-	.status-ok .status-text {
-		color: rgb(0, 70, 0);
+	.status-na .fas,
+	.status-na .fa-solid,
+	.status-na .status-icon,
+	.status-na .status-text,
+	.status-na.sym,
+	#system-checks .status-na .message {
+		color: var(--bs-secondary-color);
 	}
 
-	.status-na .fas {
-		color: rgb(100, 100, 100);
+	#system-checks .status-icon {
+		width: 1.5em;
+		flex-shrink: 0;
 	}
 
-	.status-na.sym {
-		color: rgb(100, 100, 100);
+	#system-checks .system-check-body {
+		min-width: 0;
 	}
 
-	.status-na .status-text {
-		color: rgb(100, 100, 100);
-	}
-
-	div.extra {
-		display: none;
-		margin-top: 1em;
-		word-wrap: break-word;
-	}
-
-	#system-checks .showhide {
-		display: block;
-		font-size: 85%;
-	}
-
-	#system-checks .pre {
-		margin: 1em;
-		font-family: monospace;
+	#system-checks pre.extra-pre {
 		white-space: pre-wrap;
+		word-break: break-all;
 	}
 </style>
 
-<div id="system-reboot-required" style="display: none; margin-bottom: 1em;">
-	<button type="button" class="btn btn-danger" onclick="confirm_reboot(); return false;">Reboot Box</button>
-	<div>No reboot is necessary.</div>
+<div class="page-header">
+	<h2>System Status Checks</h2>
+	<p class="text-body-secondary">These checks verify that this box&rsquo;s services, DNS records and certificates are
+		set up correctly. Fix any errors and review the warnings below.</p>
 </div>
 
-<div id="system-privacy-setting" style="display: none">
-	<div><a onclick="return enable_privacy(!current_privacy_setting)" href="#"><span>Enable/Disable</span>
-			New-Version Check</a></div>
-	<p style="line-height: 125%"><small>(When enabled, status checks phone-home to check for a new release of
-			Mail-in-a-Box.)</small></p>
+<div id="system-reboot-required" class="mb-3" style="display: none">
+	<div class="reboot-needed alert alert-warning d-flex flex-wrap align-items-center gap-3 d-none" role="alert">
+		<i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+		<span class="me-auto">A reboot is required to finish installing system updates.</span>
+		<button type="button" class="btn btn-sm btn-danger" onclick="confirm_reboot(); return false;">
+			<i class="fa-solid fa-power-off" aria-hidden="true"></i> Reboot Box
+		</button>
+	</div>
+	<p class="reboot-not-needed small text-body-secondary mb-0 d-none">
+		<i class="fa-solid fa-circle-check" aria-hidden="true"></i> No reboot is necessary.
+	</p>
 </div>
+
+<div id="system-privacy-setting" class="mb-4" style="display: none">
+	<div class="form-check form-switch">
+		<input class="form-check-input" type="checkbox" role="switch" id="system-privacy-toggle"
+			aria-describedby="system-privacy-help" onchange="enable_privacy(!this.checked);">
+		<label class="form-check-label" for="system-privacy-toggle">Check for new versions</label>
+	</div>
+	<div id="system-privacy-help" class="form-text">When enabled, the status checks phone home to check for a new
+		release of Mail-in-a-Box.</div>
+</div>
+
+<div id="system-checks-summary" class="mb-4"></div>
 
 <div id="system-checks">
 </div>
 
 <script>
 	function show_system_status() {
-		$('#system-checks').html("")
+		$('#system-checks').empty();
+		$('#system-checks-summary').empty();
 
 		api(
 			"/system/privacy",
 			"GET",
 			{},
 			function (r) {
+				// r is true when privacy mode is on, i.e. when the new-version check is disabled.
 				current_privacy_setting = r;
 				$('#system-privacy-setting').show();
-				$('#system-privacy-setting a span').text(r ? "Enable" : "Disable");
-				$('#system-privacy-setting p').toggle(r);
+				$('#system-privacy-toggle').prop('checked', !r).prop('disabled', false);
 			});
 
 		api(
@@ -122,8 +105,8 @@
 			{},
 			function (r) {
 				$('#system-reboot-required').show(); // show when r becomes available
-				$('#system-reboot-required').find('button').toggle(r);
-				$('#system-reboot-required').find('div').toggle(!r);
+				$('#system-reboot-required .reboot-needed').toggleClass('d-none', !r);
+				$('#system-reboot-required .reboot-not-needed').toggleClass('d-none', !!r);
 			});
 
 		api(
@@ -131,61 +114,145 @@
 			"POST",
 			{},
 			function (r) {
-				for (let i = 0; i < r.length; i++) {
-					let n = $("<div class='col-12'><div class='icon'></div><p class='message status-text' style='margin: 0'/>");
-					if (i == 0) n.addClass('first')
+				render_system_checks(r);
+			});
+	}
 
-					if (r[i].type == "heading") {
-						n.addClass(r[i].type)
-					} else {
-						n.addClass("status-" + r[i].type)
-						n.find(".icon").addClass("fas")
-					}
+	function render_system_checks(r) {
+		var types = {
+			error: { icon: "fa-circle-xmark", label: "Error" },
+			warning: { icon: "fa-triangle-exclamation", label: "Warning" },
+			ok: { icon: "fa-circle-check", label: "OK" },
+			na: { icon: "fa-circle-minus", label: "Not applicable" }
+		};
+		var totals = { error: 0, warning: 0, ok: 0, na: 0 };
+		var sections = [];
+		var section = null;
+		var container = $('#system-checks');
+		container.empty();
 
-					if (r[i].type == "ok") n.find(".icon").addClass("fa-check")
-					if (r[i].type == "error") n.find(".icon").addClass("fa-times")
-					if (r[i].type == "warning") n.find(".icon").addClass("fa-exclamation-triangle")
+		// Server-provided details are always inserted as text: they may contain DNS data.
+		function render_extra(extras, target) {
+			(extras || []).forEach(function (x) {
+				if (x.monospace)
+					target.append($('<pre class="extra-pre small bg-body-tertiary border rounded p-2 mb-2"></pre>').text(x.text));
+				else
+					target.append($('<p class="mb-2 text-break"></p>').text(x.text));
+			});
+		}
 
-					n.find('p.status-text').text(r[i].text)
+		function new_section(title) {
+			var id = "system-check-section-" + sections.length;
+			var card = $('<section class="card mb-4 system-check-section"></section>').attr('aria-labelledby', id);
+			var header = $('<div class="card-header d-flex flex-wrap align-items-center gap-2"></div>');
+			var heading = $('<h3 class="heading h5 mb-0 me-auto text-break"></h3>').attr('id', id).text(title);
+			var badges = $('<div class="d-flex flex-wrap gap-1"></div>');
+			header.append(heading, badges);
+			var list = $('<ul class="list-group list-group-flush"></ul>');
+			card.append(header, list);
+			container.append(card);
+			var s = { card: card, badges: badges, list: list, counts: { error: 0, warning: 0, ok: 0, na: 0 } };
+			sections.push(s);
+			return s;
+		}
 
-					if (r[i].extra.length > 0) {
-						let open = false
-						n.append("<p class='showhide btn btn-light mt-3' href='#'>Show More</p><div class='extra ps-4 col-12'></div>")
-						n.find('.showhide').click(function () {
-							let extra = $(this).parent().find('.extra')
+		for (let i = 0; i < r.length; i++) {
+			let item = r[i];
 
-							if (open) {
-								$(this).html("Show More");
-								extra.fadeOut();
-							} else {
-								$(this).html("Show Less");
-								extra.fadeIn();
-							}
-
-							open = !open
-							return false;
-						});
-					}
-
-					for (var j = 0; j < r[i].extra.length; j++) {
-
-						var m = $("<div/>").text(r[i].extra[j].text)
-						if (r[i].extra[j].monospace)
-							m.addClass("pre");
-						n.find('.extra').append(m);
-					}
-
-					$('#system-checks').append(n);
-					if (i < r.length - 1) {
-						$('#system-checks').append($("<hr>"));
-					}
+			if (item.type == "heading") {
+				section = new_section(item.text);
+				if (item.extra && item.extra.length > 0) {
+					let details = $('<div class="card-body pb-1"></div>');
+					render_extra(item.extra, details);
+					section.list.before(details);
 				}
-			})
+				continue;
+			}
 
+			if (!section) section = new_section("System");
+
+			let type = types[item.type] ? item.type : "na";
+			totals[type]++;
+			section.counts[type]++;
+
+			let n = $('<li class="list-group-item d-flex align-items-start gap-2"></li>').addClass("status-" + type);
+			n.append($('<span class="status-icon"></span>').append(
+				$('<i class="fa-solid" aria-hidden="true"></i>').addClass(types[type].icon),
+				$('<span class="visually-hidden"></span>').text(types[type].label + ": ")
+			));
+
+			let body = $('<div class="system-check-body flex-grow-1"></div>');
+			body.append($('<p class="message mb-0 text-break"></p>').text(item.text));
+
+			if (item.extra && item.extra.length > 0) {
+				let extra_id = "system-check-extra-" + i;
+				let extra = $('<div class="extra mt-2" hidden></div>').attr('id', extra_id);
+				render_extra(item.extra, extra);
+
+				let toggle = $('<button type="button" class="showhide btn btn-link btn-sm p-0" aria-expanded="false"></button>')
+					.attr('aria-controls', extra_id)
+					.text("Show More");
+				toggle.on('click', function () {
+					let open = $(this).attr('aria-expanded') === "true";
+					$(this).attr('aria-expanded', open ? "false" : "true").text(open ? "Show More" : "Show Less");
+					extra.prop('hidden', open);
+					return false;
+				});
+				body.append($('<div></div>').append(toggle), extra);
+			}
+
+			n.append(body);
+			section.list.append(n);
+		}
+
+		// Per-section counts.
+		sections.forEach(function (s) {
+			if (s.counts.error > 0)
+				s.badges.append(status_badge("danger", types.error.icon, s.counts.error + (s.counts.error == 1 ? " error" : " errors")));
+			if (s.counts.warning > 0)
+				s.badges.append(status_badge("warning", types.warning.icon, s.counts.warning + (s.counts.warning == 1 ? " warning" : " warnings")));
+			if (s.counts.error == 0 && s.counts.warning == 0 && s.counts.ok > 0)
+				s.badges.append(status_badge("success", types.ok.icon, "OK"));
+			if (s.list.children().length == 0)
+				s.list.remove();
+		});
+
+		// Summary bar.
+		var summary = $('#system-checks-summary').empty();
+		var row = $('<div class="row g-3"></div>');
+		[
+			["error", "danger", "Errors"],
+			["warning", "warning", "Warnings"],
+			["ok", "success", "OK"]
+		].forEach(function (s) {
+			var count = totals[s[0]];
+			var card = $('<div class="card h-100"></div>');
+			if (count > 0 || s[0] == "ok")
+				card.addClass("border-" + s[1] + "-subtle bg-" + s[1] + "-subtle text-" + s[1] + "-emphasis");
+			else
+				card.addClass("bg-body-tertiary text-body-secondary");
+			card.append($('<div class="card-body d-flex align-items-center gap-3 py-2"></div>').append(
+				$('<i class="fa-solid fa-2x" aria-hidden="true"></i>').addClass(types[s[0]].icon),
+				$('<div></div>').append(
+					$('<div class="fs-3 fw-bold lh-sm"></div>').text(count),
+					$('<div class="small"></div>').text(s[2])
+				)
+			));
+			row.append($('<div class="col-12 col-sm-4"></div>').append(card));
+		});
+		summary.append($('<h3 class="visually-hidden">Summary</h3>'), row);
+	}
+
+	function status_badge(color, icon, text) {
+		return $('<span class="badge border"></span>')
+			.addClass("bg-" + color + "-subtle text-" + color + "-emphasis border-" + color + "-subtle")
+			.append($('<i class="fa-solid me-1" aria-hidden="true"></i>').addClass(icon), $('<span></span>').text(text));
 	}
 
 	var current_privacy_setting = null;
 	function enable_privacy(status) {
+		var toggle = $('#system-privacy-toggle');
+		toggle.prop('disabled', true);
 		api(
 			"/system/privacy",
 			"POST",
@@ -194,6 +261,12 @@
 			},
 			function (res) {
 				show_system_status();
+			},
+			function (text, xhr) {
+				// Revert the switch to the last known setting.
+				toggle.prop('checked', !current_privacy_setting).prop('disabled', false);
+				if (xhr.status != 403) // else handled by api()
+					show_modal_error("Error", "Something went wrong, sorry.");
 			});
 		return false; // disable link
 	}
@@ -201,7 +274,13 @@
 	function confirm_reboot() {
 		show_modal_confirm(
 			"Reboot",
-			$("<p>This will reboot your Mail-in-a-Box <code>{{hostname}}</code>.</p> <p>Until the machine is fully restarted, your users will not be able to send and receive email, and you will not be able to connect to this control panel or with SSH. The reboot cannot be cancelled.</p>"),
+			$("<div></div>").append(
+				$("<p></p>").append(
+					document.createTextNode("This will reboot your Mail-in-a-Box "),
+					$("<code></code>").text({{ hostname|tojson }}),
+					document.createTextNode(".")),
+				$("<p class=\"mb-0\"></p>").text("Until the machine is fully restarted, your users will not be able to send and receive email, and you will not be able to connect to this control panel or with SSH. The reboot cannot be cancelled.")
+			),
 			"Reboot Now",
 			function () {
 				api(
@@ -209,8 +288,12 @@
 					"POST",
 					{},
 					function (r) {
-						var msg = "<p>Please reload this page after a minute or so.</p>";
-						if (r) msg = "<p>The reboot command said:</p> <pre>" + $("<pre/>").text(r).html() + "</pre>"; // successful reboots don't produce any output; the output must be HTML-escaped
+						// successful reboots don't produce any output; the output is inserted as text
+						var msg;
+						if (r)
+							msg = $("<div></div>").append($("<p></p>").text("The reboot command said:"), $("<pre class=\"mb-0\"></pre>").text(r));
+						else
+							msg = $("<p class=\"mb-0\"></p>").text("Please reload this page after a minute or so.");
 						show_modal_error("Reboot", msg);
 					});
 			});

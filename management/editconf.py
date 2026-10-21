@@ -54,8 +54,8 @@ def edit_conf(filename,
 			# Check whether this line contain this setting from the command-line arguments.
 			name, val = settings[i].split("=", 1)
 			m = re.match(
-				"(\s*)" + "(" + re.escape(comment_char) + "\s*)?" +
-				re.escape(name) + delimiter_re + "(.*?)\s*$", line, re.S)
+				r"(\s*)" + "(" + re.escape(comment_char) + r"\s*)?" +
+				re.escape(name) + delimiter_re + r"(.*?)\s*$", line, re.S)
 			if not m:
 				continue
 			indent, is_comment, existing_val = m.groups()

@@ -14,8 +14,9 @@ source setup/preflight.sh
 # Python may not be able to read/write files. This is also
 # in the management daemon startup script and the cron script.
 
-# Make sure we have locales at all (some images are THAT minimal)
-apt_get_quiet install locales
+# Make sure we have locales (and python3, which we need for the setup tools)
+# at all (some images are THAT minimal)
+apt_get_quiet install locales python3
 
 if ! locale -a | grep en_US.utf8 > /dev/null; then
 	echo "Generating locales..."
@@ -90,7 +91,7 @@ f=$STORAGE_ROOT
 while [[ $f != / ]]; do chmod a+rx "$f"; f=$(dirname "$f"); done;
 if [ ! -f $STORAGE_ROOT/mailinabox.version ]; then
 	setup/migrate.py --current > $STORAGE_ROOT/mailinabox.version
-	chown $STORAGE_USER.$STORAGE_USER $STORAGE_ROOT/mailinabox.version
+	chown $STORAGE_USER:$STORAGE_USER $STORAGE_ROOT/mailinabox.version
 fi
 
 chmod 751 $STORAGE_ROOT
@@ -143,6 +144,11 @@ do
 	echo Waiting for the Mail-in-a-Box management daemon to start...
 	sleep 2
 done
+
+# Turn off the optional services (Nextcloud, Z-Push, webmail and Munin) that the
+# administrator turned off in the control panel. They are always installed and
+# updated above, so that they can be turned back on at any time.
+management/services.py apply > /dev/null
 
 # ...and then have it write the DNS and nginx configuration files and start those
 # services.

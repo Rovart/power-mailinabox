@@ -1,0 +1,308 @@
+<div class="page-header">
+	<h2>Services</h2>
+	<p class="text-body-secondary">Mail, DNS and this control panel are always on. The optional services below can be
+		turned off if you don&rsquo;t use them: they are then no longer served and their background jobs stop. Their
+		data is kept (and still backed up) and they keep being updated, so you can turn them back on at any time.</p>
+</div>
+
+<div class="list-group mb-4" id="services-list" aria-live="polite">
+</div>
+
+<p class="text-body-secondary small">You can also turn services on and off on the box itself with
+	<code>sudo management/cli.py system services enable|disable nextcloud|zpush|webmail|munin</code>.</p>
+
+<h3 id="web-access-heading">Access from the internet</h3>
+<p>On a box exposed to the internet, you can make web applications you only use from the box itself (through an
+	SSH tunnel) or from trusted networks (e.g. your VPN or office) unavailable to everybody else: their requests are
+	refused with <code>403 Forbidden</code>. Mail apps (IMAP, POP, SMTP), DNS, mail autoconfiguration and your
+	websites are not affected.</p>
+
+<div class="list-group mb-3" id="web-access-list" aria-labelledby="web-access-heading" aria-live="polite">
+</div>
+
+<div class="card mb-4">
+	<div class="card-body">
+		<form onsubmit="save_allowed_networks(); return false;">
+			<label for="web-access-networks" class="form-label fw-semibold">Allowed networks</label>
+			<textarea class="form-control font-monospace" id="web-access-networks" rows="3" spellcheck="false"
+				placeholder="10.8.0.0/24&#10;2001:db8::/48&#10;198.51.100.7"
+				aria-describedby="web-access-networks-help"></textarea>
+			<div id="web-access-networks-help" class="form-text">IP addresses or networks (CIDR), one per line,
+				that may use the applications above besides the box itself (<span id="web-access-box"></span>).
+				Your address right now is <code id="web-access-client"></code> (<span
+					id="web-access-client-allowed"></span>).</div>
+			<button type="submit" class="btn btn-primary mt-3"><span class="fa-solid fa-floppy-disk me-1"
+					aria-hidden="true"></span> Save networks</button>
+		</form>
+	</div>
+</div>
+
+<div class="alert alert-secondary small" role="note">
+	<p class="fw-semibold mb-1"><span class="fa-solid fa-terminal me-1" aria-hidden="true"></span> Using the control
+		panel through an SSH tunnel</p>
+	<p class="mb-2">Run <code class="web-access-tunnel"></code> on your computer and open <code>https://localhost:8443/admin/</code>
+		(you&rsquo;ll get a certificate warning, since the certificate is for {{hostname}}).</p>
+	<p class="fw-semibold mb-1"><span class="fa-solid fa-unlock me-1" aria-hidden="true"></span> Locked out?</p>
+	<p class="mb-0">Log in to the box with SSH and run <code class="web-access-undo"></code> to make every web
+		application available from anywhere again.</p>
+</div>
+
+<template id="service-template">
+	<div class="list-group-item py-3">
+		<div class="d-flex gap-3 align-items-start">
+			<span class="tile-icon service-icon" aria-hidden="true"><span class="fa-solid"></span></span>
+			<div class="flex-grow-1" style="min-width: 0">
+				<div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+					<h3 class="h6 mb-0 service-title"></h3>
+					<span class="badge service-state"></span>
+				</div>
+				<p class="mb-1 text-body-secondary service-description"></p>
+				<p class="mb-0 small text-break service-paths"></p>
+				<p class="mb-0 small text-warning-emphasis service-not-installed d-none">Not installed. Run
+					<code>sudo mailinabox</code> on the box to install it.</p>
+			</div>
+			<div class="form-check form-switch fs-4 mb-0 ms-2">
+				<input class="form-check-input service-toggle" type="checkbox" role="switch">
+			</div>
+		</div>
+	</div>
+</template>
+
+<template id="web-access-template">
+	<div class="list-group-item py-3">
+		<div class="d-flex gap-3 align-items-start">
+			<div class="flex-grow-1" style="min-width: 0">
+				<div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+					<h4 class="h6 mb-0 web-access-title"></h4>
+					<span class="badge web-access-state"></span>
+					<span class="badge text-bg-secondary web-access-off d-none">Service turned off</span>
+				</div>
+				<p class="mb-0 small text-break web-access-paths"></p>
+			</div>
+			<div class="form-check form-switch mb-0 ms-2 flex-shrink-0">
+				<input class="form-check-input web-access-toggle" type="checkbox" role="switch">
+				<label class="form-check-label small web-access-label">Local only</label>
+			</div>
+		</div>
+	</div>
+</template>
+
+<script>
+	const service_icons = {
+		nextcloud: "fa-address-book",
+		zpush: "fa-mobile-screen",
+		webmail: "fa-envelope-open-text",
+		munin: "fa-chart-line",
+	};
+
+	const service_off_warnings = {
+		nextcloud: "Contacts, calendars and files in Nextcloud will no longer be available, on the web or in apps (CardDAV/CalDAV). The webmail's address book and the contacts and calendars synchronized by Exchange ActiveSync go away too.",
+		zpush: "Phones and Outlook set up with Exchange ActiveSync will stop synchronizing. Mail apps set up with IMAP keep working.",
+		webmail: "Users will no longer be able to read mail in their browser at /mail. Mail apps keep working.",
+		munin: "Resource usage graphs will no longer be collected.",
+	};
+
+	function show_services() {
+		api(
+			"/system/services",
+			"GET",
+			{},
+			function (services) {
+				var list = $('#services-list').empty();
+				services.forEach(function (service) {
+					miab_services[service.name] = service.enabled;
+
+					var item = $($('#service-template').html());
+					var toggle_id = "service-toggle-" + service.name;
+					item.find('.service-icon .fa-solid').addClass(service_icons[service.name] || "fa-gear");
+					item.find('.service-title').text(service.title).attr('id', toggle_id + "-label");
+					item.find('.service-description').text(service.description).attr('id', toggle_id + "-description");
+					item.find('.service-state')
+						.text(service.enabled ? "On" : "Off")
+						.addClass(service.enabled ? "text-bg-success" : "text-bg-secondary");
+					if (service.paths.length) {
+						item.find('.service-paths').append(
+							$('<span class="text-body-secondary"/>').text(service.paths.length > 1 ? "Addresses: " : "Address: "));
+						service.paths.forEach(function (path, i) {
+							if (i > 0) item.find('.service-paths').append(", ");
+							item.find('.service-paths').append($('<code/>').text(path));
+						});
+					}
+					item.find('.service-not-installed').toggleClass('d-none', service.installed);
+					item.find('.service-toggle')
+						.attr('id', toggle_id)
+						.attr('aria-labelledby', toggle_id + "-label")
+						.attr('aria-describedby', toggle_id + "-description")
+						.prop('checked', service.enabled)
+						.prop('disabled', !service.installed && !service.enabled)
+						.on('change', function () {
+							set_service(service, $(this).is(':checked'), $(this));
+						});
+					list.append(item);
+				});
+				apply_service_visibility();
+			});
+
+		show_web_access();
+	}
+
+	var web_access = null;
+
+	function show_web_access() {
+		api(
+			"/system/web-access",
+			"GET",
+			{},
+			function (r) {
+				web_access = r;
+				$('#web-access-networks').val(r.allowed_networks.join("\n"));
+				$('#web-access-box').text(r.box_addresses.join(", "));
+				$('#web-access-client').text(r.client_ip);
+				$('#web-access-client-allowed')
+					.text(r.client_allowed ? "allowed" : "not allowed")
+					.toggleClass('text-success-emphasis', r.client_allowed)
+					.toggleClass('text-danger-emphasis fw-semibold', !r.client_allowed);
+				$('.web-access-tunnel').text("ssh -L 8443:localhost:443 you@" + {{ hostname|tojson }});
+				$('.web-access-undo').text("sudo " + r.cli + " system web-access all public");
+
+				var list = $('#web-access-list').empty();
+				r.areas.forEach(function (area) {
+					var item = $($('#web-access-template').html());
+					var toggle_id = "web-access-toggle-" + area.name;
+					item.find('.web-access-title').text(area.title).attr('id', toggle_id + "-title");
+					item.find('.web-access-state')
+						.text(area.local_only ? "Local only" : "Public")
+						.addClass(area.local_only ? "text-bg-warning" : "text-bg-success");
+					item.find('.web-access-off').toggleClass('d-none', area.service_enabled);
+					area.paths.forEach(function (path, i) {
+						if (i > 0) item.find('.web-access-paths').append(", ");
+						item.find('.web-access-paths').append($('<code/>').text(path));
+					});
+					item.find('.web-access-label').attr('for', toggle_id);
+					item.find('.web-access-toggle')
+						.attr('id', toggle_id)
+						.attr('aria-describedby', toggle_id + "-title")
+						.prop('checked', area.local_only)
+						.on('change', function () {
+							set_web_access(area, $(this).is(':checked'), $(this));
+						});
+					list.append(item);
+				});
+			});
+	}
+
+	function web_access_lockout_warning() {
+		// What to tell the administrator when a change would lock them out.
+		return $('<div class="alert alert-danger mt-3 mb-0"/>').append(
+			$('<p class="fw-semibold"/>').text("Your address (" + web_access.client_ip + ") is not allowed: you will lose access to this control panel."),
+			$('<p/>').append("To use it afterwards, open an SSH tunnel with ",
+				$('<code/>').text("ssh -L 8443:localhost:443 you@" + {{ hostname|tojson }}),
+				" and go to ", $('<code/>').text("https://localhost:8443/admin/"), "."),
+			$('<p class="mb-0"/>').append("To undo this, run ",
+				$('<code/>').text("sudo " + web_access.cli + " system web-access all public"),
+				" on the box."));
+	}
+
+	function set_web_access(area, local_only, toggle) {
+		function apply() {
+			api(
+				"/system/web-access",
+				"POST",
+				{
+					area: area.name,
+					local_only: local_only ? "true" : "false"
+				},
+				function (r) {
+					show_modal_error("Access from the internet", r, show_web_access);
+				},
+				function (r) {
+					show_modal_error("Access from the internet", r || "Something went wrong, sorry.", show_web_access);
+				});
+		}
+
+		if (!local_only) {
+			apply();
+			return;
+		}
+
+		var message = $('<div/>').append(
+			$('<p/>').text("Requests for " + area.paths.join(", ") + " from anywhere but this box and the allowed networks will be refused (403 Forbidden)."));
+		if (area.name == "admin" && !web_access.client_allowed)
+			message.append(web_access_lockout_warning());
+		else if (area.name == "nextcloud")
+			message.append($('<p class="mb-0"/>').text("Calendar and contacts apps outside the allowed networks will stop synchronizing."));
+		else if (area.name == "zpush")
+			message.append($('<p class="mb-0"/>').text("Phones and Outlook outside the allowed networks will stop synchronizing."));
+
+		show_modal_confirm(
+			"Restrict " + area.title + "?",
+			message,
+			"Restrict",
+			apply,
+			function () { toggle.prop('checked', false); });
+	}
+
+	function save_allowed_networks() {
+		function apply() {
+			api(
+				"/system/web-access",
+				"POST",
+				{ allowed_networks: $('#web-access-networks').val() },
+				function (r) {
+					show_modal_error("Access from the internet", r, show_web_access);
+				},
+				function (r) {
+					show_modal_error("Access from the internet", r || "Something went wrong, sorry.");
+				});
+		}
+
+		// Warn when the control panel is restricted and the new networks don't
+		// include the administrator's address any more (unless it's the box itself).
+		var admin = web_access.areas.find(function (area) { return area.name == "admin"; });
+		if (admin && admin.local_only && web_access.client_allowed && web_access.box_addresses.indexOf(web_access.client_ip) < 0) {
+			show_modal_confirm(
+				"Save allowed networks?",
+				$('<div/>').append(
+					$('<p/>').text("The control panel is only available locally. If your address is not in the new list, you will lose access to it."),
+					web_access_lockout_warning().removeClass('alert-danger').addClass('alert-warning')
+						.find('p').first().text("Make sure " + web_access.client_ip + " is still allowed.").end().end()),
+				"Save",
+				apply);
+		} else {
+			apply();
+		}
+	}
+
+	function set_service(service, enabled, toggle) {
+		function apply() {
+			api(
+				"/system/services",
+				"POST",
+				{
+					service: service.name,
+					enabled: enabled ? "true" : "false"
+				},
+				function (r) {
+					miab_services[service.name] = enabled;
+					apply_service_visibility();
+					show_modal_error("Services", r, show_services);
+				},
+				function (r) {
+					show_modal_error("Services", r || "Something went wrong, sorry.", show_services);
+				});
+		}
+
+		if (enabled) {
+			apply();
+		} else {
+			show_modal_confirm(
+				"Turn off " + service.title + "?",
+				$('<div/>').append(
+					$('<p/>').text(service_off_warnings[service.name] || ""),
+					$('<p class="mb-0"/>').text("Its data is kept, and you can turn it back on at any time.")),
+				"Turn off",
+				apply,
+				function () { toggle.prop('checked', true); });
+		}
+	}
+</script>

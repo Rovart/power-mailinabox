@@ -1,104 +1,128 @@
-<style>
-</style>
+<div class="page-header">
+	<h2>SMTP Relays</h2>
+	<p class="text-body-secondary">SMTP relays are third-party services that can deliver email on your behalf. They can
+		be useful when, for example, port 25 is blocked, the cloud provider/ISP doesn&rsquo;t provide reverse DNS, or the
+		IP address has a low reputation, among other situations where deliverability isn&rsquo;t great.</p>
+</div>
 
-<h2>SMTP Relays</h2>
-
-<p>SMTP Relays are third-party services that can deliver email on your behalf. They
-	can be useful when, for example, port 25 is blocked, the cloud provider/ISP doesn't provide Reverse DNS, or the IP
-	address
-	has a low reputation, among other situations where deliverablity isn't great.</p>
-
-<p>These services are governed by their own terms and as such limits can be imposed in the usage of those services.</p>
-
-<p>Here, you can configure an authenticated SMTP relay and authorize it's associated servers to send mail for you.</p>
+<p>These services are governed by their own terms and as such limits can be imposed in the usage of those services.
+	Here, you can configure an authenticated SMTP relay and authorize its associated servers to send mail for you.</p>
 
 <div id="smtp_relay_config">
-	<form class="form-horizontal" role="form" onsubmit="set_smtp_relay_config(); return false;">
-		<h3>SMTP Relay Configuration</h3>
-		<div id="smtp-relays" class="col-12">
+	<form id="smtp_relay_form" onsubmit="set_smtp_relay_config(); return false;">
+		<div class="card mb-4">
+			<div class="card-header">
+				<h3 class="h5 mb-0">SMTP relay configuration</h3>
+			</div>
+			<div class="card-body">
+				<div id="smtp-relays" class="row g-3">
+					<div class="col-12">
+						<div class="form-check form-switch">
+							<input type="checkbox" role="switch" id="use_relay" class="form-check-input"
+								onchange="checkfields();">
+							<label for="use_relay" class="form-check-label fw-semibold">Use a relay</label>
+						</div>
+					</div>
 
-			<div class="input-group mb-3">
-				<label for="use_relay" class="input-group-text"><b>Use Relay?</b></label>
-				<div class="input-group-text">
-					<div class="form-switch">
-						<input type="checkbox" role="switch" id="use_relay" class="form-check-input" value=false
-							onclick="checkfields();">
+					<div class="col-md-8">
+						<label for="relay_host" class="form-label">Relay host</label>
+						<input type="text" class="form-control" id="relay_host" placeholder="relay.example.com"
+							autocomplete="off" spellcheck="false">
+					</div>
+					<div class="col-md-4">
+						<label for="relay_port" class="form-label">Port</label>
+						<input type="number" class="form-control" id="relay_port" placeholder="465">
+					</div>
+
+					<div class="col-md-6">
+						<label for="relay_auth_user" class="form-label">Username</label>
+						<input type="text" class="form-control" id="relay_auth_user" autocomplete="off"
+							spellcheck="false">
+					</div>
+					<div class="col-md-6">
+						<label for="relay_auth_pass" class="form-label">Password/Key</label>
+						<input type="password" class="form-control" id="relay_auth_pass" autocomplete="new-password"
+							aria-describedby="relay_auth_pass_help">
+						<div id="relay_auth_pass_help" class="form-text">If you&rsquo;ve already set up a relay before on
+							this box, you can leave this field blank if you don&rsquo;t want to change its password.</div>
 					</div>
 				</div>
 			</div>
+		</div>
 
-			<div class="input-group mb-3">
-				<label class="input-group-text">Where to?</label>
-				<input type="text" class="form-control" id="relay_host" placeholder="relay.example.com">
-				<label class="input-group-text">:</label>
-				<div style="width: 20%">
-					<input type="number" class="form-control" id="relay_port" placeholder="Port (465)">
+		<div class="card mb-4">
+			<div class="card-header">
+				<h3 class="h5 mb-0">Authorized servers</h3>
+			</div>
+			<div class="card-body">
+				<p>The relay service should specify the servers where the email will be sent from, please add them below.
+					These will probably be published in the form of a SPF record. <strong>Failure to do so will potentially
+						have your email sent to spam or even rejected altogether by recipients.</strong></p>
+
+				<p>You can use the button below to attempt to locate the SPF record associated with the service you&rsquo;re
+					using.</p>
+
+				<button id="smtp_relay_autospf_btn" type="button" class="btn btn-outline-secondary"
+					onclick="autodetect_spf()">
+					<i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+					<span class="btn-label">Detect SPF Records</span>
+				</button>
+
+				<div id="smtp_relay_autospf" class="mt-3" aria-live="polite"></div>
+
+				<div class="mt-3">
+					<label for="relay_authorized_servers" class="form-label">SPF configuration / authorized
+						servers</label>
+					<input type="text" class="form-control" id="relay_authorized_servers" spellcheck="false"
+						placeholder="mail1.example.net mail2.example.net" aria-describedby="relay_authorized_servers_help">
+					<div id="relay_authorized_servers_help" class="form-text">You can separate multiple servers with commas
+						or spaces. You can also add IP addresses or subnets using <code>10.20.30.40</code> or
+						<code>10.0.0.0/8</code>. You can &ldquo;import&rdquo; SPF records using <code>spf:example.com</code>.
+						If your provider gave you an SPF record to add to your DNS, you can also paste it here.</div>
 				</div>
 			</div>
+		</div>
 
-			<div class="input-group mb-3">
-				<label class="input-group-text">Username</label>
-				<input type="text" class="form-control" id="relay_auth_user" placeholder="">
+		<div class="card mb-4">
+			<div class="card-header">
+				<h3 class="h5 mb-0">DKIM configuration</h3>
 			</div>
+			<div class="card-body">
+				<p>DKIM allows receivers to verify that the email was sent by the relay you configured (that is, somebody you
+					trust). <strong>If your relay provider does not provide you with this information, it&rsquo;s probably
+						safe to skip this step.</strong></p>
 
-			<div>
-				<div class="input-group">
-					<label class="input-group-text">Password/Key</label>
-					<input type="password" class="form-control" id="relay_auth_pass" placeholder="">
+				<div class="row g-3">
+					<div class="col-lg-8">
+						<label for="relay_dkim_selector" class="form-label">Selector</label>
+						<div class="input-group flex-nowrap">
+							<input type="text" class="form-control" id="relay_dkim_selector" placeholder="selector" style="min-width: 6rem"
+								spellcheck="false" aria-describedby="relay_dkim_selector_suffix">
+							<span class="input-group-text text-wrap text-break"
+								id="relay_dkim_selector_suffix">._domainkey.{{hostname}}</span>
+						</div>
+					</div>
+
+					<div class="col-12">
+						<label for="relay_dkim_key" class="form-label">DKIM key</label>
+						<textarea id="relay_dkim_key" class="form-control font-monospace" rows="4" spellcheck="false"
+							placeholder="k=algo;p=K3y/C0N7ent5/dGhpcyBpcyBub3QgYSByZWFsIGtleSwgc28gYmV3YXJlIDrigb4"></textarea>
+					</div>
 				</div>
-				<p class="small">If you've already set up a relay before on this box, you can leave this field blank if
-					you don't want to change it's password.</p>
 			</div>
 		</div>
 
-		<h3>Authorized Servers</h3>
-		<p>The relay service should specify the servers where the email will be sent from, please add them below. These
-			will probably be published in the form of a SPF record. <b>Failure to do so will potentially have your email
-				sent to spam or even rejected altogether by recipients.</b>
-		</p>
+		<button type="submit" class="btn btn-primary">
+			<i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Update
+		</button>
 
-		<p>You can use the button below to attempt to localize the SPF record associated with the service you're using.
-		</p>
-
-		<button id="smtp_relay_autospf_btn" type="button" class="btn btn-secondary" onclick="autodetect_spf()">Detect
-			SPF
-			Records</button>
-
-		<div id="smtp_relay_autospf"></div>
-		<br>
-		<div class="form-group">
-			<h4>Add your SPF configuration/authorized servers here</h4>
-			<input type="text" class="form-control" id="relay_authorized_servers"
-				placeholder="mail1.example.net mail2.example.net">
-			<p class="small">You can separate multiple servers with commas or spaces. You can also add IP addresses or
-				subnets using <code>10.20.30.40</code> or <code>10.0.0.0/8</code>. You can "import" SPF records using
-				<code>spf:example.com</code>. If your provider gave you an SPF record to add to your DNS, you can also paste it here.
-			</p>
+		<div class="alert alert-info mt-4" role="note">
+			<h3 class="h6 alert-heading"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> After configuration
+			</h3>
+			<p class="mb-0">By that time you should be good to go. If your relay provider provides their own custom DNS
+				verification methods (<strong>including custom DMARC configurations</strong>), feel free to publish them on
+				DNS.</p>
 		</div>
-
-		<h3>DKIM Configuration</h3>
-		<p>DKIM allows receivers to verify that the email was sent by the relay you configured (this is, somebody you
-			trust). <b>If your relay provider does not provide you with this information, it's probably safe to skip this step.</b></p>
-
-		<div class="col-lg-6 col-md-8 col-12">
-			<div class="input-group">
-				<input type="text" class="form-control" id="relay_dkim_selector" placeholder="selector"></td>
-				<label class="input-group-text" for="relay_dkim_selector">._domainkey.{{hostname}}</label>
-			</div>
-		</div>
-
-		<h4>Paste the DKIM key here:</h4>
-		<p><textarea id="relay_dkim_key" class="form-control" style="width: 100%; height: 8em"
-				placeholder="k=algo;p=K3y/C0N7ent5/dGhpcyBpcyBub3QgYSByZWFsIGtleSwgc28gYmV3YXJlIDrigb4"></textarea>
-		</p>
-
-		<div>
-			<button type="submit" class="btn btn-primary">Update</button>
-		</div>
-
-		<h3>After configuration</h3>
-		<p>By that time you should be good to go. If your relay provider provides their own custom DNS verification
-			methods (<b>including custom DMARC configurations</b>), feel free to publish them on DNS.</p>
 	</form>
 </div>
 
@@ -126,7 +150,7 @@
 		relay_authorized_servers.disabled = !relay_enabled
 
 		relay_spf_discover.disabled = !relay_enabled
-		relay_spf_discover_results.innerHTML = ""
+		relay_spf_discover_results.replaceChildren()
 
 		relay_dkim_sel.disabled = !relay_enabled
 		relay_dkim_key.disabled = !relay_enabled
@@ -139,23 +163,24 @@
 			{},
 			data => {
 				use_relay.checked = data.enabled
-				relay_host.value = data.host
-				relay_port.value = data.port
-				relay_auth_user.value = data.user
+				relay_host.value = data.host || ""
+				relay_port.value = data.port ?? ""
+				relay_auth_user.value = data.user || ""
 				relay_auth_pass.value = ""
 				relay_authorized_servers.value = ""
 
 				if (data.spf_record) {
 					relay_authorized_servers.value = data.spf_record
-				}else if (data.authorized_servers) {
-					data.authorized_servers.forEach(element => {
-						relay_authorized_servers.value += `${element} `
-					});
+				} else if (data.authorized_servers) {
+					relay_authorized_servers.value = data.authorized_servers.join(" ")
 				}
 
 				if (data.dkim_selector) {
 					relay_dkim_sel.value = data.dkim_selector
 					relay_dkim_key.value = data.dkim_rr
+				} else {
+					relay_dkim_sel.value = ""
+					relay_dkim_key.value = ""
 				}
 
 				checkfields()
@@ -173,7 +198,7 @@
 			dkim_selector: relay_dkim_sel.value,
 			dkim_rr: relay_dkim_key.value
 		}
-		if (relay_authorized_servers.value.substr(0, 7) === "v=spf1 ") {
+		if (relay_authorized_servers.value.startsWith("v=spf1 ")) {
 			relay_configuration.spf_record = relay_authorized_servers.value
 		} else {
 			relay_configuration.authorized_servers = relay_authorized_servers.value
@@ -184,18 +209,20 @@
 			"POST",
 			relay_configuration,
 			() => {
-				show_modal_error("Done!", "The configuration has been updated and Postfix was restarted successfully. Please make sure everything is functioning as intended.", () => {
-					return false
-				})
+				show_modal_error("Done!", "The configuration has been updated and Postfix was restarted successfully. Please make sure everything is functioning as intended.")
 			},
-			(e) => {
-				show_modal_error("Error!", e, () => { return false })
+			(e, xhr) => {
+				if (xhr && xhr.status == 403) return // handled by api()
+				// The error message is plain text: never render it as HTML.
+				show_modal_error("Error!", $('<p class="mb-0" style="white-space: pre-line"></p>').text(e || "Something went wrong, sorry."))
 			}
 		)
+		return false
 	}
 
-	function add_spf(domain) {
-		document.getElementById(`smtp_relay_spfinclude_${domain}`).disabled = true
+	function add_spf(domain, button) {
+		button = button || document.getElementById(`smtp_relay_spfinclude_${domain}`)
+		if (button) button.disabled = true
 
 		let impl = false
 		relay_authorized_servers.value.split(/[\s,]+/).forEach(s => {
@@ -205,60 +232,89 @@
 		});
 
 		if (!impl) {
-			relay_authorized_servers.value += ` spf:${domain}`
+			relay_authorized_servers.value = (relay_authorized_servers.value.trim() + ` spf:${domain}`).trim()
 		}
 	}
 
 	async function autodetect_spf() {
 		let btn = $("#smtp_relay_autospf_btn")
+		let btn_label = btn.find(".btn-label")
 		let results = $("#smtp_relay_autospf")
 
-		let host = relay_host.value
-		if (host.trim() == "") {
-			results.html("<b>Error:</b> No hostname specified.")
+		function show_error(...content) {
+			results.empty().append(
+				$('<div class="alert alert-danger mb-0" role="alert"></div>').append(
+					$('<i class="fa-solid fa-circle-xmark me-1" aria-hidden="true"></i>'),
+					$('<strong></strong>').text("Error:"), " ", ...content))
+		}
+
+		let host = relay_host.value.trim()
+		if (host == "") {
+			show_error("No hostname specified.")
 			return
 		}
 
 		let hmatches = host.match(/([^\s.\\\/]+\.)+([^\s.\\\/]+)/)
 		if (!hmatches || hmatches[0] != host) {
-			results.html(`<b>Error: <code>${host}</code></b> is not a valid hostname.`)
+			show_error($("<code></code>").text(host), " is not a valid hostname.")
 			return
 		}
 
-		btn.html("Working...")
+		btn_label.text("Working...")
 		btn.prop("disabled", true)
 
-		results.html("")
+		results.empty()
 
 		let base_host = hmatches[hmatches.length - 2] + hmatches[hmatches.length - 1]
 
-		function record_html(name, rec) {
+		// Everything that comes from the user or from DNS is inserted as text.
+		function record_item(name, rec) {
+			let li = $('<li class="list-group-item d-flex flex-wrap align-items-center gap-2"></li>')
 			if (rec.error) {
-				return `<b>${name}</b> - ${rec.error} Error (${rec.msg})`
+				li.append(
+					$('<span class="badge bg-danger-subtle text-danger-emphasis border border-danger-subtle"></span>').text(`${rec.error} Error`),
+					$('<strong class="text-break"></strong>').text(name),
+					$('<span class="text-body-secondary text-break"></span>').text(rec.msg)
+				)
 			} else {
-				return `<button id="smtp_relay_spfinclude_${name}" type="button" class="btn btn-secondary" onclick="add_spf('${name}')">Include</button> <b>${name}</b> <code>${rec.msg}</code>`
+				let include = $('<button type="button" class="btn btn-sm btn-outline-secondary"></button>')
+					.attr("id", `smtp_relay_spfinclude_${name}`)
+					.attr("aria-label", `Include the SPF record of ${name}`)
+					.append($('<i class="fa-solid fa-plus" aria-hidden="true"></i>'), " Include")
+					.on("click", function () { add_spf(name, this); return false; })
+				li.append(
+					include,
+					$('<strong class="text-break"></strong>').text(name),
+					$('<code class="text-break w-100"></code>').text(rec.msg)
+				)
 			}
+			return li
 		}
 
+		let names = [base_host, `spf.${base_host}`, `_spf.${base_host}`]
 		let records = []
 
-		await Promise.all([
-			query_spf(base_host).then(rr => { records[0] = record_html(base_host, rr) }),
-			query_spf(`spf.${base_host}`).then(rr => { records[1] = record_html(`spf.${base_host}`, rr) }),
-			query_spf(`_spf.${base_host}`).then(rr => { records[2] = record_html(`_spf.${base_host}`, rr) })
-		])
+		try {
+			await Promise.all(names.map((name, i) =>
+				query_spf(name).then(rr => { records[i] = record_item(name, rr) })
+			))
 
-		let txt = "<h4>Here's what I've found:</h4><ul>"
-		records.forEach((r) => {
-			txt += `<li>${r}</li>`
-		})
+			let list = $('<ul class="list-group mb-2"></ul>')
+			records.forEach(r => list.append(r))
 
-		txt += "</ul><small>Only some common subdomains are tested here, so it's possible I've missed some. You <b>SHOULD NOT</b> include records you do not recognize, else there will be servers that can send mail as you, but that you will not use.</small>"
-
-		results.html(txt)
-
-		btn.html("Detect SPF Records")
-		btn.prop("disabled", false)
+			results.append(
+				$('<h4 class="h6"></h4>').text("Here's what I've found:"),
+				list,
+				$('<div class="form-text"></div>').append(
+					"Only some common subdomains are tested here, so it's possible I've missed some. You ",
+					$('<strong></strong>').text("SHOULD NOT"),
+					" include records you do not recognize, else there will be servers that can send mail as you, but that you will not use."
+				)
+			)
+		} finally {
+			btn_label.text("Detect SPF Records")
+			btn.prop("disabled", !use_relay.checked)
+		}
 	}
 
 	function query_spf(hostname) {
@@ -295,26 +351,34 @@
 						"Name not contained in zone",
 						"DSO-TYPE Not Implemented"
 					]
+					if (!data || typeof data.Status !== "number") {
+						return resolve({ error: "DNS", msg: "Unknown Error" })
+					}
 					if (data.Status != 0) {
-						if (data.Status > 11) {
-							return resolve({ error: "DNS", msg: "Unknown Error" })
-						} else {
-							return resolve({ error: "DNS", msg: status_description[data.Status] })
-						}
+						return resolve({ error: "DNS", msg: status_description[data.Status] || "Unknown Error" })
 					}
 
-					if (data.Answer) {
-						data.Answer.forEach(ans => {
-							if (ans.type == 16 && ans.name == hostname && ans.data.substring(1, 7) == "v=spf1") {
-								return resolve({ msg: ans.data.substring(1, ans.data.length - 1) })
-							}
-						})
+					// TXT record data is made of one or more quoted strings, which must be concatenated.
+					function txt_data(raw) {
+						let parts = String(raw).match(/"((?:[^"\\]|\\.)*)"/g)
+						if (!parts) return String(raw)
+						return parts.map(p => p.slice(1, -1).replace(/\\(.)/g, "$1")).join("")
+					}
+
+					const normalize_name = (n) => String(n).toLowerCase().replace(/\.$/, "")
+					let spf = (data.Answer || [])
+						.filter(ans => ans.type == RRTXT && normalize_name(ans.name) == normalize_name(hostname))
+						.map(ans => txt_data(ans.data))
+						.find(txt => txt.startsWith("v=spf1"))
+
+					if (spf !== undefined) {
+						return resolve({ msg: spf })
 					}
 
 					return resolve({ error: "DNS", msg: "No SPF record found" })
 				},
 				error: (_, __, err) => {
-					resolve({ error: "HTTP", msg: err })
+					resolve({ error: "HTTP", msg: err || "Request failed" })
 				}
 			})
 		})

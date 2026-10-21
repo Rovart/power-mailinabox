@@ -1,6 +1,112 @@
 CHANGELOG
 =========
 
+Power Mail-in-a-Box v61.0
+-------------------------
+
+This release moves Power Mail-in-a-Box to current operating systems and updates every
+bundled application to its latest version. **All PHP applications now run on PHP 8.4.**
+
+Operating systems:
+
+* Supported: Debian 12 (bookworm), Debian 13 (trixie), Ubuntu 22.04 and Ubuntu 24.04.
+* Dropped: Debian 11 (bullseye) and Ubuntu 20.04. Boxes running them must first be upgraded
+  to a supported release (v60.5 remains available for them, see the README).
+* To upgrade the operating system of an existing box (e.g. Debian 12 to 13): upgrade it
+  following the distribution's instructions, **reboot**, and then run the setup again (until
+  then, some services may not work since their configuration is for the older versions).
+* PHP is pinned to version 8.4 on every operating system. It is installed from
+  packages.sury.org (Debian) or the ondrej/php PPA (Ubuntu), which also provide extensions
+  no longer bundled with PHP (imap, needed by Z-Push) and the older PHP version needed to
+  upgrade old Nextcloud installations. Other PHP-FPM versions are disabled.
+* Dovecot 2.4 (Debian 13) is supported. Its configuration is written from scratch in the new
+  syntax, and spam/ham learning uses IMAPSieve since the antispam plugin no longer exists.
+
+Optional services:
+
+* Nextcloud (contacts, calendar and files), Z-Push (Exchange ActiveSync), Roundcube (webmail)
+  and Munin (monitoring) can be turned off and on again from the control panel (System →
+  Services) or with `management/cli.py system services enable|disable <service>`. A service
+  that is turned off is no longer served by nginx and its background jobs stop; its data is
+  kept and backed up, and it keeps being updated by the setup so that it can be turned back on
+  at any time. When Nextcloud is off, the webmail's address book, the contacts and calendars of
+  Exchange ActiveSync and the CalDAV/CardDAV accounts of the iOS/macOS profile go away too.
+
+Access from the internet:
+
+* The control panel (and Munin), webmail, Nextcloud (with CalDAV/CardDAV) and Exchange
+  ActiveSync can each be made available only locally (System → Services, or
+  `management/cli.py system web-access <area> local|public`): requests that don't come from
+  the box itself or from the trusted networks listed there are refused with 403 Forbidden.
+  This is meant for boxes exposed to the internet whose web applications are used through an
+  SSH tunnel or a VPN. Mail protocols, DNS, mail autoconfiguration and static websites are not
+  affected. `sudo management/cli.py system web-access all public` (or
+  `management/services.py web-access all public`, which works even without the management
+  daemon) makes everything available again.
+
+Control panel:
+
+* Redesigned: new navigation bar (with the current page highlighted), a dashboard, light, dark
+  and automatic color themes (Bootstrap color modes instead of CSS overrides), cards, tables
+  and status reports that work on phones, and pages that can be bookmarked and navigated with
+  the browser's back and forward buttons.
+* Security: fixed cross-site scripting issues where data from the server, DNS or PGP keys was
+  inserted into the page as HTML, error messages are always shown as text, the panel sends a
+  Content-Security-Policy, and "Remember me" is now respected (the session was always kept
+  in the browser's local storage).
+* Accessibility: labelled forms and buttons, table headers, keyboard focus management,
+  skip link, accessible dialogs and status messages.
+
+Package updates:
+
+* Nextcloud updated to 34.0.5 (contacts to 8.9.1, calendar to 6.6.2, user_external to 4.0.0).
+  Existing installations (Nextcloud 23 or later) are upgraded through every intermediate major
+  version automatically; the steps that need it run on a temporary PHP 8.1 installation.
+* Roundcube updated to 1.7.5 (CardDAV plugin to 5.1.4, html5_notifier to the latest commit).
+  Only Roundcube's public_html directory is served now, as required by Roundcube 1.7.
+* Z-Push updated to 2.7.6 (the z-push-admin and z-push-top commands are available again).
+* jQuery updated to 4.0.0, Bootstrap to 5.3.8 and Font Awesome to 7.3.1 in the control panel.
+* The management daemon's Python dependencies are no longer pinned to obsolete versions
+  (cryptography was pinned to 2.2.2) and the unused boto library was removed.
+* duplicity, b2sdk and boto3 are installed in a virtualenv of their own, since modern
+  distributions don't allow installing Python packages system-wide with pip (PEP 668).
+  The packages previous versions installed system-wide are removed, since they replaced some
+  of the distribution's packages with incompatible versions (which broke certbot on Ubuntu 22.04).
+
+Changes ported from Mail-in-a-Box (up to v77):
+
+* Postfix is protected against SMTP smuggling (smtpd_forbid_bare_newline=normalize).
+* Spamhaus error responses (e.g. when queried through public DNS resolvers) are no longer
+  treated as listings.
+* Backups work with duplicity 2.1 and later, exclude the Nextcloud upgrade backups, and B2
+  application keys containing a slash work.
+* OpenDMARC no longer sends failure reports.
+* fail2ban filters fixed for Nextcloud's JSON logs and munin over HTTP/2. The status checks
+  report when fail2ban isn't running.
+* The Nextcloud app store is disabled, calendar reminders are sent by a cron job, and
+  nextcloud.log is rotated.
+* Several SSH ports are handled when configuring the firewall. Ubuntu MOTD ads are disabled.
+* The management daemon only listens on 127.0.0.1, and fail2ban is enabled at boot.
+* OCSP stapling is no longer configured (Let's Encrypt stopped providing OCSP), and
+  certificates that expired more than a week ago are moved out of the way daily.
+* Backups to S3-compatible services other than AWS work with boto3 1.36 and later.
+* DNS timeouts and Spamhaus errors for domain lookups are handled by the status checks, and a
+  corrupt status cache no longer breaks the daily status email.
+* Nextcloud sends mail through the box's own mail server, Z-Push's obsolete settings are
+  removed, SSHFP records are generated on boxes without IPv6, and Munin's zoomable graphs
+  work again.
+
+Other fixes:
+
+* Our systemd units are no longer "linked", which newer versions of systemd refuse to enable.
+* Kernel settings are stored in /etc/sysctl.d/90-mailinabox.conf (Debian 13 has no /etc/sysctl.conf).
+* nginx 1.25.1+ and Postfix 3.10+ are configured without their deprecated settings.
+* systemd-resolved is only configured when it is installed (it usually isn't on Debian 12+).
+* spampd 2.60+ (Debian 13) is configured through /etc/spampd.cfg.
+* Regular expressions in the management daemon no longer trigger warnings on Python 3.12+.
+* The PHP imap extension, needed by Z-Push and no longer part of PHP since 8.4, is installed
+  explicitly and the setup stops if it isn't available.
+
 Version 60.1 (October 30, 2022)
 -------------------------------
 

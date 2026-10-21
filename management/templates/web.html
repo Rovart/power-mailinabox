@@ -1,54 +1,67 @@
-<style>
-</style>
+<div class="page-header">
+	<h2>Static Web Hosting</h2>
+	<p class="text-body-secondary">This machine is serving a simple, static website at <a
+			href="https://{{hostname}}">https://{{hostname}}</a> and at all domain names that you set up an email user or
+		alias for.</p>
+</div>
 
-<h2>Static Web Hosting</h2>
+<div class="card mb-4">
+	<div class="card-header">
+		<h3 class="h5 mb-0">Websites</h3>
+	</div>
+	<div class="table-responsive">
+		<table id="web_domains_existing" class="table table-hover align-middle mb-0">
+			<caption class="visually-hidden">Websites served by this machine and the directory of their files</caption>
+			<thead>
+				<tr>
+					<th scope="col">Site</th>
+					<th scope="col">Directory for files</th>
+					<th scope="col"><span class="visually-hidden">Actions</span></th>
+				</tr>
+			</thead>
+			<tbody>
+			</tbody>
+		</table>
+	</div>
+	<div class="card-footer small text-body-secondary">
+		To add a domain to this table, create a dummy <a href="#users">mail user</a> or <a href="#aliases">alias</a> on
+		the domain first and see the <a href="https://mailinabox.email/guide.html#domain-name-configuration">setup
+			guide</a> for adding nameserver records to the new domain at your registrar (but <i>not</i> glue records).
+	</div>
+</div>
 
-<p>This machine is serving a simple, static website at <a href="https://{{hostname}}">https://{{hostname}}</a> and at
-	all domain names that you set up an email user or alias for.</p>
+<div class="card mb-4">
+	<div class="card-header">
+		<h3 class="h5 mb-0">Uploading web files</h3>
+	</div>
+	<div class="card-body">
+		<p>You can replace the default website with your own HTML pages and other static files. This control panel
+			won&rsquo;t help you design a website, but once you have <code>.html</code> files you can upload them
+			following these instructions:</p>
 
-<h3>Uploading web files</h3>
+		<ol class="mb-0">
+			<li>Ensure that any domains you are publishing a website for have no problems on the <a
+					href="#system_status">Status Checks</a> page.</li>
 
-<p>You can replace the default website with your own HTML pages and other static files. This control panel won&rsquo;t
-	help you design a website, but once you have <tt>.html</tt> files you can upload them following these instructions:
-</p>
+			<li>On your personal computer, install an SSH file transfer program such as <a
+					href="https://filezilla-project.org/">FileZilla</a> or <a
+					href="http://linuxcommand.org/man_pages/scp1.html">scp</a>.</li>
 
-<ol>
-	<li>Ensure that any domains you are publishing a website for have no problems on the <a href="#system_status"
-			onclick="return show_panel(this);">Status Checks</a> page.</li>
+			<li>Log in to this machine with the file transfer program. The server is <strong>{{hostname}}</strong>, the
+				protocol is SSH or SFTP, and use the <strong>SSH login credentials</strong> that you used when you
+				originally created this machine at your cloud host provider. This is <strong>not</strong> what you use to
+				log in either for email or this control panel. Your SSH credentials probably involves a private key
+				file.</li>
 
-	<li>On your personal computer, install an SSH file transfer program such as <a
-			href="https://filezilla-project.org/">FileZilla</a> or <a
-			href="http://linuxcommand.org/man_pages/scp1.html">scp</a>.</li>
+			<li>Upload your <code>.html</code> or other files to the directory
+				<code>{{storage_root}}/www/default</code> on this machine. They will appear directly and immediately on
+				the web.</li>
 
-	<li>Log in to this machine with the file transfer program. The server is <strong>{{hostname}}</strong>, the protocol
-		is SSH or SFTP, and use the <strong>SSH login credentials</strong> that you used when you originally created this
-		machine at your cloud host provider. This is <strong>not</strong> what you use to log in either for email or this
-		control panel. Your SSH credentials probably involves a private key file.</li>
-
-	<li>Upload your <tt>.html</tt> or other files to the directory <tt>{{storage_root}}/www/default</tt> on this machine.
-		They will appear directly and immediately on the web.</li>
-
-	<li>The websites set up on this machine are listed in the table below with where to put the files for each website.
-	</li>
-
-	<table id="web_domains_existing" class="table col-12" style="margin-bottom: 1em;">
-		<caption></caption>
-		<thead>
-			<tr>
-				<th>Site</th>
-				<th>Directory for Files</th>
-			</tr>
-		</thead>
-		<tbody>
-		</tbody>
-	</table>
-
-	<p>To add a domain to this table, create a dummy <a href="#users" onclick="return show_panel(this);">mail user</a> or
-		<a href="#aliases" onclick="return show_panel(this);">alias</a> on the domain first and see the <a
-			href="https://mailinabox.email/guide.html#domain-name-configuration">setup guide</a> for adding nameserver records
-		to the new domain at your registrar (but <i>not</i> glue records).</p>
-
-</ol>
+			<li>The websites set up on this machine are listed in the table above with where to put the files for each
+				website.</li>
+		</ol>
+	</div>
+</div>
 
 <script>
 	function show_web() {
@@ -59,20 +72,30 @@
 			},
 			function (domains) {
 				var tb = $('#web_domains_existing tbody');
-				tb.text('');
+				tb.empty();
 				for (var i = 0; i < domains.length; i++) {
 					if (!domains[i].static_enabled) continue;
-					var row = $("<tr><th class='domain'><a href=''></a></th><td class='directory'><tt/></td> <td class='change-root hidden'><button class='btn btn-default btn-xs' onclick='show_change_web_root(this)'>Change</button></td></tr>");
+					var row = $("<tr/>");
 					tb.append(row);
 					row.attr('data-domain', domains[i].domain);
 					row.attr('data-custom-web-root', domains[i].custom_root);
-					row.find('.domain a').text('https://' + domains[i].domain);
-					row.find('.domain a').attr('href', 'https://' + domains[i].domain);
-					row.find('.directory tt').text(domains[i].root);
+					row.append($("<th scope='row' class='domain fw-normal text-break'/>").append(
+						$("<a/>").attr('href', 'https://' + domains[i].domain).text('https://' + domains[i].domain)));
+					row.append($("<td class='directory'/>").append(
+						$("<code class='text-break'/>").text(domains[i].root)));
+					var change = $("<button type='button' class='btn btn-sm btn-outline-secondary text-nowrap d-none'/>")
+						.attr('aria-label', 'Change the directory of ' + domains[i].domain)
+						.append($("<span class='fa-solid fa-folder-open me-1' aria-hidden='true'/>"), 'Change')
+						.on('click', function () { show_change_web_root(this); });
+					row.append($("<td class='change-root text-end'/>").append(change));
 					if (domains[i].root != domains[i].custom_root)
-						row.find('.change-root').removeClass('hidden');
+						change.removeClass('d-none');
 				}
 
+				if (tb.children().length == 0) {
+					tb.append($("<tr/>").append(
+						$("<td colspan='3' class='text-body-secondary'/>").text("No static websites are being served.")));
+				}
 			});
 	}
 
@@ -86,17 +109,24 @@
 				if (data == "")
 					data = "Nothing changed.";
 				else
-					data = $("<pre/>").text(data);
+					data = $('<pre class="mb-0"/>').text(data);
 				show_modal_error("Web Update", data, function () { show_web() });
+			},
+			function (err) {
+				show_modal_error("Web Update (Error)", $('<pre class="mb-0"/>').text(err));
 			});
 	}
 
 	function show_change_web_root(elem) {
-		var domain = $(elem).parents('tr').attr('data-domain');
-		var root = $(elem).parents('tr').attr('data-custom-web-root');
+		var row = $(elem).closest('tr');
+		var domain = row.attr('data-domain');
+		var root = row.attr('data-custom-web-root');
 		show_modal_confirm(
 			'Change Root Directory for ' + domain,
-			$('<p>You can change the static directory for <tt>' + domain + '</tt> to:</p> <p><tt>' + root + '</tt></p> <p>First create this directory on the server. Then click Update to scan for the directory and update web settings.</p>'),
+			$('<div/>').append(
+				$('<p/>').append('You can change the static directory for ', $('<code/>').text(domain), ' to:'),
+				$('<p/>').append($('<code class="text-break"/>').text(root)),
+				$('<p class="mb-0"/>').text('First create this directory on the server. Then click Update to scan for the directory and update web settings.')),
 			'Update',
 			function () { do_web_update(); });
 	}

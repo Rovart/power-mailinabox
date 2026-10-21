@@ -20,7 +20,9 @@ hostname $PRIMARY_HOSTNAME
 # the loopback interface to also work on IPv6 (that is, we want :: to be available). This
 # is required because apparently nsd expects this to exist.
 
-management/editconf.py /etc/sysctl.conf "net.ipv6.conf.lo.disable_ipv6 = 0"
+# (Newer releases no longer have /etc/sysctl.conf, so we keep our kernel settings in a file of our own.)
+touch /etc/sysctl.d/90-mailinabox.conf
+management/editconf.py /etc/sysctl.d/90-mailinabox.conf "net.ipv6.conf.lo.disable_ipv6 = 0"
 hide_output sysctl --system
 
 # ### Fix permissions
@@ -91,6 +93,47 @@ fi
 # (See https://discourse.mailinabox.email/t/journalctl-reclaim-space-on-small-mailinabox/6728/11.)
 management/editconf.py /etc/systemd/journald.conf MaxRetentionSec=10day
 
+# ### Disable Ubuntu's MOTD advertisements
+
+if [ -f /etc/default/motd-news ]; then
+	management/editconf.py /etc/default/motd-news ENABLED=0
+	rm -f /var/cache/motd-news
+fi
+
+# ### Add package repositories
+
+# We pin the PHP version used by our PHP applications (see PHP_VER in functions.sh)
+# instead of relying on whatever version each distribution ships. This also gives us
+# extensions that are no longer bundled with PHP (like imap, required by Z-Push) and
+# older PHP versions that are needed to upgrade old Nextcloud installations.
+#
+# * On Debian we use the repository maintained by Ondřej Surý (https://deb.sury.org).
+# * On Ubuntu we use the ppa:ondrej/php PPA, maintained by the same person.
+
+echo "Configuring package repositories..."
+if [ "$(lsb_release -is)" == "Ubuntu" ]; then
+	if [ ! -f /usr/bin/add-apt-repository ]; then
+		hide_output apt-get update
+		apt_install software-properties-common
+	fi
+
+	# Ensure the universe repository is enabled since some of our packages
+	# come from there and minimal Ubuntu installs may have it turned off.
+	hide_output add-apt-repository -y universe
+	hide_output add-apt-repository -y ppa:ondrej/php
+else
+	if [ ! -f /usr/share/keyrings/debsuryorg-archive-keyring.gpg ]; then
+		hide_output apt-get update
+		apt_install ca-certificates curl lsb-release
+		hide_output curl -sSLo /tmp/debsuryorg-archive-keyring.deb https://packages.sury.org/debsuryorg-archive-keyring.deb
+		hide_output dpkg -i /tmp/debsuryorg-archive-keyring.deb
+		rm -f /tmp/debsuryorg-archive-keyring.deb
+	fi
+
+	echo "deb [signed-by=/usr/share/keyrings/debsuryorg-archive-keyring.gpg] https://packages.sury.org/php/ $(lsb_release -sc) main" \
+		> /etc/apt/sources.list.d/php.list
+fi
+
 # ### Update Packages
 
 # Update system packages to make sure we have the latest upstream versions
@@ -98,7 +141,7 @@ management/editconf.py /etc/systemd/journald.conf MaxRetentionSec=10day
 # PPAs so we can install those packages later.
 
 echo Updating system packages...
-hide_output apt-get update
+hide_output apt-get update --allow-releaseinfo-change
 apt_get_quiet upgrade
 
 # Old kernels pile up over time and take up a lot of disk space, and because of Mail-in-a-Box
@@ -113,7 +156,7 @@ apt_get_quiet autoremove
 #
 # * unattended-upgrades: Apt tool to install security updates automatically.
 # * cron: Runs background processes periodically.
-# * ntp: keeps the system time correct
+# * ntp/ntpsec: keeps the system time correct (ntp was replaced by ntpsec in newer releases)
 # * fail2ban: scans log files for repeated failed login attempts and blocks the remote IP at the firewall
 # * netcat-openbsd: `nc` command line networking tool
 # * git: we install some things directly from github
@@ -122,11 +165,17 @@ apt_get_quiet autoremove
 # * bc: allows us to do math to compute sane defaults
 # * openssh-client: provides ssh-keygen
 
+if [ "$(get_os_code)" == "$OS_UBUNTU_2204" ]; then
+	NTP_PACKAGE=ntp
+else
+	NTP_PACKAGE=ntpsec
+fi
+
 echo Installing system packages...
-apt_install python3 python3-dev python3-pip python3-setuptools \
+apt_install python3 python3-dev python3-pip python3-setuptools python3-venv \
 	netcat-openbsd wget curl git sudo coreutils bc file \
-	pollinate openssh-client unzip \
-	unattended-upgrades cron ntp fail2ban rsyslog
+	pollinate openssh-client unzip lsb-release \
+	unattended-upgrades cron $NTP_PACKAGE fail2ban rsyslog
 
 # ### Suppress Upgrade Prompts
 # When Ubuntu 20 comes out, we don't want users to be prompted to upgrade,
@@ -264,13 +313,14 @@ if [ -z "${DISABLE_FIREWALL:-}" ]; then
 		# ssh might be running on an alternate port. Use sshd -T to dump sshd's #NODOC
 		# settings, find the port it is supposedly running on, and open that port #NODOC
 		# too. #NODOC
-		SSH_PORT=$(sshd -T 2>/dev/null | grep "^port " | sed "s/port //") #NODOC
-		if [ ! -z "$SSH_PORT" ]; then
-			if [ "$SSH_PORT" != "22" ]; then
-				echo Opening alternate SSH port $SSH_PORT. #NODOC
-				ufw_limit $SSH_PORT #NODOC
+		# (sshd may listen on several ports.)
+		SSH_PORT=$(sshd -T 2>/dev/null | grep "^port " | sed "s/port //" | tr '\n' ' ') #NODOC
+		for port in $SSH_PORT; do
+			if [ "$port" != "22" ]; then
+				echo Opening alternate SSH port $port. #NODOC
+				ufw_limit $port #NODOC
 			fi
-		fi
+		done
 	fi
 
 	ufw --force enable;
@@ -345,14 +395,19 @@ fi
 # which is where bind9 will be running. Obviously don't do this before
 # installing bind9 or else apt won't be able to resolve a server to
 # download bind9 from.
+# (systemd-resolved is a separate package, usually not installed, on Debian 12 and later.)
 rm -f /etc/resolv.conf
-management/editconf.py /etc/systemd/resolved.conf DNSStubListener=no
+if [ -f /etc/systemd/resolved.conf ]; then
+	management/editconf.py /etc/systemd/resolved.conf DNSStubListener=no
+fi
 echo "nameserver 127.0.0.1" > /etc/resolv.conf
 
 # Restart the DNS services.
 
 restart_service bind9
-systemctl restart systemd-resolved
+if systemctl is-enabled --quiet systemd-resolved 2> /dev/null; then
+	systemctl restart systemd-resolved
+fi
 
 # ### Fail2Ban Service
 
@@ -371,4 +426,5 @@ cp -f conf/fail2ban/filter.d/* /etc/fail2ban/filter.d/
 # Roundcube for the first time. This causes fail2ban to fail to start. Later
 # scripts will ensure the files exist and then fail2ban is given another
 # restart at the very end of setup.
+hide_output systemctl enable fail2ban
 restart_service fail2ban

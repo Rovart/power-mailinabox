@@ -34,8 +34,8 @@ contact.admin.always_send warning critical
 EOF
 
 # The Debian installer touches these files and chowns them to www-data:adm for use with spawn-fcgi
-chown munin. /var/log/munin/munin-cgi-html.log
-chown munin. /var/log/munin/munin-cgi-graph.log
+chown munin: /var/log/munin/munin-cgi-html.log
+chown munin: /var/log/munin/munin-cgi-graph.log
 
 # ensure munin-node knows the name of this machine
 # and reduce logging level to warning
@@ -64,9 +64,7 @@ mkdir -p /var/lib/munin-node/plugin-state/
 # Create a systemd service for munin.
 ln -sf $(pwd)/management/munin_start.sh /usr/local/lib/mailinabox/munin_start.sh
 chmod 0744 /usr/local/lib/mailinabox/munin_start.sh
-cp --remove-destination conf/munin.service /lib/systemd/system/munin.service # target was previously a symlink so remove first
-hide_output systemctl link -f /lib/systemd/system/munin.service
-hide_output systemctl daemon-reload
+install_systemd_unit munin.service conf/munin.service
 hide_output systemctl unmask munin.service
 hide_output systemctl enable munin.service
 

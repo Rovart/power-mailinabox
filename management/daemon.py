@@ -149,6 +149,7 @@ def index():
 	import boto3.s3
 	backup_s3_hosts = [(r, f"s3.{r}.amazonaws.com") for r in boto3.session.Session().get_available_regions('s3')]
 
+	from services import get_enabled_services
 
 	return render_template(
 		'index.html',
@@ -158,6 +159,7 @@ def index():
 		no_admins_exist=no_admins_exist,
 		backup_s3_hosts=backup_s3_hosts,
 		csr_country_codes=csr_country_codes,
+		services=get_enabled_services(env),
 	)
 
 
@@ -842,6 +844,79 @@ def privacy_status_set():
 	return "OK"
 
 
+@app.route('/system/services', methods=["GET"])
+@authorized_personnel_only()
+def system_services_get():
+	from services import get_services_status
+	return json_response(get_services_status(env))
+
+
+@app.route('/system/services', methods=["POST"])
+@authorized_personnel_only()
+def system_services_set():
+	from services import SERVICES, set_service_enabled
+	from web_update import do_web_update
+	name = request.form.get('service', '')
+	enabled = request.form.get('enabled', '') == "true"
+	try:
+		set_service_enabled(name, enabled, env)
+		do_web_update(env)
+	except ValueError as e:
+		return (str(e), 400)
+	return "%s is now turned %s." % (SERVICES[name]["title"],
+									"on" if enabled else "off")
+
+
+def get_client_ip():
+	# Requests are proxied by nginx, which puts the client's address in
+	# X-Forwarded-For.
+	if request.headers.getlist("X-Forwarded-For"):
+		return request.headers.getlist("X-Forwarded-For")[0]
+	return request.remote_addr
+
+
+@app.route('/system/web-access', methods=["GET"])
+@authorized_personnel_only()
+def system_web_access_get():
+	from services import WEB_ACCESS_AREAS, get_web_access, get_box_addresses, is_address_allowed, get_enabled_services
+	access = get_web_access(env)
+	services = get_enabled_services(env)
+	client_ip = get_client_ip()
+	return json_response({
+		"areas": [{
+			"name": name,
+			"title": area["title"],
+			"paths": area["paths"],
+			"local_only": access["local_only"][name],
+			"service_enabled": services.get(name, True),
+		} for name, area in WEB_ACCESS_AREAS.items()],
+		"allowed_networks": access["allowed_networks"],
+		"box_addresses": get_box_addresses(env),
+		"client_ip": client_ip,
+		"client_allowed": is_address_allowed(client_ip, env),
+		"cli": os.path.abspath(os.path.join(os.path.dirname(__file__), "cli.py")),
+	})
+
+
+@app.route('/system/web-access', methods=["POST"])
+@authorized_personnel_only()
+def system_web_access_set():
+	from services import WEB_ACCESS_AREAS, set_web_access
+	from web_update import do_web_update
+	area = request.form.get('area')
+	local_only = request.form.get('local_only') == "true"
+	allowed_networks = request.form.get('allowed_networks')
+	try:
+		set_web_access(env, area, local_only, allowed_networks)
+		do_web_update(env)
+	except ValueError as e:
+		return (str(e), 400)
+	if area is None:
+		return "The allowed networks were saved."
+	title = "Every web application" if area == "all" else WEB_ACCESS_AREAS[area]["title"]
+	return "%s is now %s." % (title, "only available locally" if local_only else "available from anywhere")
+
+
 @app.route('/system/smtp/relay', methods=["GET"])
 @authorized_personnel_only()
 def smtp_relay_get():
@@ -1067,6 +1142,9 @@ def import_key():
 	k = request.form.get('key')
 	try:
 		result = import_key(k)
+		if not hasattr(result, "considered"):
+			# gpg returns an error code (or exception) when nothing could be read.
+			raise ValueError("No valid OpenPGP public key could be read.")
 		build_wkd()  # Rebuild the WKD
 		return {
 			"keys_read": result.considered,
@@ -1120,8 +1198,11 @@ def get_wkd_status():
 @app.route('/system/pgp/wkd', methods=["POST"])
 @authorized_personnel_only()
 def update_wkd():
-	from wkd import update_wkd_config, build_wkd
-	update_wkd_config(request.form)
+	from wkd import update_wkd_config, build_wkd, WKDError
+	try:
+		update_wkd_config(request.form)
+	except (ValueError, WKDError) as e:
+		return (str(e), 400)
 	build_wkd()
 	return "OK"
 
@@ -1155,8 +1236,23 @@ def default_quota_set():
 # MUNIN
 
 
+def munin_enabled(f):
+
+	@wraps(f)
+	def g(*args, **kwargs):
+		from services import is_enabled
+		if not is_enabled("munin", env):
+			return Response("Munin is turned off.",
+							status=404,
+							mimetype='text/plain')
+		return f(*args, **kwargs)
+
+	return g
+
+
 @app.route('/munin/')
 @authorized_personnel_only()
+@munin_enabled
 def munin_start():
 	# Munin pages, static images, and dynamically generated images are served
 	# outside of the AJAX API. We'll start with a 'start' API that sets a cookie
@@ -1204,6 +1300,7 @@ def authorized_personnel_only_via_cookie(f):
 
 @app.route('/munin/<path:filename>')
 @authorized_personnel_only_via_cookie
+@munin_enabled
 def munin_static_file(filename=""):
 	# Proxy the request to static files.
 	if filename == "":
@@ -1213,6 +1310,7 @@ def munin_static_file(filename=""):
 
 @app.route('/munin/cgi-graph/<path:filename>')
 @authorized_personnel_only_via_cookie
+@munin_enabled
 def munin_cgi(filename):
 	""" Relay munin cgi dynazoom requests
 	/usr/lib/munin/cgi/munin-cgi-graph is a perl cgi script in the munin package
@@ -1230,7 +1328,7 @@ def munin_cgi(filename):
 	support infrastructure like spawn-fcgi.
 	"""
 
-	COMMAND = 'su - munin --preserve-environment --shell=/bin/bash -c /usr/lib/munin/cgi/munin-cgi-graph'
+	COMMAND = 'su munin --preserve-environment --shell=/bin/bash -c /usr/lib/munin/cgi/munin-cgi-graph'
 	# su changes user, we use the munin user here
 	# --preserve-environment retains the environment, which is where Popen's `env` data is
 	# --shell=/bin/bash ensures the shell used is bash
@@ -1281,10 +1379,7 @@ def log_failed_login(request):
 	# During setup we call the management interface directly to determine the user
 	# status. So we can't always use X-Forwarded-For because during setup that header
 	# will not be present.
-	if request.headers.getlist("X-Forwarded-For"):
-		ip = request.headers.getlist("X-Forwarded-For")[0]
-	else:
-		ip = request.remote_addr
+	ip = get_client_ip()
 
 	# We need to add a timestamp to the log message, otherwise /dev/log will eat the "duplicate"
 	# message.

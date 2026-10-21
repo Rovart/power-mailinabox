@@ -44,7 +44,7 @@ msg['From'] = "\"%s\" <%s>" % ("System Management Daemon",
 msg['To'] = "administrator@" + env['PRIMARY_HOSTNAME']
 msg['Subject'] = "[%s] %s" % (env['PRIMARY_HOSTNAME'], subject)
 
-content_html = "<html><body><pre>{}</pre></body></html>".format(
+content_html = '<html><body><pre style="overflow-x: scroll; white-space: pre;">{}</pre></body></html>'.format(
 	html.escape(content))
 
 msg.attach(MIMEText(create_signature(content.encode()).decode(), 'plain'))

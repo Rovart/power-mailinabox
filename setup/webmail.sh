@@ -22,8 +22,9 @@ source /etc/mailinabox.conf # load global vars
 echo "Installing Roundcube (webmail)..."
 apt_install \
 	dbconfig-common \
-	php-cli php-sqlite3 php-intl php-json php-common php-curl php-ldap \
-	php-gd php-pspell libjs-jquery libjs-jquery-mousewheel libmagic1 php-mbstring php-gnupg
+	php${PHP_VER}-cli php${PHP_VER}-sqlite3 php${PHP_VER}-intl php${PHP_VER}-common php${PHP_VER}-curl php${PHP_VER}-ldap \
+	php${PHP_VER}-gd php${PHP_VER}-pspell libjs-jquery libjs-jquery-mousewheel libmagic1 php${PHP_VER}-mbstring \
+	php${PHP_VER}-gnupg php${PHP_VER}-xml php${PHP_VER}-zip
 
 # Install Roundcube from source if it is not already present or if it is out of date.
 # Combine the Roundcube version number with the commit hash of plugins to track
@@ -35,12 +36,12 @@ apt_install \
 #   https://github.com/mstilkerich/rcmcarddav/releases
 # The easiest way to get the package hashes is to run this script and get the hash from
 # the error message.
-VERSION=1.6.0
-HASH=fd84b4fac74419bb73e7a3bcae1978d5589c52de
+VERSION=1.7.5
+HASH=396b2fa0153bf6b4a8ab99f136b27e16d9f74e57
 PERSISTENT_LOGIN_VERSION=version-5.3.0
-HTML5_NOTIFIER_VERSION=68d9ca194212e15b3c7225eb6085dbcf02fd13d7 # version 0.6.4+
-CARDDAV_VERSION=4.4.4
-CARDDAV_HASH=743fd6925b775f821aa8860982d2bdeec05f5d7b
+HTML5_NOTIFIER_VERSION=5d85947e16ea9cac4544c59666fe0ff13ba2a44a # version 0.6.4+
+CARDDAV_VERSION=5.1.4
+CARDDAV_HASH=f6fb59edf292795ddab6697b44b83e6d05d5eb77
 
 UPDATE_KEY=$VERSION:$PERSISTENT_LOGIN_VERSION:$HTML5_NOTIFIER_VERSION:$CARDDAV_VERSION
 
@@ -130,9 +131,14 @@ cat > $RCM_CONFIG <<EOF;
 		'verify_peer_name'  => false,
 	),
 );
-\$config['support_url'] = 'https://power-mailinabox.net/';
+\$config['support_url'] = 'https://github.com/Rovart/power-mailinabox';
 \$config['product_name'] = '$PRIMARY_HOSTNAME Webmail';
 \$config['plugins'] = array('html5_notifier', 'archive', 'zipdownload', 'password', 'managesieve', 'jqueryui', 'persistent_login', 'carddav', 'enigma');
+/* The address book of Nextcloud is only available while Nextcloud is turned on (see management/services.py). */
+\$services = @json_decode((string) @file_get_contents('/var/lib/mailinabox/services.json'), true);
+if (is_array(\$services) && isset(\$services['nextcloud']) && !\$services['nextcloud']) {
+	\$config['plugins'] = array_values(array_diff(\$config['plugins'], array('carddav')));
+}
 \$config['cipher_method'] = 'AES-256-CBC'; # persistent login cookie and potentially other things
 \$config['des_key'] = '$SECRET_KEY'; # 37 characters -> ~256 bits for AES-256, see above
 \$config['skin'] = 'elastic';
@@ -178,29 +184,30 @@ cat > ${RCM_PLUGIN_DIR}/enigma/config.inc.php <<EOF;
 EOF
 
 # Configure CardDav
+# (The preset keeps its "ownCloud" name, since renaming it would make the plugin delete
+# the address books it created and create new ones.)
 cat > ${RCM_PLUGIN_DIR}/carddav/config.inc.php <<EOF;
 <?php
 /* Do not edit. Written by Mail-in-a-Box. Regenerated on updates. */
 \$prefs['_GLOBAL']['hide_preferences'] = true;
-\$prefs['_GLOBAL']['suppress_version_warning'] = true;
-\$prefs['ownCloud'] = array(
-	 'name'         =>  'ownCloud',
-	 'username'     =>  '%u', // login username
-	 'password'     =>  '%p', // login password
-	 'url'          =>  'https://${PRIMARY_HOSTNAME}/cloud/remote.php/dav/addressbooks/users/%u/contacts/',
-	 'active'       =>  true,
-	 'readonly'     =>  false,
-	 'refresh_time' => '02:00:00',
-	 'fixed'        =>  array('username','password'),
-	 'preemptive_auth' => '1',
-	 'hide'        =>  false,
-);
+\$prefs['ownCloud'] = [
+	 'accountname'   =>  'Nextcloud',
+	 'username'      =>  '%u', // login username
+	 'password'      =>  '%p', // login password
+	 'discovery_url' =>  'https://${PRIMARY_HOSTNAME}/cloud/remote.php/dav/addressbooks/users/%u/contacts/',
+	 'active'        =>  true,
+	 'readonly'      =>  false,
+	 'refresh_time'  =>  '02:00:00',
+	 'fixed'         =>  ['discovery_url', 'username', 'password', 'preemptive_basic_auth'],
+	 'preemptive_basic_auth' => true,
+	 'hide'          =>  false,
+];
 ?>
 EOF
 
 # Create writable directories.
 mkdir -p /var/log/roundcubemail /var/tmp/roundcubemail $STORAGE_ROOT/mail/roundcube
-chown -R www-data.www-data /var/log/roundcubemail /var/tmp/roundcubemail $STORAGE_ROOT/mail/roundcube
+chown -R www-data:www-data /var/log/roundcubemail /var/tmp/roundcubemail $STORAGE_ROOT/mail/roundcube
 
 # Ensure the log file monitored by fail2ban exists, or else fail2ban can't start.
 sudo -u www-data touch /var/log/roundcubemail/errors.log
@@ -223,21 +230,19 @@ usermod -a -G dovecot www-data
 
 # set permissions so that PHP can use users.sqlite
 # could use dovecot instead of www-data, but not sure it matters
-chown root.www-data $STORAGE_ROOT/mail
+chown root:www-data $STORAGE_ROOT/mail
 chmod 775 $STORAGE_ROOT/mail
-chown root.www-data $STORAGE_ROOT/mail/users.sqlite
+chown root:www-data $STORAGE_ROOT/mail/users.sqlite
 chmod 664 $STORAGE_ROOT/mail/users.sqlite
 
 # Fix Carddav permissions:
-chown -f -R root.www-data ${RCM_PLUGIN_DIR}/carddav
+chown -f -R root:www-data ${RCM_PLUGIN_DIR}/carddav
 # root.www-data need all permissions, others only read
 chmod -R 774 ${RCM_PLUGIN_DIR}/carddav
 
 # Run Roundcube database migration script (database is created if it does not exist)
-php ${RCM_DIR}/bin/updatedb.sh --dir ${RCM_DIR}/SQL --package roundcube
+php$PHP_VER ${RCM_DIR}/bin/updatedb.sh --dir ${RCM_DIR}/SQL --package roundcube
 chown www-data:www-data $STORAGE_ROOT/mail/roundcube/roundcube.sqlite
 chmod 664 $STORAGE_ROOT/mail/roundcube/roundcube.sqlite
 
-# Enable PHP modules.
-phpenmod -v php mcrypt imap
-restart_service php$(php_version)-fpm
+restart_service php$PHP_VER-fpm

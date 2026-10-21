@@ -1,76 +1,77 @@
 <style>
-	#external_dns_settings .domain-header {
-		margin-top: 0.5em;
-		margin-bottom: 0.5em;
-	}
+	@media (min-width: 768px) {
+		#external_dns_settings .qname {
+			min-width: 12em;
+		}
 
-	#external_dns_settings .values td {
-		border: 0;
-		padding-top: .75em;
-		padding-bottom: 0;
-	}
-
-	#external_dns_settings .value {
-		word-break: break-all;
-	}
-
-	#external_dns_settings .explanation td {
-		padding-top: .5em;
-		padding-bottom: .75em;
-		font-style: italic;
-		color: #777;
+		#external_dns_settings .value {
+			min-width: 16em;
+		}
 	}
 </style>
 
-<h2>External DNS</h2>
+<div class="page-header">
+	<h2>External DNS</h2>
+	<p class="text-body-secondary">Although your box is configured to serve its own DNS, it is possible to host your DNS
+		elsewhere &mdash; such as in the DNS control panel provided by your domain name registrar or virtual cloud provider
+		&mdash; by copying the DNS zone information shown below into your external DNS server&rsquo;s control panel.</p>
+</div>
 
-<p class="text-warning">This is an advanced configuration page.</p>
+<div class="alert alert-warning d-flex align-items-start gap-2" role="note">
+	<span class="fa-solid fa-triangle-exclamation mt-1 flex-shrink-0" aria-hidden="true"></span>
+	<div><strong>This is an advanced configuration page.</strong> If you host your DNS elsewhere, you are responsible
+		for keeping your DNS entries up to date! If you previously enabled DNSSEC on your domain name by setting a DS
+		record at your registrar, you will likely have to turn it off before changing nameservers.</div>
+</div>
 
-<p>Although your box is configured to serve its own DNS, it is possible to host your DNS elsewhere &mdash; such as in
-	the DNS control panel provided by your domain name registrar or virtual cloud provider &mdash; by copying the DNS
-	zone information shown in the table below into your external DNS server&rsquo;s control panel.</p>
-
-<p>If you do so, you are responsible for keeping your DNS entries up to date! If you previously enabled DNSSEC on your
-	domain name by setting a DS record at your registrar, you will likely have to turn it off before changing
-	nameservers.</p>
-
-
-<p class="alert" role="alert">
-	<span class="fas fa-info-circle"></span>
-	You may encounter zone file errors when attempting to create a TXT record with a long string.
-	<a href="https://tools.ietf.org/html/rfc4408#section-3.1.3">RFC 4408</a> states a TXT record is allowed to contain
-	multiple strings, and this technique can be used to construct records that would exceed the 255-byte maximum length.
-	You may need to adopt this technique when adding DomainKeys. Use a tool like <code>named-checkzone</code> to
-	validate your zone file.
-</p>
-
-<h3>Download zonefile</h3>
-<p>You can download your zonefiles here or use the table of records below.</p>
-<form class="form-inline" role="form" onsubmit="do_download_zonefile(); return false;">
-	<div class="col-md-10 col-xl-6 mb-3">
-		<div class="input-group">
-			<label for="downloadZonefile" class="input-group-text">Zone</label>
-			<select id="downloadZonefile" class="form-select"></select>
-		</div>
+<div class="alert alert-info d-flex align-items-start gap-2" role="note">
+	<span class="fa-solid fa-circle-info mt-1 flex-shrink-0" aria-hidden="true"></span>
+	<div>You may encounter zone file errors when attempting to create a TXT record with a long string.
+		<a href="https://tools.ietf.org/html/rfc4408#section-3.1.3" class="alert-link">RFC 4408</a> states a TXT record is
+		allowed to contain multiple strings, and this technique can be used to construct records that would exceed the
+		255-byte maximum length. You may need to adopt this technique when adding DomainKeys. Use a tool like
+		<code>named-checkzone</code> to validate your zone file.
 	</div>
+</div>
 
-	<button type="submit" class="btn btn-primary">Download</button>
-</form>
+<div class="card mb-4">
+	<div class="card-header">
+		<h3 class="h5 mb-0">Download zone file</h3>
+	</div>
+	<div class="card-body">
+		<p>You can download your zone files here or use the table of records below.</p>
+		<form class="row g-3 align-items-end" onsubmit="do_download_zonefile(); return false;">
+			<div class="col-12 col-sm-8 col-md-6 col-lg-5">
+				<label for="downloadZonefile" class="form-label">Zone</label>
+				<select id="downloadZonefile" class="form-select"></select>
+			</div>
+			<div class="col-12 col-sm-auto">
+				<button type="submit" class="btn btn-primary"><span class="fa-solid fa-download me-1"
+						aria-hidden="true"></span>Download</button>
+			</div>
+		</form>
+	</div>
+</div>
 
-<h3>Records</h3>
-
-<table id="external_dns_settings" class="table">
-	<caption></caption>
-	<thead>
-		<tr>
-			<th>QName</th>
-			<th>Type</th>
-			<th>Value</th>
-		</tr>
-	</thead>
-	<tbody>
-	</tbody>
-</table>
+<div class="card mb-4">
+	<div class="card-header">
+		<h3 class="h5 mb-0">Records</h3>
+	</div>
+	<div class="table-responsive">
+		<table id="external_dns_settings" class="table table-hover align-middle mb-0">
+			<caption class="visually-hidden">DNS records to set at your external DNS provider, grouped by zone</caption>
+			<thead>
+				<tr>
+					<th scope="col">QName</th>
+					<th scope="col">Type</th>
+					<th scope="col">Value</th>
+				</tr>
+			</thead>
+			<tbody>
+			</tbody>
+		</table>
+	</div>
+</div>
 
 <script>
 	function show_external_dns() {
@@ -80,35 +81,42 @@
 			{},
 			function (data) {
 				var zones = $('#downloadZonefile');
-				zones.text('');
+				zones.empty();
 				for (var j = 0; j < data.length; j++) {
 					zones.append($('<option/>').text(data[j]));
 				}
 			});
 
-		$('#external_dns_settings tbody').html("<tr><td colspan='2' class='text-muted'>Loading...</td></tr>")
+		$('#external_dns_settings tbody').html("<tr><td colspan='3' class='text-body-secondary'>Loading...</td></tr>");
 		api(
 			"/dns/dump",
 			"GET",
 			{},
 			function (zones) {
-				$('#external_dns_settings tbody').html("");
+				var tbody = $('#external_dns_settings tbody');
+				tbody.empty();
+				if (zones.length == 0) {
+					tbody.append($("<tr/>").append(
+						$("<td colspan='3' class='text-body-secondary'/>").text("There are no DNS zones on this box.")));
+				}
 				for (var j = 0; j < zones.length; j++) {
-					var h = $("<tr><td colspan='3' class='bg-light'><h4 class='domain-header'/></td></tr>");
-					h.find("td h4").text(zones[j][0]);
-					$('#external_dns_settings tbody').append(h);
+					var h = $("<tr class='domain-header'/>").append(
+						$("<th scope='colgroup' colspan='3' class='bg-body-tertiary text-break'/>").text(zones[j][0]));
+					tbody.append(h);
 
 					var r = zones[j][1];
 					for (var i = 0; i < r.length; i++) {
-						var n = $("<tr class='values'><td class='qname'/><td class='rtype'/><td class='value font-monospace'/></tr>");
-						n.find('.qname').text(r[i].qname);
-						n.find('.rtype').text(r[i].rtype);
-						n.find('.value').text(r[i].value);
-						$('#external_dns_settings tbody').append(n);
-
-						var n = $("<tr class='explanation'><td colspan='3'/><small/></tr>");
-						n.find('td small').text(r[i].explanation);
-						$('#external_dns_settings tbody').append(n);
+						var n = $("<tr class='values'/>");
+						n.append($("<th scope='row' class='qname fw-normal text-break'/>").text(r[i].qname));
+						n.append($("<td class='rtype'/>").append(
+							$("<span class='badge bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle font-monospace'/>")
+								.text(r[i].rtype)));
+						var v = $("<td class='value'/>");
+						v.append($("<div class='font-monospace small text-break'/>").text(r[i].value));
+						if (r[i].explanation)
+							v.append($("<div class='explanation small fst-italic text-body-secondary mt-1'/>").text(r[i].explanation));
+						n.append(v);
+						tbody.append(n);
 					}
 				}
 			})
@@ -116,16 +124,34 @@
 
 	function do_download_zonefile() {
 		var zone = $('#downloadZonefile').val();
+		if (!zone) return; // the zones have not been loaded
 
 		api(
 			"/dns/zonefile/" + zone,
 			"GET",
 			{},
 			function (data) {
-				show_modal_error("Download Zonefile", $("<pre/>").text(data));
+				var save = $('<button type="button" class="btn btn-sm btn-outline-secondary mb-3"/>')
+					.append($('<span class="fa-solid fa-download me-1" aria-hidden="true"/>'), 'Save as a file')
+					.on('click', function () { save_zonefile_as_file(zone, data); });
+				show_modal_error(
+					"Download Zonefile",
+					$('<div/>').append(
+						$('<p/>').append('Zone file for ', $('<code/>').text(zone), ':'),
+						save,
+						$('<pre class="bg-body-tertiary border rounded p-3 mb-0 small"/>').text(data)));
 			},
 			function (err) {
-				show_modal_error("Download Zonefile (Error)", $("<pre/>").text(err));
+				show_modal_error("Download Zonefile (Error)", $('<pre class="mb-0"/>').text(err));
 			});
+	}
+
+	function save_zonefile_as_file(zone, data) {
+		// Let the browser save the zone file that was already fetched.
+		var url = URL.createObjectURL(new Blob([data], { type: "text/plain" }));
+		var link = $('<a class="d-none"/>').attr({ href: url, download: zone + ".zone" }).appendTo('body');
+		link[0].click();
+		link.remove();
+		setTimeout(function () { URL.revokeObjectURL(url); }, 10000);
 	}
 </script>

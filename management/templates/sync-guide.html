@@ -1,96 +1,129 @@
-<div>
+<div class="page-header">
 	<h2>Contacts &amp; Calendar Synchronization</h2>
+	<p class="text-body-secondary requires-service-nextcloud">This box can hold your contacts and calendar, just like it
+		holds your email.</p>
+</div>
 
-	<p>This box can hold your contacts and calendar, just like it holds your email.</p>
+<div class="alert alert-secondary requires-service-off-nextcloud">
+	<span class="fa-solid fa-circle-info me-2" aria-hidden="true"></span>Contacts and calendar are turned off on this
+	box.<span class="if-logged-in-admin"> You can turn them back on in <a href="#services">Services</a>.</span>
+</div>
 
-	<hr>
+<div class="row gx-4 requires-service-nextcloud">
+	<div class="col-lg-6">
+		<div class="card mb-4">
+			<div class="card-header">
+				<h3 class="h5 mb-0"><span class="fa-solid fa-globe me-2 text-body-secondary"
+						aria-hidden="true"></span>In your browser</h3>
+			</div>
+			<div class="card-body">
+				<p>You can edit your contacts and calendar from your web browser.</p>
 
-	<div class="row d-flex">
-		<div class="col-lg-6">
-			<h4>In your browser</h4>
+				<div class="table-responsive">
+					<table class="table">
+						<caption class="visually-hidden">Web addresses of your contacts and calendar</caption>
+						<thead>
+							<tr>
+								<th scope="col">For&hellip;</th>
+								<th scope="col">Visit this URL</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<th scope="row">Contacts</th>
+								<td class="text-break"><a
+										href="https://{{hostname}}/cloud/contacts">https://{{hostname}}/cloud/contacts</a>
+								</td>
+							</tr>
+							<tr>
+								<th scope="row">Calendar</th>
+								<td class="text-break"><a
+										href="https://{{hostname}}/cloud/calendar">https://{{hostname}}/cloud/calendar</a>
+								</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
 
-			<p>You can edit your contacts and calendar from your web browser.</p>
-
-			<table class="table">
-				<caption></caption>
-				<thead>
-					<tr>
-						<th>For...</th>
-						<th>Visit this URL</th>
-					</tr>
-				</thead>
-				<tr>
-					<th>Contacts</td>
-					<td><a href="https://{{hostname}}/cloud/contacts">https://{{hostname}}/cloud/contacts</a></td>
-				</tr>
-				<tr>
-					<th>Calendar</td>
-					<td><a href="https://{{hostname}}/cloud/calendar">https://{{hostname}}/cloud/calendar</a></td>
-				</tr>
-			</table>
-
-			<p>Log in settings are the same as with <a href="#mail-guide" onclick="return show_panel(this);">mail</a>:
-				your
-				complete email address and your mail password.</p>
+				<p class="mb-0">Log in settings are the same as with <a href="#mail-guide">mail</a>: your complete email
+					address and your mail password.</p>
+			</div>
 		</div>
+	</div>
 
-		<div class="col-lg-6">
-			<h4>On your mobile device</h4>
+	<div class="col-lg-6">
+		<div class="card mb-4">
+			<div class="card-header">
+				<h3 class="h5 mb-0"><span class="fa-solid fa-mobile-screen-button me-2 text-body-secondary"
+						aria-hidden="true"></span>On your mobile device</h3>
+			</div>
+			<div class="card-body">
+				<p class="requires-service-zpush">If you set up your <a href="#mail-guide">mail</a> using
+					Exchange/ActiveSync, your contacts and calendar may already appear on your device.</p>
+				<p><span class="requires-service-zpush">Otherwise, here</span><span
+						class="requires-service-off-zpush">Here</span> are some apps that can synchronize your contacts
+					and calendar to your Android phone.</p>
 
-			<p>If you set up your <a href="#mail-guide" onclick="return show_panel(this);">mail</a> using
-				Exchange/ActiveSync,
-				your contacts and calendar may already appear on your device.</p>
-			<p>Otherwise, here are some apps that can synchronize your contacts and calendar to your Android phone.</p>
+				<div class="table-responsive">
+					<table class="table">
+						<caption class="visually-hidden">Android apps for contacts and calendar</caption>
+						<thead>
+							<tr>
+								<th scope="col">For&hellip;</th>
+								<th scope="col">Use&hellip;</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<th scope="row">Contacts and Calendar</th>
+								<td><a href="https://play.google.com/store/apps/details?id=at.bitfire.davdroid">DAVx⁵</a>
+									($5.99; <a href="https://f-droid.org/packages/at.bitfire.davdroid/">free on
+										F-Droid</a>)</td>
+							</tr>
+							<tr>
+								<th scope="row">Only Contacts</th>
+								<td><a href="https://play.google.com/store/apps/details?id=org.dmfs.carddav.sync">CardDAV-Sync
+										free</a> (free)</td>
+							</tr>
+							<tr>
+								<th scope="row">Only Calendar</th>
+								<td><a href="https://play.google.com/store/apps/details?id=org.dmfs.caldav.lib">CalDAV-Sync</a>
+									($2.99)</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
 
-			<table class="table">
-				<caption></caption>
-				<thead>
-					<tr>
-						<th>For...</th>
-						<th>Use...</th>
-					</tr>
-				</thead>
-				<tr>
-					<td>Contacts and Calendar</td>
-					<td><a href="https://play.google.com/store/apps/details?id=at.bitfire.davdroid">DAVx⁵</a> ($5.99;
-						free <a href="https://f-droid.org/packages/at.bitfire.davdroid/">here</a>)</td>
-				</tr>
-				<tr>
-					<td>Only Contacts</td>
-					<td><a href="https://play.google.com/store/apps/details?id=org.dmfs.carddav.sync">CardDAV-Sync
-							free</a> (free)</td>
-				</tr>
-				<tr>
-					<td>Only Calendar</td>
-					<td><a href="https://play.google.com/store/apps/details?id=org.dmfs.caldav.lib">CalDAV-Sync</a>
-						($2.99)</td>
-				</tr>
-			</table>
+				<p>Use the following settings:</p>
 
-			<p>Use the following settings:</p>
-
-			<table class="table">
-				<tr>
-					<td>Account Type</td>
-					<td>CardDAV or CalDAV</td>
-				</tr>
-				<tr>
-					<td>Server Name</td>
-					<td>{{hostname}}</td>
-				</tr>
-				<tr>
-					<td>Use SSL</td>
-					<td>Yes</td>
-				</tr>
-				<tr>
-					<td>Username</td>
-					<td>Your complete email address.</td>
-				</tr>
-				<tr>
-					<td>Password</td>
-					<td>Your mail password.</td>
-				</tr>
-			</table>
+				<div class="table-responsive">
+					<table class="table mb-0">
+						<caption class="visually-hidden">Settings for CardDAV and CalDAV apps</caption>
+						<tbody>
+							<tr>
+								<th scope="row">Account Type</th>
+								<td>CardDAV or CalDAV</td>
+							</tr>
+							<tr>
+								<th scope="row">Server Name</th>
+								<td class="text-break">{{hostname}}</td>
+							</tr>
+							<tr>
+								<th scope="row">Use SSL</th>
+								<td>Yes</td>
+							</tr>
+							<tr>
+								<th scope="row">Username</th>
+								<td>Your complete email address.</td>
+							</tr>
+							<tr>
+								<th scope="row">Password</th>
+								<td>Your mail password.</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</div>
 		</div>
 	</div>
 </div>
