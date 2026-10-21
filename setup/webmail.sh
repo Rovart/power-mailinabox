@@ -131,7 +131,7 @@ cat > $RCM_CONFIG <<EOF;
 		'verify_peer_name'  => false,
 	),
 );
-\$config['support_url'] = 'https://power-mailinabox.net/';
+\$config['support_url'] = 'https://github.com/Rovart/power-mailinabox';
 \$config['product_name'] = '$PRIMARY_HOSTNAME Webmail';
 \$config['plugins'] = array('html5_notifier', 'archive', 'zipdownload', 'password', 'managesieve', 'jqueryui', 'persistent_login', 'carddav', 'enigma');
 /* The address book of Nextcloud is only available while Nextcloud is turned on (see management/services.py). */

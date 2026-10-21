@@ -1458,8 +1458,8 @@ def what_version_is_this(env):
 
 
 def get_latest_miab_version():
-	# This pings https://power-mailinabox.net/setup.sh and extracts the tag named in
-	# the script to determine the current product version.
+	# This fetches the setup script on the main branch of the repository and
+	# extracts the tag named in it to determine the current product version.
 	from urllib.request import urlopen, HTTPError, URLError
 	from socket import timeout
 
@@ -1467,7 +1467,7 @@ def get_latest_miab_version():
 		return re.search(
 			b'TAG=(.*)',
 			urlopen(
-				"https://power-mailinabox.net/setup.sh",
+				"https://raw.githubusercontent.com/Rovart/power-mailinabox/main/setup/bootstrap.sh",
 				timeout=5).read()).group(1).decode("utf8")
 	except (HTTPError, URLError, timeout):
 		return None
@@ -1498,7 +1498,7 @@ def check_miab_version(env, output):
 				% this_ver)
 		else:
 			output.print_error(
-				"A new version of Mail-in-a-Box is available. You are running version %s. The latest version is %s. For upgrade instructions, visit https://power-mailinabox.net"
+				"A new version of Mail-in-a-Box is available. You are running version %s. The latest version is %s. For upgrade instructions, visit https://github.com/Rovart/power-mailinabox"
 				% (this_ver, latest_ver))
 
 
