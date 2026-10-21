@@ -29,10 +29,6 @@ existing box must upgrade in place by re-running `setup/start.sh`.
    - `php8.4-gd` needs the PPA's `libgd3`;
    - PHP 8.4 moved `imap` and `pspell` out of core: Z-Push's IMAP backend needs the
      PPA's `php8.4-imap` (PECL build).
-   - set `session.upload_progress.enabled = Off` in the FPM `php.ini` through
-     `management/editconf.py`, so every PHP version the box moves to keeps it off
-     (nothing in the box uses session upload progress; it was the suspected path of the
-     critical PHP release of 21-Oct-2026 and is a classic LFI-to-RCE helper).
 2. **Roundcube 1.6.0 → 1.6.20**, plus its plugins (persistent_login, carddav).
 3. **Z-Push 2.6.2 → 2.7.6**, validated on PHP 8.4.
 4. **Nextcloud stepwise upgrade** from 24.0.7 to the target (port the stepwise logic of
