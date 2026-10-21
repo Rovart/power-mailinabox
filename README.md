@@ -2,15 +2,19 @@
 
 A complete, self-hosted mail server that you can deploy on a fresh Debian or Ubuntu machine in a few minutes, and keep up to date with a single command.
 
+This is a maintained, unofficial fork of [Power Mail-in-a-Box](https://github.com/ddavness/power-mailinabox) by David Duque.
+
 **Current version: v61.0** · [Install](#installation) · [Upgrade](#upgrading) · [Changelog](CHANGELOG.md)
 
 Power Mail-in-a-Box is based on [Mail-in-a-Box](https://mailinabox.email/). It keeps its promise of sane defaults that work out of the box, and adds the features advanced users ask for: SMTP relays, mailbox quotas, per-domain web server configuration, OpenPGP key publishing, optional services and more.
 
-## Project status
+## About this fork
 
-This repository is where Power Mail-in-a-Box is developed and released. The [original project](https://github.com/ddavness/power-mailinabox) by David Duque has not been updated since v60.5 (November 2022); this repository continues it: new releases, operating system support, security fixes and the fixes made to Mail-in-a-Box since then.
+[Power Mail-in-a-Box](https://github.com/ddavness/power-mailinabox) was created by David Duque, and its repository has not been updated since v60.5 (November 2022). This fork keeps the project maintained: it supports current operating systems, updates the bundled applications, and brings in security fixes and the fixes made to Mail-in-a-Box since then.
 
-Boxes installed from the original repository upgrade to this one with the usual upgrade command (see [Upgrading](#upgrading)). Nothing else needs to be changed.
+It is not the official project, nor is it affiliated with or endorsed by its author. Everything here is released under the same public domain dedication as the original (CC0), so any of it can be taken back into the original project.
+
+Boxes installed from the original repository can switch to this fork with the usual upgrade command (see [Upgrading](#upgrading)).
 
 ## What's new in v61.0
 
@@ -53,8 +57,8 @@ The [changelog](CHANGELOG.md) has the full list.
 - **Custom TTLs** for custom DNS records.
 - **OpenPGP keys:** keep a keyring and publish keys for your domains through Web Key Directory (WKD).
 - **Per-domain web server configuration:** `/home/user-data/www/<domain>.conf` is included in that domain's nginx configuration, so you can add PHP, proxies or anything else nginx supports.
-- **Optional services:** turn Nextcloud, Exchange ActiveSync, Roundcube or Munin off and back on. Their data is kept and backed up.
-- **Local-only access:** make the control panel, webmail, Nextcloud or Exchange ActiveSync reachable only from the box itself (e.g. through an SSH tunnel or a VPN) and from trusted networks. Everyone else gets a 403.
+- **Optional services** (new in this fork): turn Nextcloud, Exchange ActiveSync, Roundcube or Munin off and back on. Their data is kept and backed up.
+- **Local-only access** (new in this fork): make the control panel, webmail, Nextcloud or Exchange ActiveSync reachable only from the box itself (e.g. through an SSH tunnel or a VPN) and from trusted networks. Everyone else gets a 403.
 - **Backups on demand** from the control panel.
 - **Debian support,** besides Ubuntu.
 
@@ -121,7 +125,7 @@ curl -L https://raw.githubusercontent.com/Rovart/power-mailinabox/v61.0/setup/bo
 
 It downloads the new version and runs the setup again, keeping your data and settings. To be told when a new version is out, turn on *Check for new versions* in the control panel's status checks (it is off by default). To run the setup again without upgrading, use `sudo mailinabox`.
 
-**From the original Power Mail-in-a-Box.** The same command works: the box's copy of the code is switched to this repository automatically.
+**From the original Power Mail-in-a-Box.** The same command works: on a box installed from [ddavness/power-mailinabox](https://github.com/ddavness/power-mailinabox), it switches the box's copy of the code to this fork.
 
 **From Mail-in-a-Box.** There is no automatic migration. Install Power Mail-in-a-Box on a new machine and move your mail and settings over.
 
@@ -168,4 +172,4 @@ Contributions are welcome as pull requests. Please describe user-visible changes
 
 ## Credits and license
 
-Power Mail-in-a-Box was created by [David Duque](https://github.com/ddavness) as a fork of [Mail-in-a-Box](https://github.com/mail-in-a-box/mailinabox), by Joshua Tauberer and its contributors. Both projects, and this one, are released into the public domain under [CC0 1.0](LICENSE).
+Power Mail-in-a-Box was created by [David Duque](https://github.com/ddavness) as a fork of [Mail-in-a-Box](https://github.com/mail-in-a-box/mailinabox), by Joshua Tauberer and its contributors. This fork is maintained by [Rovart](https://github.com/Rovart). All three are released into the public domain under [CC0 1.0](LICENSE).
