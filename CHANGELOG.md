@@ -1,8 +1,8 @@
 CHANGELOG
 =========
 
-Unreleased
-----------
+Power Mail-in-a-Box v61.1
+-------------------------
 
 * The setup no longer fails when the PHP-FPM `[www]` pool was turned off (e.g. by renaming
   `www.conf` to run other pools). It's left off, and the pool of our web applications is built
