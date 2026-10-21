@@ -87,8 +87,36 @@ management/editconf.py /etc/php/$PHP_VER/fpm/php.ini -c ';' \
 management/editconf.py /etc/php/$PHP_VER/fpm/php.ini -c ';' \
         default_charset="UTF-8"
 
+# Configure the PHP-FPM pools. Our web applications (Roundcube, Nextcloud and
+# Z-Push) run in a pool of their own, [miab], built from the distribution's
+# default [www] pool, which stays available for other PHP applications.
+#
+# The administrator may have turned off the [www] pool, e.g. by renaming
+# www.conf to run pools of their own instead. Then we leave it off, and build
+# the [miab] pool from the same minimal definition the distribution uses.
+PHP_POOL_DIR=/etc/php/$PHP_VER/fpm/pool.d
+if [ -f $PHP_POOL_DIR/www.conf ]; then
+	PHP_BASE_POOL=$PHP_POOL_DIR/www.conf
+else
+	PHP_BASE_POOL=$(mktemp)
+	cat > $PHP_BASE_POOL << EOF;
+[www]
+user = www-data
+group = www-data
+listen = /run/php/php$PHP_VER-fpm.sock
+listen.owner = www-data
+listen.group = www-data
+pm = dynamic
+pm.max_children = 5
+pm.start_servers = 2
+pm.min_spare_servers = 1
+pm.max_spare_servers = 3
+EOF
+	chmod 644 $PHP_BASE_POOL
+fi
+
 # Configure the path environment for php-fpm
-management/editconf.py /etc/php/$PHP_VER/fpm/pool.d/www.conf -c ';' \
+management/editconf.py $PHP_BASE_POOL -c ';' \
 	env[PATH]=/usr/local/bin:/usr/bin:/bin \
 
 # Configure php-fpm based on the amount of memory the machine has
@@ -98,7 +126,7 @@ management/editconf.py /etc/php/$PHP_VER/fpm/pool.d/www.conf -c ';' \
 TOTAL_PHYSICAL_MEM=$(head -n 1 /proc/meminfo | awk '{print $2}' || /bin/true)
 if [ $TOTAL_PHYSICAL_MEM -lt 1000000 ]
 then
-        management/editconf.py /etc/php/$PHP_VER/fpm/pool.d/www.conf -c ';' \
+        management/editconf.py $PHP_BASE_POOL -c ';' \
                 pm=ondemand \
                 pm.max_children=8 \
                 pm.start_servers=2 \
@@ -106,7 +134,7 @@ then
                 pm.max_spare_servers=3
 elif [ $TOTAL_PHYSICAL_MEM -lt 2000000 ]
 then
-        management/editconf.py /etc/php/$PHP_VER/fpm/pool.d/www.conf -c ';' \
+        management/editconf.py $PHP_BASE_POOL -c ';' \
                 pm=ondemand \
                 pm.max_children=16 \
                 pm.start_servers=4 \
@@ -114,14 +142,14 @@ then
                 pm.max_spare_servers=6
 elif [ $TOTAL_PHYSICAL_MEM -lt 3000000 ]
 then
-        management/editconf.py /etc/php/$PHP_VER/fpm/pool.d/www.conf -c ';' \
+        management/editconf.py $PHP_BASE_POOL -c ';' \
                 pm=dynamic \
                 pm.max_children=60 \
                 pm.start_servers=6 \
                 pm.min_spare_servers=3 \
                 pm.max_spare_servers=9
 else
-        management/editconf.py /etc/php/$PHP_VER/fpm/pool.d/www.conf -c ';' \
+        management/editconf.py $PHP_BASE_POOL -c ';' \
                 pm=dynamic \
                 pm.max_children=120 \
                 pm.start_servers=12 \
@@ -130,12 +158,15 @@ else
 fi
 
 # Duplicate the socket to isolate MiaB apps from user apps that happen to run php
-cp /etc/php/$PHP_VER/fpm/pool.d/www.conf /etc/php/$PHP_VER/fpm/pool.d/miab.conf
+cp $PHP_BASE_POOL $PHP_POOL_DIR/miab.conf
+if [ "$PHP_BASE_POOL" != "$PHP_POOL_DIR/www.conf" ]; then
+	rm -f $PHP_BASE_POOL
+fi
 
-management/editconf.py /etc/php/$PHP_VER/fpm/pool.d/miab.conf -c ';' \
+management/editconf.py $PHP_POOL_DIR/miab.conf -c ';' \
         listen=/run/php/php-default.sock
 
-sed -i 's/\[www\]/[miab]/' /etc/php/$PHP_VER/fpm/pool.d/miab.conf
+sed -i 's/\[www\]/[miab]/' $PHP_POOL_DIR/miab.conf
 
 # Other nginx settings will be configured by the management service
 # since it depends on what domains we're serving, which we don't know

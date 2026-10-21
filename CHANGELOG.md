@@ -1,6 +1,17 @@
 CHANGELOG
 =========
 
+Unreleased
+----------
+
+* The setup no longer fails when the PHP-FPM `[www]` pool was turned off (e.g. by renaming
+  `www.conf` to run other pools). It's left off, and the pool of our web applications is built
+  without it. Boxes with `www.conf` get exactly the same configuration as before.
+* New option to not install and update the optional web applications (Roundcube, Nextcloud and
+  Z-Push) while they're turned off: `sudo management/services.py update-turned-off no`. The
+  setup then skips them; one that is turned back on is only served after the setup runs again
+  and updates it. By default nothing changes: every service is installed and kept up to date.
+
 Power Mail-in-a-Box v61.0
 -------------------------
 

@@ -124,9 +124,15 @@ source setup/mail-users.sh
 source setup/dkim.sh
 source setup/spamassassin.sh
 source setup/web.sh
-source setup/webmail.sh
-source setup/nextcloud.sh
-source setup/zpush.sh
+for OPTIONAL_SERVICE in webmail nextcloud zpush; do
+	if optional_service_should_update $OPTIONAL_SERVICE; then
+		source setup/$OPTIONAL_SERVICE.sh
+		optional_service_updated $OPTIONAL_SERVICE
+	else
+		echo "Skipping $OPTIONAL_SERVICE: it's turned off, and this box doesn't update services that are turned off."
+		optional_service_skipped $OPTIONAL_SERVICE
+	fi
+done
 source setup/management.sh
 source setup/munin.sh
 
@@ -146,8 +152,9 @@ do
 done
 
 # Turn off the optional services (Nextcloud, Z-Push, webmail and Munin) that the
-# administrator turned off in the control panel. They are always installed and
-# updated above, so that they can be turned back on at any time.
+# administrator turned off in the control panel. Unless the administrator chose
+# otherwise, they're installed and updated above anyway, so that they can be
+# turned back on at any time.
 management/services.py apply > /dev/null
 
 # ...and then have it write the DNS and nginx configuration files and start those
