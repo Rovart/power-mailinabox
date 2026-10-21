@@ -1,70 +1,100 @@
 <style>
-	#pgp_keyring_config .icon {
-		min-width: 2em;
+	#pgp_keyring_config .key-heading {
+		min-width: 0;
 	}
 
-	.inline {
-		display: inline;
+	/* Let the alternating background of the key cards show through the subkey tables. */
+	#pgp_keyring_config .pgp-key .table {
+		--bs-table-bg: transparent;
+	}
+
+	/* Half a fingerprint (five groups) per line. */
+	#pgp_keyring_config .key-fpr {
+		min-width: 14em;
+	}
+
+	#pgp_keyring_config .key-flags span {
+		display: inline-block;
+		min-width: 1.1em;
+		text-align: center;
 	}
 </style>
 
-<h2>PGP Keyring Management</h2>
+<div class="page-header">
+	<h2>PGP Keyring Management</h2>
+	<p class="text-body-secondary">This box keeps a keyring with its own PGP key and the public keys you import. Imported
+		keys can be published through the <a href="#wkd">Web Key Directory</a>.</p>
+	<p class="small text-body-secondary">Key usage: <b>S</b> sign, <b>C</b> certify, <b>E</b> encrypt, <b>A</b>
+		authenticate. Usages a subkey does not have are dimmed.</p>
+</div>
 
 <template id="pgpkey-template">
-	<tr>
-		<td class="row p-3">
-			<div class="col-lg-10 col-12">
-				<b id="isrevoked" class="fs-4"></b>
-				<div id="uids" class="mb-3 font-monospace">
-					<div id="uid-template">
-						<span class="icon fas"></span><span id="id" class="status-text"></span>
-					</div>
-				</div>
-				<b class="fs-5">Subkeys</b>
-				<div id="subkeys" class="align-middle col-12">
-					<div class="row" id="subkey-template">
-						<div style="width: 2em;" id="ismaster" data-bs-toggle="tooltip" title="Master Key"></div>
-						<div style="width: 5em;">
-							<b>
-								<span class="sym" id="sign">S</span>
-								<span class="sym" id="cert">C</span>
-								<span class="sym" id="encr">E</span>
-								<span class="sym" id="auth">A</span>
-							</b>
-						</div>
-						<div class="col-md-2 col-4" id="algo">
-							<b class="status-text"></b>
-						</div>
-						<div class="col" id="expiration">
-							<span class="status-text"></span>
-						</div>
-						<div class="col-md-6 col-12" id="fpr">
-							<span class="status-text font-monospace"></span>
-						</div>
-					</div>
-				</div>
+	<div class="card mb-3 pgp-key">
+		<div class="card-header d-flex flex-wrap align-items-start gap-2">
+			<div class="key-heading flex-grow-1">
+				<h4 class="h6 m-0 text-break"><span class="fa-solid key-icon me-2" aria-hidden="true"></span><span
+						class="key-title"></span></h4>
+				<ul class="key-uids list-unstyled small text-body-secondary text-break mt-1 mb-0"></ul>
 			</div>
-			<div id="options" class="col-lg-2 col-12">
+			<span class="key-status badge"></span>
+			<div class="key-options d-flex flex-wrap gap-2"></div>
+		</div>
+		<div class="card-body">
+			<div class="table-responsive">
+				<table class="table table-sm align-middle mb-0">
+					<caption class="caption-top pt-0 small fw-semibold text-body-secondary">Subkeys</caption>
+					<thead>
+						<tr>
+							<th scope="col"><span class="visually-hidden">Primary key</span></th>
+							<th scope="col">Usage</th>
+							<th scope="col">Algorithm</th>
+							<th scope="col">Expiration</th>
+							<th scope="col">Fingerprint</th>
+						</tr>
+					</thead>
+					<tbody class="key-subkeys">
+					</tbody>
+				</table>
 			</div>
-		</td>
-	</tr>
+		</div>
+	</div>
 </template>
 
 <div id="pgp_keyring_config">
-	<h3>Daemon's Private Key</h3>
-	<table id="privatekey" class="container">
-	</table>
+	<h3>Daemon's private key</h3>
+	<div id="privatekey">
+	</div>
 
-	<h3>Imported Public Keys</h3>
-	<table id="pubkeys" class="container">
-	</table>
+	<h3>Imported public keys</h3>
+	<div id="pubkeys">
+	</div>
 
-	<h3>Import Key</h3>
-	<p>
-		You can upload your <b>public</b> key/keychain here. Keys <b>must</b> be submitted in ASCII-armored format.
-		<br>
-		If you're using <code>gpg</code>, you can export your public key by following this example:
-	<pre>
+	<div class="card my-4">
+		<div class="card-header">
+			<h3 class="h5 mb-0">Import a key</h3>
+		</div>
+		<div class="card-body">
+			<p>You can upload your <b>public</b> key/keychain here. Keys <b>must</b> be submitted in ASCII-armored
+				format.</p>
+
+			<form onsubmit="importkey(); return false;">
+				<div class="mb-3">
+					<label for="pgp_paste_key" class="form-label">Paste your PGP public key here</label>
+					<textarea id="pgp_paste_key" class="form-control font-monospace small" rows="10" required
+						spellcheck="false" autocomplete="off" aria-describedby="pgp_paste_key_help"
+						placeholder="-----BEGIN PGP PUBLIC KEY BLOCK-----&#xA;stuff here&#xA;-----END PGP PUBLIC KEY BLOCK-----"></textarea>
+					<div id="pgp_paste_key_help" class="form-text">The block starts with
+						<code>-----BEGIN PGP PUBLIC KEY BLOCK-----</code>. Private keys are refused.</div>
+				</div>
+				<button type="submit" class="btn btn-primary"><span class="fa-solid fa-file-import me-1"
+						aria-hidden="true"></span>Import key</button>
+			</form>
+
+			<details class="mt-4">
+				<summary>How to export your public key with <code>gpg</code></summary>
+				<p class="mt-3">If you're using <code>gpg</code>, you can export your public key by following this
+					example:</p>
+				<pre class="bg-body-tertiary border rounded p-3 mb-0 small">
 # Get all the keys in the ring
 $ <b>gpg --list-keys</b>
 /home/you/.gnupg/pubring.kbx
@@ -83,16 +113,11 @@ sub   rsa2048 2020-05-24 [E] [expires: 2069-12-31]
 $ <b>gpg --export --armor 52661092E5CD9EEFD7796B19E85F540C9318B69F</b>
 <b>-----BEGIN PGP PUBLIC KEY BLOCK-----
 
-copy and paste this block in the area below
------END PGP PUBLIC KEY BLOCK-----</b>
-        </pre>
-	</p>
-	<div class="form-floating col-12 col-xl-6 mb-3">
-		<textarea id="pgp_paste_key" class="form-control" style="font-size:80%; font-family: monospace; height: 20em"
-			placeholder="-----BEGIN PGP PUBLIC KEY BLOCK-----&#xA;stuff here&#xA;-----END PGP PUBLIC KEY BLOCK-----"></textarea>
-		<label for="pgp_paste_key">Paste your PGP public key here</label>
+copy and paste this block in the area above
+-----END PGP PUBLIC KEY BLOCK-----</b></pre>
+			</details>
+		</div>
 	</div>
-	<button class="btn btn-primary" onclick="importkey()">Import Key</button>
 </div>
 
 <script>
@@ -109,121 +134,149 @@ copy and paste this block in the area below
 	}
 
 	function key_html(key, darken_bg, daemon) {
-		let keyrep = $("#pgpkey-template").html()
-		console.log(keyrep)
-		keyrep = $(keyrep)
+		// Everything that comes from the key (user ids in particular) is chosen by whoever
+		// made the key, so it is only ever inserted as text.
+		let keyrep = $(document.getElementById("pgpkey-template").content.firstElementChild.cloneNode(true))
 		keyrep.attr("id", key.master_fpr)
 
 		// Main key config
 		if (darken_bg) {
-			keyrep.addClass("bg-light")
+			keyrep.addClass("bg-body-tertiary")
 		}
 
-		let rev = keyrep.find("#isrevoked")
+		const icon = daemon ? "fa-robot" : "fa-user"
+		const label = key.ids.length > 0 ? key.ids[0] : key.master_fpr
+		keyrep.find(".key-icon").addClass(icon)
+		keyrep.find(".key-title").text(label)
 
-		if (key.revoked) {
-			rev.text("This key was revoked by it's owner.")
-			rev.addClass(".status-error")
-		} else {
-			rev.text("Key is not revoked.")
-		}
-
-		let uids = keyrep.find("#uids")
-		let uidtemplate = $(uids.html())
-		uids.find("#uid-template").remove()
-		if (daemon) {
-			uidtemplate.find(".icon").addClass("fa-robot")
-		} else {
-			uidtemplate.find(".icon").addClass("fa-user")
-		}
-
-		key.ids.forEach(id => {
-			let thisuid = uidtemplate.clone()
-			thisuid.attr("id", "")
-			thisuid.find("#id").text(id)
-			thisuid.appendTo(uids)
+		// Any other user ids
+		let uids = keyrep.find(".key-uids")
+		key.ids.slice(1).forEach(id => {
+			$("<li/>").append(
+				$('<span class="fa-solid me-2" aria-hidden="true"/>').addClass(icon),
+				$('<span class="font-monospace"/>').text(id)
+			).appendTo(uids)
 		});
 
+		let rev = keyrep.find(".key-status")
+		if (key.revoked) {
+			rev.addClass("text-bg-danger").append(
+				$('<span class="fa-solid fa-circle-xmark me-1" aria-hidden="true"/>'),
+				document.createTextNode("Revoked by its owner"))
+		} else {
+			rev.addClass("bg-success-subtle text-success-emphasis border border-success-subtle").text("Not revoked")
+		}
+
 		// Subkeys
-		const keyflags = ["sign", "cert", "encr", "auth"]
-		let subkeys = keyrep.find("#subkeys")
-		let subkeytemplate = subkeys.html()
-		keyrep.find("#subkey-template").remove()
+		const keyflags = { sign: ["S", "Sign"], cert: ["C", "Certify"], encr: ["E", "Encrypt"], auth: ["A", "Authenticate"] }
+		const statusclasses = {
+			error: ["text-danger-emphasis", "fa-circle-xmark"],
+			warning: ["text-warning-emphasis", "fa-triangle-exclamation"],
+			ok: ["text-success-emphasis", "fa-circle-check"]
+		}
+		let subkeys = keyrep.find(".key-subkeys")
 		key.subkeys.forEach(skey => {
-			let skeyrep = $(subkeytemplate)
+			let skeyrep = $("<tr/>")
 			skeyrep.attr("id", `sub${skey.fpr}`)
 
-			let statusclass
-			let expiration = skeyrep.find("#expiration")
-			let exptxt = expiration.find(".status-text")
+			let status
+			let exptxt
 
 			if (key.revoked) {
-				statusclass = "status-error"
-				exptxt.text("Revoked")
+				status = "error"
+				exptxt = "Revoked"
 			} else if (skey.expired) {
-				statusclass = "status-error"
-				exptxt.text(`${skey.expires_date} (expired)`)
+				status = "error"
+				exptxt = `${skey.expires_date} (expired)`
 			} else if (skey.expires && skey.expires_days <= 14) {
-				statusclass = "status-warning"
-				exptxt.text(`${skey.expires_date} (${skey.expires_days} days)`)
+				status = "warning"
+				exptxt = `${skey.expires_date} (${skey.expires_days} days)`
 			} else if (skey.expires) {
-				statusclass = "status-ok"
-				exptxt.text(`${skey.expires_date} (${skey.expires_days} days)`)
+				status = "ok"
+				exptxt = `${skey.expires_date} (${skey.expires_days} days)`
 			} else {
-				statusclass = "status-ok"
-				exptxt.text("Does not expire")
+				status = "ok"
+				exptxt = "Does not expire"
 			}
-
-			expiration.addClass(statusclass)
+			const statusclass = statusclasses[status][0]
 
 			// Master key?
+			let master = $('<td class="text-center"/>')
 			if (skey.master) {
-				skeyrep.find("#ismaster").addClass("fas fa-key")
+				master.append(
+					$('<span class="fa-solid fa-key" aria-hidden="true" title="Primary key"/>'),
+					$('<span class="visually-hidden"/>').text("Primary key"))
 			}
+			skeyrep.append(master)
 
 			// Usage flags
-			keyflags.forEach(flag => {
-				skeyrep.find(`#${flag}`).addClass(skey[flag] ? statusclass : "status-na")
+			let flags = $('<span class="key-flags font-monospace fw-bold" aria-hidden="true"/>')
+			let usages = []
+			Object.keys(keyflags).forEach(flag => {
+				let sym = $("<span/>").text(keyflags[flag][0])
+				if (skey[flag]) {
+					sym.addClass(statusclass).attr("title", keyflags[flag][1])
+					usages.push(keyflags[flag][1])
+				} else {
+					sym.addClass("text-body-secondary opacity-50").attr("title", `${keyflags[flag][1]} (no)`)
+				}
+				flags.append(sym)
 			});
+			skeyrep.append($('<td class="text-nowrap"/>').append(
+				flags,
+				$('<span class="visually-hidden"/>').text(usages.length > 0 ? usages.join(", ") : "None")))
 
-			// Algorithm and fingerprint
-			let algo = skeyrep.find("#algo")
-			algo.addClass(statusclass)
-			algo.find(".status-text").html(`${skey.algorithm}, ${skey.bits} bits`)
-
-			let fpr = skeyrep.find("#fpr")
-			fpr.addClass(statusclass)
-			fpr.find(".status-text").html(pretty_fpr(skey.fpr))
+			// Algorithm, expiration and fingerprint
+			skeyrep.append($('<td class="text-nowrap"/>').text(`${skey.algorithm}, ${skey.bits} bits`))
+			skeyrep.append($('<td class="text-nowrap"/>').addClass(statusclass).append(
+				$('<span class="fa-solid me-1" aria-hidden="true"/>').addClass(statusclasses[status][1]),
+				document.createTextNode(exptxt)))
+			skeyrep.append($('<td class="key-fpr font-monospace small text-break"/>').text(pretty_fpr(skey.fpr)))
 
 			skeyrep.appendTo(subkeys)
 		});
 
 		// Options
-		if (daemon) {
-			keyrep.find("#options").html(`<button class="btn btn-primary col-12" onclick="exportkey('${key.master_fpr}')">Export Public Key</button>`)
-		} else {
-			keyrep.find("#options").html(`<button class="btn btn-secondary col-12 mb-3" onclick="exportkey('${key.master_fpr}')">Export Public Key</button><button class="btn btn-danger col-12" onclick="rmkey('${key.master_fpr}')">Remove Key</button>`)
+		let options = keyrep.find(".key-options")
+		$('<button type="button" class="btn btn-sm btn-outline-secondary text-nowrap"/>')
+			.attr("aria-label", `Export public key of ${label}`)
+			.append($('<span class="fa-solid fa-file-export me-1" aria-hidden="true"/>'), "Export public key")
+			.on("click", () => exportkey(key.master_fpr))
+			.appendTo(options)
+		if (!daemon) {
+			$('<button type="button" class="btn btn-sm btn-outline-danger text-nowrap"/>')
+				.attr("aria-label", `Remove key of ${label}`)
+				.append($('<span class="fa-solid fa-trash me-1" aria-hidden="true"/>'), "Remove key")
+				.on("click", () => rmkey(key.master_fpr))
+				.appendTo(options)
 		}
 
 		return keyrep
 	}
 
 	function show_pgp_keyring() {
-		$('#privatekey').html("<tr><td class='text-muted'>Loading...</td></tr>")
-		$('#pubkeys').html("<tr><td class='text-muted'>Loading...</td></tr>")
+		$('#privatekey').empty().append($('<p class="text-body-secondary"/>').text("Loading..."))
+		$('#pubkeys').empty().append($('<p class="text-body-secondary"/>').text("Loading..."))
 		api(
 			"/system/pgp/",
 			"GET",
 			{},
 			function (r) {
-				$('#privatekey').html("")
-				$('#pubkeys').html("")
-				key_html(r.daemon, true, true).appendTo("#privatekey")
+				$('#privatekey').empty()
+				$('#pubkeys').empty()
+				if (r.daemon) {
+					key_html(r.daemon, true, true).appendTo("#privatekey")
+				} else {
+					$('<p class="text-body-secondary"/>').text("The daemon's key could not be found.").appendTo("#privatekey")
+				}
 				let pendulum = 1
 				r.imported.forEach(k => {
 					key_html(k, pendulum > 0, false).appendTo("#pubkeys")
 					pendulum *= -1
 				});
+				if (r.imported.length == 0) {
+					$('<p class="text-body-secondary"/>').text("No public keys have been imported yet.").appendTo("#pubkeys")
+				}
 			}
 		)
 	}
@@ -234,11 +287,14 @@ copy and paste this block in the area below
 			"GET",
 			{},
 			function (r) {
-				show_modal_error("PGP Key", `Key export for <b>${fpr}</b>:<br><br><pre>${r}</pre>`)
+				show_modal_error("PGP Key", $("<div/>").append(
+					$("<p/>").append("Key export for ", $('<b class="font-monospace"/>').text(fpr), ":"),
+					$('<pre class="bg-body-tertiary border rounded p-3 mb-0 small"/>').text(r)))
 			},
 			function (_, xhr) {
 				if (xhr.status == 404) {
-					show_modal_error("Error", `The key you asked for (<b>${fpr}</b>) does not exist!`)
+					show_modal_error("Error", $("<p class='mb-0'/>").append(
+						"The key you asked for (", $('<b class="font-monospace"/>').text(fpr), ") does not exist!"))
 				} else {
 					// Fallback to the default error modal
 					show_modal_error("Error", "Something went wrong, sorry.")
@@ -248,29 +304,38 @@ copy and paste this block in the area below
 	}
 
 	function rmkey(fpr) {
-		show_modal_confirm("Delete key", `Are you sure you wish to remove the key with the fingerprint ${pretty_fpr(fpr)}?`, "Yes, remove it", () => {
-			api(
-				`/system/pgp/${fpr}`,
-				"DELETE",
-				{},
-				function (r) {
-					if (r.length == 0) {
-						show_modal_error("Delete key", "OK", show_pgp_keyring)
-					} else {
-						wkd_info = "OK. <b>The following entries were removed from WKD:</b><ul>"
-						r.forEach(email => {
-							wkd_info += `<li>${email}</li>`
-						});
-						wkd_info += "</ul>"
-
-						show_modal_error("Delete key", wkd_info, show_pgp_keyring)
+		show_modal_confirm(
+			"Delete key",
+			$("<p class='mb-0'/>").append(
+				"Are you sure you wish to remove the key with the fingerprint ",
+				$('<span class="font-monospace text-nowrap"/>').text(pretty_fpr(fpr)), "?"),
+			"Yes, remove it",
+			() => {
+				api(
+					`/system/pgp/${fpr}`,
+					"DELETE",
+					{},
+					function (r) {
+						if (r.length == 0) {
+							show_modal_error("Delete key", "OK", show_pgp_keyring)
+						} else {
+							let list = $("<ul class='mb-0'/>")
+							r.forEach(email => {
+								$("<li/>").text(email).appendTo(list)
+							});
+							show_modal_error("Delete key", $("<div/>").append(
+								$("<p/>").append("OK. ", $("<b/>").text("The following entries were removed from WKD:")),
+								list), show_pgp_keyring)
+						}
+					},
+					function (r, xhr) {
+						if (xhr && xhr.status == 404)
+							show_modal_error("Key deletion error", "The key you asked for does not exist!", show_pgp_keyring)
+						else
+							show_modal_error("Key deletion error", r)
 					}
-				},
-				function (r) {
-					show_modal_error("Key deletion error", r)
-				}
-			)
-		}, () => { })
+				)
+			}, () => { })
 	}
 
 	function importkey() {
@@ -281,17 +346,27 @@ copy and paste this block in the area below
 				key: $("#pgp_paste_key").val()
 			},
 			function (r) {
-				show_modal_error("Import Results", `<ul>
-                    <li><b>Keys read:</b> ${r.keys_read}</li>
-                    <li><b>Keys added:</b> ${r.keys_added}</li>
-                    <li><b>Keys not changed:</b> ${r.keys_unchanged}</li>
-                    <li><b>User id's added:</b> ${r.uids_added}</li>
-                    <li><b>Signatures added:</b> ${r.sigs_added}</li>
-                    <li><b>Revocations added:</b> ${r.revs_added}</li>
-                </ul>`, show_pgp_keyring)
+				const results = [
+					["Keys read", r.keys_read],
+					["Keys added", r.keys_added],
+					["Keys not changed", r.keys_unchanged],
+					["User ids added", r.uids_added],
+					["Signatures added", r.sigs_added],
+					["Revocations added", r.revs_added]
+				]
+				let list = $("<dl class='row mb-0'/>")
+				results.forEach(([name, value]) => {
+					list.append(
+						$("<dt class='col-8 col-sm-5'/>").text(name),
+						$("<dd class='col-4 col-sm-7 mb-1'/>").text(value))
+				});
+				show_modal_error("Import Results", list, show_pgp_keyring)
 			},
-			function (r) {
-				show_modal_error("Import Error", r)
+			function (r, xhr) {
+				if (xhr && xhr.status == 400)
+					show_modal_error("Import Error", r)
+				else
+					show_modal_error("Import Error", "The key could not be imported. Make sure that it is an ASCII-armored PGP public key block.")
 			}
 		)
 	}

@@ -1,44 +1,68 @@
 <style>
-	#wkd_table #uids {
-		white-space: pre-line;
+	#wkd_table .wkd-email {
+		overflow-wrap: anywhere;
 	}
 
-	#wkd_table .domain-header {
-		margin-top: 0.5em;
-		margin-bottom: 0.5em;
+	@media (min-width: 768px) {
+		#wkd_table .wkd-email {
+			width: 1%;
+			white-space: nowrap;
+		}
+	}
+
+	#wkd_table .wkd-current-key {
+		white-space: normal;
+	}
+
+	/* The check mark only makes sense inside of the menu. */
+	#wkd_table .wkd-current-key .wkd-check {
+		display: none;
+	}
+
+	#wkd_table .wkd-menu {
+		max-height: 60vh;
+		overflow-y: auto;
+	}
+
+	#wkd_table .wkd-flags span {
+		display: inline-block;
+		min-width: 1.1em;
+		text-align: center;
 	}
 </style>
 
 <template id="wkd-entry-template">
 	<tr>
-		<td style="vertical-align: middle; white-space: nowrap;" id="email">email@example.com</td>
-		<td id="key-dropdown" class="dropdown show" style="width: 100%;">
-			<button class="btn bg-light" style="width: 100%;" data-bs-toggle="dropdown" id="current-key">
-			</button>
-			<div class="dropdown-menu" style="width: 100%;" id="menu">
-				<button class="btn bg-light" style="width:100%;" id="key-none">
-					<b>None</b>
-					<br>
-					<a>Do not serve a key in WKD.</a>
+		<th scope="row" class="wkd-email fw-normal font-monospace">email@example.com</th>
+		<td>
+			<div class="dropdown">
+				<button type="button" class="form-select text-start wkd-current-key" data-bs-toggle="dropdown"
+					aria-expanded="false">
+					<span class="d-block wkd-current-key-content"></span>
 				</button>
-				<button class="btn bg-light" style="width:100%" id="key-sample">
-					<div class="row">
-						<div class="col-6" id="fingerprint">
-							<b class="font-monospace status-text" id="fpr"></b><span id="subkeys"></span>
-						</div>
-						<div class="col-6">
-							<b>
-								<span class="sym" id="sign">S</span>
-								<span class="sym" id="cert">C</span>
-								<span class="sym" id="encr">E</span>
-								<span class="sym" id="auth">A</span>
-							</b>,
-							<span id="expire"><span class="status-text"></span></span>
-						</div>
-					</div>
-					<div id="key-emails">
-					</div>
-				</button>
+				<ul class="dropdown-menu w-100 wkd-menu">
+					<li>
+						<button type="button" class="dropdown-item text-wrap d-flex gap-2 wkd-key-none">
+							<span class="fa-solid fa-check wkd-check invisible mt-1" aria-hidden="true"></span>
+							<span>
+								<b>None</b>
+								<span class="d-block small text-body-secondary">Do not serve a key in WKD.</span>
+							</span>
+						</button>
+					</li>
+					<li class="wkd-key-sample">
+						<button type="button" class="dropdown-item text-wrap d-flex gap-2">
+							<span class="fa-solid fa-check wkd-check invisible mt-1" aria-hidden="true"></span>
+							<span class="flex-grow-1">
+								<span class="d-flex flex-wrap column-gap-3">
+									<span><b class="font-monospace wkd-fpr"></b><span class="wkd-subkeys small"></span></span>
+									<span class="small"><span class="wkd-usage"></span>, <span class="wkd-expire"></span></span>
+								</span>
+								<span class="d-block small text-break wkd-key-emails"></span>
+							</span>
+						</button>
+					</li>
+				</ul>
 			</div>
 		</td>
 	</tr>
@@ -46,75 +70,82 @@
 
 <template id="wkd-nokeys-template">
 	<tr>
-		<td style="vertical-align: middle; white-space: nowrap;" id="email">email@example.com</td>
-		<td style="width: 100%; text-align: center;" class="text-muted">
+		<th scope="row" class="wkd-email fw-normal font-monospace">email@example.com</th>
+		<td class="text-body-secondary">
 			<b>None</b>
-			<br>
-			<a>There are no keys in the keyring that contain this email.</a>
+			<span class="d-block small">There are no keys in the keyring that contain this email.</span>
 		</td>
 	</tr>
 </template>
 
-<h2>WKD Management</h2>
+<div class="page-header">
+	<h2>WKD Management</h2>
+	<p class="text-body-secondary">WKD (<b>W</b>eb <b>K</b>ey <b>D</b>irectory) is an
+		<a href="https://tools.ietf.org/id/draft-koch-openpgp-webkey-service-11.html">experimental feature</a> that allows
+		users to authoritatively publish their public PGP keys on the web, via HTTPS. Unlike other solutions (like public
+		keyservers), the owner of the domain has some degree of control over what keys are published, so there is more
+		certainty that a key actually belongs to its owner.</p>
+	<p class="small text-body-secondary">As of this version, there is no support for WKS. This may or may not change in
+		the future.</p>
+</div>
 
-<p>WKD (<b>W</b>eb <b>K</b>ey <b>D</b>irectory) is an
-	<b><a href="https://tools.ietf.org/id/draft-koch-openpgp-webkey-service-11.html">experimental feature</a></b>
-	that allows users to authoratively publish their public PGP keys on the web, via HTTPS.
-</p>
-<p>Unlike other solutions (like public keyservers), WKD has the advantage that the owner
-	of the domain has some degree of control over what keys are published and as such there
-	is more certainity that the key actually belongs to it's owner.</p>
-<p>As of this version, there is no support for WKS - This may or may not change in the future.</p>
+<div class="card mb-4">
+	<div class="card-header">
+		<h3 class="h5 mb-0">Emails hosted by this box</h3>
+	</div>
+	<div class="card-body">
+		<p>This box can serve keys to any email address hosted by this box, be it a user or an alias, granted that the key
+			has one or more user ids with matching emails. You can add keys in <a href="#pgp_keyring">PGP Keyring
+				Management</a>.</p>
 
-<h3>Hosting somewhere else</h3>
-<a>
-	If you have a separate server to host WKD, you can still use it instead of this box on a per-domain basis.
-	<br>
-	This box uses the Advanced Method to serve the keys. For example, to host your <code>@some.example.com</code> keys,
-	you can add a A, AAAA or CNAME record for <code>openpgpkey.some.example.com</code>. It will override the box's
-	records.
-	<br><br>
-	There's not a way to "disable" WKD at the moment - but if you don't want to publish keys, or if you want to use the
-	Direct method somewhere else, you can always set the records to an unreachable destination
-	(for example, an A record to <code>0.0.0.0</code>)
-</a>
-
-<h3>Emails hosted by this box</h3>
-<a>
-	This box can serve keys to any email address hosted by this box, be it an user or an alias,
-	granted that the key has one or more user id's with matching emails.
-	<br>
-	You can add keys on the PGP Keyring Management menu.
-</a>
-
-<div class="input-group mt-3 mb-3">
-	<label for="wkd-show-all-entries" class="input-group-text"><b>Show all email addresses</b></label>
-	<div class="input-group-text">
-		<div class="form-switch">
-			<input type="checkbox" role="switch" id="wkd-show-all-entries" class="form-check-input" value=false
-				onclick="toggle_emails_with_no_pgp_key();">
+		<div class="form-check form-switch mb-3">
+			<input type="checkbox" role="switch" id="wkd-show-all-entries" class="form-check-input"
+				onchange="toggle_emails_with_no_pgp_key();">
+			<label for="wkd-show-all-entries" class="form-check-label">Show all email addresses, including those without
+				a matching key</label>
 		</div>
+
+		<table id="wkd_table" class="table align-middle mb-0">
+			<caption class="visually-hidden">Key published in WKD for each email address, grouped by domain</caption>
+			<thead>
+				<tr>
+					<th scope="col">Email address</th>
+					<th scope="col">Published key</th>
+				</tr>
+			</thead>
+			<tbody id="wkd_tbody">
+			</tbody>
+		</table>
+	</div>
+	<div class="card-footer d-flex flex-wrap align-items-center gap-3">
+		<button id="wkd_submit" type="button" class="btn btn-primary" disabled onclick="update_wkd()"><span
+				class="fa-solid fa-circle-check me-1" aria-hidden="true"></span>Apply</button>
+		<span class="small text-body-secondary">Changes are only published once you apply them.</span>
 	</div>
 </div>
 
-<table id="wkd_table" class="table" style="width: 100%">
-	<caption></caption>
-	<thead>
-		<tr>
-			<th>Email Address</th>
-			<th></th>
-		</tr>
-	</thead>
-	<tbody id="wkd_tbody">
-	</tbody>
-</table>
-
-<button id="wkd_submit" class="btn btn-primary" disabled onclick="update_wkd()">Apply</button>
+<div class="card mb-4">
+	<div class="card-header">
+		<h3 class="h5 mb-0">Hosting somewhere else</h3>
+	</div>
+	<div class="card-body">
+		<p>If you have a separate server to host WKD, you can still use it instead of this box on a per-domain basis.</p>
+		<p>This box uses the Advanced Method to serve the keys. For example, to host your <code>@some.example.com</code>
+			keys, you can add an A, AAAA or CNAME record for <code>openpgpkey.some.example.com</code>. It will override the
+			box's records.</p>
+		<p class="mb-0">There's not a way to &ldquo;disable&rdquo; WKD at the moment &mdash; but if you don't want to
+			publish keys, or if you want to use the Direct method somewhere else, you can always set the records to an
+			unreachable destination (for example, an A record to <code>0.0.0.0</code>).</p>
+	</div>
+</div>
 
 <script>
-	let dirty_config = {}
-	let toggleable_lines = []
-	let show_toggleable_lines = document.getElementById("wkd-show-all-entries").checked
+	// Prefixed, because all the panels share the same global scope.
+	let wkd_dirty_config = {}
+	let wkd_toggleable_lines = []
+	let wkd_has_keyed_lines = false
+	let wkd_row_counter = 0
+
 	function pretty_long_id(fpr) {
 		let plid = ""
 		for (let i = 6; i < 10; ++i) {
@@ -123,87 +154,115 @@
 
 		return plid.substring(0, plid.length - 1)
 	}
+
+	function wkd_clone_template(id) {
+		return $(document.getElementById(id).content.firstElementChild.cloneNode(true))
+	}
+
 	function generate_wkd_menu(email, wkd_config, keys) {
+		// The email addresses, and above all the user ids of the keys (which are chosen by whoever
+		// made the key), are only ever inserted as text.
+		const row_id = `wkd-row-${++wkd_row_counter}`
+
 		if (wkd_config.options.length == 0) {
 			// No possible options
-			let menurep = $("#wkd-nokeys-template").html()
-			menurep = $(menurep)
+			let menurep = wkd_clone_template("wkd-nokeys-template")
 			menurep.attr("id", `wkd-${email}`)
-			menurep.find("#email").html(email)
+			menurep.find(".wkd-email").text(email)
 
 			return menurep
 		}
 
 		// else
-		let menurep = $("#wkd-entry-template").html()
-		menurep = $(menurep)
+		let menurep = wkd_clone_template("wkd-entry-template")
 		menurep.attr("id", `wkd-${email}`)
 
-		menurep.find("#email").html(email)
+		menurep.find(".wkd-email").text(email).attr("id", `${row_id}-email`)
+		menurep.find(".wkd-current-key-content").attr("id", `${row_id}-key`)
 
-		let template = menurep.find("#key-sample")
+		let menu = menurep.find(".wkd-menu")
+		let toggle = menurep.find(".wkd-current-key")
+		let current = menurep.find(".wkd-current-key-content")
+		toggle.attr("aria-labelledby", `${row_id}-email ${row_id}-key`)
+
+		function select_option(option) {
+			current.empty().append(option.children().clone())
+			menu.find(".dropdown-item").removeAttr("aria-current").find(".wkd-check").addClass("invisible")
+			option.attr("aria-current", "true").find(".wkd-check").removeClass("invisible")
+		}
+
+		let template = menu.find(".wkd-key-sample").detach()
 		wkd_config.options.forEach(key => {
-			let option = template.prop("outerHTML")
-			option = $(option)
-			option.attr("id", `key-${key}`)
+			let keyinfo = keys[key]
+			if (!keyinfo) return // Not in the keyring (anymore)
+
+			let item = template.clone().removeClass("wkd-key-sample")
+			let option = item.find(".dropdown-item")
+			option.attr("data-fpr", key)
 
 			// Basic information
-			let keyinfo = keys[key]
 			let skey = keyinfo.subkeys[0] // Master subkey
 
-			let fpr = option.find("#fingerprint")
-			fpr.find("#fpr").text(pretty_long_id(key))
-			fpr.find("#subkeys").text(` (${keyinfo.subkeys.length} subkey${keyinfo.subkeys.length == 1 ? "" : "s"})`)
-			option.click(() => {
-				$("#wkd_submit").attr("disabled", false)
-				dirty_config[email] = key
-				menurep.find("#current-key").html(option.html())
+			option.find(".wkd-fpr").text(pretty_long_id(key))
+			option.find(".wkd-subkeys").text(` (${keyinfo.subkeys.length} subkey${keyinfo.subkeys.length == 1 ? "" : "s"})`)
+			option.on("click", () => {
+				$("#wkd_submit").prop("disabled", false)
+				wkd_dirty_config[email] = key
+				select_option(option)
+				toggle.trigger("focus")
 			})
-			option.appendTo(menurep.find("#menu"))
+			item.appendTo(menu)
 
 			let classType = ""
-			let expire = option.find("#expire")
-			let exp = expire.find(".status-text")
+			let exp = option.find(".wkd-expire")
 
 			// Purpose and expiration
 			// For evaluation we're only going to use the master subkey
 			if (keyinfo.revoked) {
-				classType = "status-error"
+				classType = "text-danger-emphasis"
 				exp.text(`revoked`)
 			} else if (skey.expired) {
-				classType = "status-error"
+				classType = "text-danger-emphasis"
 				exp.text(`expired on ${skey.expires_date}`)
 			} else if (skey.expires && skey.expires_days <= 14) {
-				classType = "status-warning"
+				classType = "text-warning-emphasis"
 				exp.text(`expires in ${skey.expires_days} days (${skey.expires_date})`)
 			} else if (skey.expires) {
-				classType = "status-ok"
+				classType = "text-success-emphasis"
 				exp.text(`expires in ${skey.expires_days} days (${skey.expires_date})`)
 			} else {
-				classType = "status-ok"
+				classType = "text-success-emphasis"
 				exp.text("does not expire")
 			}
-			expire.addClass(classType)
-			fpr.addClass(classType)
+			exp.addClass(classType)
+			option.find(".wkd-fpr").addClass(classType)
 
-			let s = option.find("#sign")
-			let c = option.find("#cert")
-			let e = option.find("#encr")
-			let a = option.find("#auth")
+			const keyflags = { sign: ["S", "Sign"], cert: ["C", "Certify"], encr: ["E", "Encrypt"], auth: ["A", "Authenticate"] }
+			let flags = $('<b class="wkd-flags font-monospace" aria-hidden="true"/>')
+			let usages = []
+			Object.keys(keyflags).forEach(flag => {
+				let sym = $("<span/>").text(keyflags[flag][0])
+				if (skey[flag]) {
+					sym.addClass(classType).attr("title", keyflags[flag][1])
+					usages.push(keyflags[flag][1].toLowerCase())
+				} else {
+					sym.addClass("text-body-secondary opacity-50").attr("title", `${keyflags[flag][1]} (no)`)
+				}
+				flags.append(sym)
+			});
+			option.find(".wkd-usage").append(
+				flags,
+				$('<span class="visually-hidden"/>').text(usages.length > 0 ? `can ${usages.join(", ")}` : "no usage"))
 
-			s.addClass(skey.sign ? classType : "status-na")
-			c.addClass(skey.cert ? classType : "status-na")
-			e.addClass(skey.encr ? classType : "status-na")
-			a.addClass(skey.auth ? classType : "status-na")
-
-			let txt = ""
+			let emails = option.find(".wkd-key-emails").empty()
 			let n_emails = keyinfo.ids_emails.length
+			emails.append($('<b class="font-monospace"/>').text(email))
 			if (n_emails == 1) {
-				txt = `<b class="font-monospace">${email}</b>`
+				// Only this email address
 			} else if (email.length >= 70) {
 				// Absurd situation, but can happen!
-				// We'll only
-				txt = `<b class="font-monospace">${email}</b> and ${n_emails - 1} other${n_emails == 2 ? "" : "s"}`
+				// We'll only show the "and x others" text
+				emails.append(document.createTextNode(` and ${n_emails - 1} other${n_emails == 2 ? "" : "s"}`))
 			} else {
 				let buf = 70 - email.length
 				let others = n_emails - 1
@@ -215,83 +274,118 @@
 					return x.length == y.length ? x.localeCompare(y) : x.length > y.length ? -1 : 1
 				})
 
-				txt = `<b class="font-monospace">${email}</b>`
-
 				// From the remaining emails, pick the longest ones within the buffer constraints
 				// If none, append the "and x others text"
 				sorted_emails.forEach(e => {
 					if (e.length <= buf) {
 						others--
 						buf -= e.length
-						txt += `, <span class="font-monospace">${e}</span>`
+						emails.append(document.createTextNode(", "), $('<span class="font-monospace"/>').text(e))
 					}
 				});
 
 				if (others > 0) {
-					txt += ` and ${others} other${others == 1 ? "" : "s"}`
+					emails.append(document.createTextNode(` and ${others} other${others == 1 ? "" : "s"}`))
 				}
 			}
-			option.find("#key-emails").html(txt)
 		});
-		template.remove()
 
-		let nokeyopt = menurep.find("#key-none")
-		nokeyopt.click(() => {
-			$("#wkd_submit").attr("disabled", false)
-			dirty_config[email] = null
-			menurep.find("#current-key").html(nokeyopt.html())
+		let nokeyopt = menu.find(".wkd-key-none")
+		nokeyopt.on("click", () => {
+			$("#wkd_submit").prop("disabled", false)
+			wkd_dirty_config[email] = null
+			select_option(nokeyopt)
+			toggle.trigger("focus")
 		})
 
-		menurep.find("#current-key").html(menurep.find(`#key-${wkd_config.selected ? wkd_config.selected : "none"}`).html())
+		// Show the key that is currently published.
+		let selected = nokeyopt
+		if (wkd_config.selected) {
+			selected = menu.find(".dropdown-item").filter(function () {
+				return $(this).attr("data-fpr") == wkd_config.selected
+			})
+		}
+		if (selected.length > 0) {
+			select_option(selected)
+		} else {
+			// A key that is not one of the options (should not happen)
+			current.append($('<b class="font-monospace text-break"/>').text(wkd_config.selected))
+		}
 
 		return menurep
 	}
+
 	function generate_wkd_dropdowns(wkd_info) {
-		$("#wkd_tbody").html("")
+		let tbody = $("#wkd_tbody")
+		tbody.empty()
+		wkd_has_keyed_lines = false
 		Object.keys(wkd_info.wkd).forEach(domain => {
-			$(`<tr><td colspan="2" class="bg-light"><h4 class="domain-header">${domain}</h4></td></tr>`).appendTo("#wkd_tbody")
+			let header = $("<tr/>").append(
+				$('<th scope="colgroup" colspan="2" class="bg-body-tertiary text-break"/>').text(domain))
+			header.appendTo(tbody)
+			let all_toggleable = true
 			Object.keys(wkd_info.wkd[domain]).forEach(email => {
 				let menu = generate_wkd_menu(email, wkd_info.wkd[domain][email], wkd_info.keys)
-				menu.appendTo("#wkd_tbody")
+				menu.appendTo(tbody)
 
 				// No possible keys, we can hide this line to save space
 				if (wkd_info.wkd[domain][email].options.length === 0) {
-					toggleable_lines.push(menu)
+					wkd_toggleable_lines.push(menu)
+				} else {
+					all_toggleable = false
+					wkd_has_keyed_lines = true
 				}
 			})
+
+			// Hide the domain too when none of its addresses can have a key.
+			if (all_toggleable) {
+				wkd_toggleable_lines.push(header)
+			}
 		});
+
+		// Shown when there is nothing else to show.
+		$('<tr id="wkd-empty-row"/>').append(
+			$('<td colspan="2" class="text-body-secondary"/>').text(
+				"None of the email addresses hosted by this box has a matching key in the keyring.")
+		).appendTo(tbody)
 
 		toggle_emails_with_no_pgp_key()
 	}
+
 	function show_wkd() {
-		toggleable_lines = []
-		$("#wkd_tbody").html("<tr><td colspan='2' class='text-muted'>Loading...</td></tr>")
+		wkd_toggleable_lines = []
+		wkd_row_counter = 0
+		$("#wkd_tbody").html("<tr><td colspan='2' class='text-body-secondary'>Loading...</td></tr>")
 		api(
 			"/system/pgp/wkd",
 			"GET",
 			{},
 			(info) => {
-				$("#wkd_submit").attr("disabled", true)
-				dirty_config = {}
+				$("#wkd_submit").prop("disabled", true)
+				wkd_dirty_config = {}
 				Object.keys(info.wkd).forEach(domain => {
 					Object.keys(info.wkd[domain]).forEach(email => {
-						dirty_config[email] = info.wkd[domain][email].selected
+						wkd_dirty_config[email] = info.wkd[domain][email].selected
 					})
 				})
 				generate_wkd_dropdowns(info)
 			}
 		)
 	}
+
 	function update_wkd() {
 		api(
 			"/system/pgp/wkd",
 			"POST",
-			dirty_config,
+			wkd_dirty_config,
 			(r) => {
-				show_modal_error("WKD Management", $("<p/>").text(r), () => { if (r == "OK") show_wkd() })
+				show_modal_error("WKD Management", $("<p class='mb-0'/>").text(r), () => { if (r == "OK") show_wkd() })
 			},
-			(r) => {
-				show_modal_error("WKD Management", $("<p/>").text(r))
+			(r, xhr) => {
+				if (xhr && xhr.status >= 500)
+					show_modal_error("WKD Management", "The Web Key Directory could not be updated. Check that every selected key still contains the email address it is published for.")
+				else
+					show_modal_error("WKD Management", $("<p class='mb-0'/>").text(r))
 			}
 		)
 	}
@@ -299,8 +393,10 @@
 	function toggle_emails_with_no_pgp_key() {
 		let show_toggleable_lines = document.getElementById("wkd-show-all-entries").checked
 
-		toggleable_lines.forEach(line => {
+		wkd_toggleable_lines.forEach(line => {
 			line.toggle(show_toggleable_lines)
 		});
+
+		$("#wkd-empty-row").toggle(!show_toggleable_lines && !wkd_has_keyed_lines)
 	}
 </script>
