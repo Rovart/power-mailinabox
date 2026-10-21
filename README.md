@@ -103,7 +103,7 @@ curl -L https://raw.githubusercontent.com/Rovart/power-mailinabox/v61.0/setup/bo
 If for some reason you wish to install a different version (for example, an older version for a workaround, or a beta/release candidate version for testing), you can use the following command.
 
 ```
-curl -L https://power-mailinabox.net/<VERSION>/setup.sh | sudo bash
+curl -L https://raw.githubusercontent.com/Rovart/power-mailinabox/<VERSION>/setup/bootstrap.sh | sudo bash
 ```
 Where `<VERSION>` is the version you want to install. (**Example:** `v60.0`).
 
