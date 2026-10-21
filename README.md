@@ -168,7 +168,11 @@ The [Vagrantfile](Vagrantfile) starts a virtual machine for each supported opera
 vagrant up --provision trixie
 ```
 
-Contributions are welcome as pull requests. Please describe user-visible changes in the [changelog](CHANGELOG.md).
+Contributions are welcome as pull requests: see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Support and security
+
+Report bugs and request features in the [issues](https://github.com/Rovart/power-mailinabox/issues). Security vulnerabilities must be reported privately instead: see the [security guide](security.md), which also describes the box's security posture.
 
 ## Credits and license
 

@@ -1,16 +1,16 @@
-# Mail-in-a-Box Code of Conduct
+# Power Mail-in-a-Box Code of Conduct
 
-Mail-in-a-Box is an open source community project about working, as a group, to empower ourselves and others to have control over our own digital communications. Just as we hope to increase technological diversity on the Internet through decentralization, we also believe that diverse viewpoints and voices among our community members foster innovation and creative solutions to the challenges we face.
+Power Mail-in-a-Box is an open source community project about working, as a group, to empower ourselves and others to have control over our own digital communications. Just as we hope to increase technological diversity on the Internet through decentralization, we also believe that diverse viewpoints and voices among our community members foster innovation and creative solutions to the challenges we face.
 
 We are committed to providing a safe, welcoming, and harrassment-free space for collaboration, for everyone, without regard to age, disability, economic situation, ethnicity, gender identity and expression, language fluency, level of knowledge or experience, nationality, personal appearance, race, religion, sexual identity and orientation, or any other attribute. Community comes first. This policy supersedes all other project goals.
 
-The maintainers of Mail-in-a-Box share the dual responsibility of leading by example and enforcing these policies as necessary to maintain an open and welcoming environment. All community members should be excellent to each other.
+The maintainers of Power Mail-in-a-Box share the dual responsibility of leading by example and enforcing these policies as necessary to maintain an open and welcoming environment. All community members should be excellent to each other.
 
 ## Scope
 
-This Code of Conduct applies to all places where Mail-in-a-Box community activity is ocurring, including on GitHub, in discussion forums, on Slack, on social media, and in real life. The Code of Conduct applies not only on websites/at events run by the Mail-in-a-Box community (e.g. our GitHub organization, our Slack team) but also at any other location where the Mail-in-a-Box community is present (e.g. in issues of other GitHub organizations where Mail-in-a-Box community members are discussing problems related to Mail-in-a-Box, or real-life professional conferences), or whenever a Mail-in-a-Box community member is representing Mail-in-a-Box to the public at large or acting on behalf of Mail-in-a-Box.
+This Code of Conduct applies to all places where Power Mail-in-a-Box community activity is occurring, including the GitHub repository (issues and pull requests), social media and real life. It applies not only to the project's own spaces but also to any other place where community members are discussing the project, and whenever a community member is representing Power Mail-in-a-Box to the public at large or acting on behalf of it.
 
-This code does not apply to activity on a server running Mail-in-a-Box software, unless your server is hosting a service for the Mail-in-a-Box community at large.
+This code does not apply to activity on a server running Power Mail-in-a-Box software, unless your server is hosting a service for the Power Mail-in-a-Box community at large.
 
 ## Our Standards
 
@@ -38,9 +38,9 @@ We will not tolerate harassment. Harassment is any unwelcome or hostile behavior
 
 We will remove, edit, or reject comments, commits, code, wiki edits, issues, and other contributions that are not consistent with this Code of Conduct. We may ban, temporarily or permanently, any contributor for violating this code, when appropriate.
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be reported by contacting the project lead, [Joshua Tauberer](https://razor.occams.info/). All reports will be treated confidentially, impartially, consistently, and swiftly.
+Instances of abusive, harassing, or otherwise unacceptable behavior may be reported by contacting the maintainer of this fork, [Rovart](https://github.com/Rovart). All reports will be treated confidentially, impartially, consistently, and swiftly.
 
-Because the need for confidentiality for all parties involved in an enforcement action outweighs the goals of openness, limited information will be shared with the Mail-in-a-Box community regarding enforcement actions that have taken place.
+Because the need for confidentiality for all parties involved in an enforcement action outweighs the goals of openness, limited information will be shared with the Power Mail-in-a-Box community regarding enforcement actions that have taken place.
 
 ## Attribution
 

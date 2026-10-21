@@ -1,14 +1,21 @@
-Mail-in-a-Box Security Guide
-============================
+Power Mail-in-a-Box Security Guide
+==================================
 
-Mail-in-a-Box turns a fresh Ubuntu 18.04 LTS 64-bit machine into a mail server appliance by installing and configuring various components.
+Power Mail-in-a-Box turns a fresh Debian or Ubuntu machine (see the [README](README.md#requirements) for the supported releases) into a mail server appliance by installing and configuring various components. It is a fork of Mail-in-a-Box, and most of what follows applies to both.
 
-This page documents the security posture of Mail-in-a-Box. The term “box” is used below to mean a configured Mail-in-a-Box.
+This page documents the security posture of Power Mail-in-a-Box. The term “box” is used below to mean a configured Power Mail-in-a-Box.
 
 Reporting Security Vulnerabilities
 ----------------------------------
 
-Security vulnerabilities should be reported to the [project's maintainer](https://joshdata.me) via email.
+Please don't report security vulnerabilities in public issues. Report them privately through [GitHub's private vulnerability reporting](https://github.com/Rovart/power-mailinabox/security/advisories/new) (*Security* tab → *Report a vulnerability*). You'll get an answer there, and the fix will be published in a new release.
+
+Supported Versions
+------------------
+
+Only the latest release of this fork receives security fixes. Versions up to v60.5 come from the [original project](https://github.com/ddavness/power-mailinabox), which is no longer maintained: upgrade boxes running them as explained in the [README](README.md#upgrading).
+
+Vulnerabilities in the bundled applications (Roundcube, Nextcloud, Z-Push), PHP or the operating system are fixed by their own projects. The operating system's security updates are installed automatically (unattended-upgrades), while PHP and the bundled applications are updated when the setup runs: run it again after each release to keep the box up to date.
 
 Threat Model
 ------------
@@ -63,6 +70,10 @@ Console access (e.g. via SSH) is configured by the system image used to create t
 The [setup guide video](https://mailinabox.email/) explains how to verify the host key fingerprint on first login.
 
 If DNSSEC is enabled at the box's domain name's registrar, the SSHFP record that the box automatically puts into DNS can also be used to verify the host key fingerprint by setting `VerifyHostKeyDNS yes` in your `ssh/.config` file or by logging in with `ssh -o VerifyHostKeyDNS=yes`. ([source](management/dns_update.py))
+
+### Reducing exposure
+
+Services that aren't needed can be turned off (control panel → *System* → *Services*): Nextcloud, Exchange ActiveSync, the webmail and Munin are then no longer served. The control panel, webmail, Nextcloud and Exchange ActiveSync can also be made reachable only from the box itself and from trusted networks (e.g. through an SSH tunnel or a VPN); everyone else gets a 403 Forbidden. ([source](management/services.py))
 
 ### Brute-force attack mitigation
 

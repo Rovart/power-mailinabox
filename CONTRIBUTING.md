@@ -1,55 +1,73 @@
 # Contributing
 
-Mail-in-a-Box is an open source project. Your contributions and pull requests are welcome.
+Power Mail-in-a-Box is an open source project, and contributions are welcome: bug reports, fixes, tests and new features.
+
+## Reporting bugs
+
+Open an [issue](https://github.com/Rovart/power-mailinabox/issues) with the version you're running (shown in the status checks), the operating system and what you see (the setup's output, or the error in the control panel).
+
+Security vulnerabilities must not be reported in public issues: see the [security guide](security.md#reporting-security-vulnerabilities).
 
 ## Development
 
-To start developing Mail-in-a-Box, [clone the repository](https://github.com/mail-in-a-box/mailinabox) and familiarize yourself with the code.
+Clone the repository:
 
-    $ git clone https://github.com/mail-in-a-box/mailinabox
+    $ git clone https://github.com/Rovart/power-mailinabox
 
-### Vagrant and VirtualBox
+### Vagrant
 
-We recommend you use [Vagrant](https://www.vagrantup.com/intro/getting-started/install.html) and [VirtualBox](https://www.virtualbox.org/wiki/Downloads) for development. Please install them first.
+We recommend [Vagrant](https://developer.hashicorp.com/vagrant/install) with VirtualBox or libvirt. The [Vagrantfile](Vagrantfile) defines a virtual machine for each supported operating system, and installs the box in it from your working copy:
 
-With Vagrant set up, the following should boot up Mail-in-a-Box inside a virtual machine:
+| Machine | Operating system | Address |
+| --- | --- | --- |
+| `bookworm` | Debian 12 | 192.168.168.2 |
+| `trixie` | Debian 13 | 192.168.168.3 |
+| `jammy` | Ubuntu 22.04 | 192.168.168.4 |
+| `noble` | Ubuntu 24.04 | 192.168.168.5 |
 
-    $ vagrant up --provision
+Start one (or several) of them with:
 
-_If you're seeing an error message about your *IP address being listed in the Spamhaus Block List*, simply uncomment the `export SKIP_NETWORK_CHECKS=1` line in `Vagrantfile`. It's normal, you're probably using a dynamic IP address assigned by your Internet provider–they're almost all listed._
+    $ vagrant up --provision trixie
 
-### Modifying your `hosts` file
+The setup runs without asking questions and skips the network checks, so it doesn't matter if your IP address is listed in the Spamhaus block lists (most residential addresses are).
 
-After a while, Mail-in-a-Box will be available at `192.168.56.4` (unless you changed that in your `Vagrantfile`). To be able to use the web-based bits, we recommend to add a hostname to your `hosts` file:
+To use the web applications, add the machine's hostname to your `hosts` file:
 
-    $ echo "192.168.56.4 mailinabox.lan" | sudo tee -a /etc/hosts
+    $ echo "192.168.168.3 trixie.mailinabox.lan" | sudo tee -a /etc/hosts
 
-You should now be able to navigate to https://mailinabox.lan/admin using your browser. There should be an initial admin user with the name `me@mailinabox.lan` and the password `12345678`.
+The control panel is then at https://trixie.mailinabox.lan/admin, with an administrator `me@trixie.mailinabox.lan` whose password is `12345678`.
 
 ### Making changes
 
-Your working copy of Mail-in-a-Box will be mounted inside your VM at `/vagrant`. Any change you make locally will appear inside your VM automatically.
+Your working copy is mounted inside the virtual machines at `/vagrant`, so your changes appear there right away. Running `vagrant up --provision <machine>` again repeats the setup with them.
 
-Running `vagrant up --provision` again will repeat the installation with your modifications.
+You can also log into a machine and re-run parts of the setup:
 
-Alternatively, you can also ssh into the VM using:
-
-    $ vagrant ssh
-
-Once inside the VM, you can re-run individual parts of the setup like in this example:
-
+    $ vagrant ssh trixie
     vm$ cd /vagrant
-    vm$ sudo setup/owncloud.sh # replace with script you'd like to re-run
+    vm$ sudo setup/nextcloud.sh  # replace with the script you'd like to re-run
+
+Please test changes to the setup on every operating system they affect.
 
 ### Tests
 
-Mail-in-a-Box needs more tests. If you're still looking for a way to help out, writing and contributing tests would be a great start!
+The `tests` directory has scripts that check a running box from the outside, for example:
+
+    $ python3 tests/test_mail.py trixie.mailinabox.lan me@trixie.mailinabox.lan 12345678
+
+More tests are welcome.
+
+### Pull requests
+
+- Keep each pull request focused on one change, and explain what it changes and why.
+- Follow the existing code style ([.editorconfig](.editorconfig): tabs for indentation in the shell and Python scripts).
+- Describe user-visible changes in the [changelog](CHANGELOG.md), under the next version.
 
 ## Public domain
 
 This project is in the public domain. Copyright and related rights in the work worldwide are waived through the [CC0 1.0 Universal public domain dedication][CC0]. See the LICENSE file in this directory.
 
-All contributions to this project must be released under the same CC0 wavier. By submitting a pull request or patch, you are agreeing to comply with this waiver of copyright interest.
+All contributions to this project must be released under the same CC0 waiver. By submitting a pull request or patch, you are agreeing to comply with this waiver of copyright interest.
 
 [CC0]: http://creativecommons.org/publicdomain/zero/1.0/
 
