@@ -7,6 +7,7 @@
 # purpopses only. After this point you are on your own.
 
 source /etc/mailinabox.conf # load global vars
+PHP_VER=$(grep "^PHP_VER=" setup/functions.sh | cut -d = -f 2) # the PHP version we use
 
 ADMIN=$(management/cli.py user admins | head -n 1)
 test -z "$1" || ADMIN=$1
@@ -20,4 +21,4 @@ echo
 echo Press enter to continue.
 read
 
-sudo -u www-data php /usr/local/lib/owncloud/occ group:adduser admin "$ADMIN" && echo Done.
+sudo -u www-data php$PHP_VER /usr/local/lib/owncloud/occ group:adduser admin "$ADMIN" && echo Done.

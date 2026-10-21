@@ -24,7 +24,7 @@ from ssl_certificates import get_ssl_certificates, check_certificate
 # This regular expression matches domain names according to RFCs, it also accepts fqdn with an leading dot,
 # underscores, as well as asteriks which are allowed in domain names but not hostnames (i.e. allowed in
 # DNS but not in URLs), which are common in certain record types like for DKIM.
-DOMAIN_RE = "^(?!\-)(?:[*][.])?(?:[a-zA-Z\d\-_]{0,62}[a-zA-Z\d_]\.){1,126}(?!\d+)[a-zA-Z\d_]{1,63}(\.?)$"
+DOMAIN_RE = r"^(?!\-)(?:[*][.])?(?:[a-zA-Z\d\-_]{0,62}[a-zA-Z\d_]\.){1,126}(?!\d+)[a-zA-Z\d_]{1,63}(\.?)$"
 
 # 24 hours; MIAB-generated records and all custom records without a specified TTL will use this one.
 DEFAULT_TTL = 86400

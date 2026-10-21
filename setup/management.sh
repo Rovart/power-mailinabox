@@ -15,21 +15,41 @@ echo "Installing Mail-in-a-Box system management daemon..."
 #
 # gcc and build tools are required to install the latest version
 # of duplicity
-apt_install python3-pip python3-gpg virtualenv certbot rsync librsync2 python3-fasteners python3-future python3-lockfile \
-			gcc python3-dev librsync-dev gettext
+apt_install python3-pip python3-gpg python3-venv virtualenv certbot rsync librsync-dev \
+			gcc python3-dev gettext
 
 apt_get_quiet remove --autoremove --purge duplicity || /bin/true
+
+# Previous versions installed duplicity, b2sdk, boto3 (and email_validator) system-wide
+# with pip, which also replaced some of the distribution's Python packages with
+# incompatible versions (breaking certbot, for instance). Remove them.
+LEGACY_PIP_PACKAGES=$(tools/legacy_pip_packages.py)
+if [ -n "$LEGACY_PIP_PACKAGES" ]; then
+	echo "Removing Python packages installed system-wide by a previous version..."
+	PIP_BREAK_SYSTEM_PACKAGES=1 hide_output python3 -m pip uninstall -y $LEGACY_PIP_PACKAGES
+fi
 
 # Duplicity does the actual backups.
 # b2sdk is used for backblaze backups.
 # boto3 is used for amazon aws backups.
-# Both are installed outside the pipenv, so they can be used by duplicity
-hide_output pip3 install --upgrade b2sdk boto3 duplicity
+#
+# We install the latest version of duplicity and its backends in a virtualenv of their
+# own (modern distributions don't allow installing packages system-wide with pip, see
+# PEP 668), and link the duplicity command to where the management daemon expects it.
+inst_dir=/usr/local/lib/mailinabox
+mkdir -p $inst_dir
+duplicity_venv=$inst_dir/duplicity
+if [ ! -f $duplicity_venv/.oscode ] || [ "$(cat $duplicity_venv/.oscode)" != $(get_os_code) ]; then
+	rm -rf $duplicity_venv
+	hide_output python3 -m venv $duplicity_venv
+fi
+hide_output $duplicity_venv/bin/pip install --upgrade pip
+hide_output $duplicity_venv/bin/pip install --upgrade duplicity b2sdk boto3
+echo $(get_os_code) > $duplicity_venv/.oscode
+ln -sf $duplicity_venv/bin/duplicity /usr/local/bin/duplicity
 
 # Create a virtualenv for the installation of Python 3 packages
 # used by the management daemon.
-inst_dir=/usr/local/lib/mailinabox
-mkdir -p $inst_dir
 venv=$inst_dir/env
 if [ ! -d $venv ]; then
 	hide_output virtualenv -ppython3 $venv
@@ -49,12 +69,12 @@ hide_output $venv/bin/pip install --upgrade pip
 
 # Install other Python 3 packages used by the management daemon.
 # The first line is the packages that Josh maintains himself!
-# NOTE: email_validator is repeated in setup/questions.sh, so please keep the versions synced.
+# NOTE: email_validator is also used in setup/questions.sh (from the distribution's packages).
 hide_output $venv/bin/pip install --upgrade \
 	rtyaml "email_validator>=1.0.0" "exclusiveprocess" \
 	flask dnspython python-dateutil expiringdict gunicorn \
 	qrcode[pil] pyotp \
-	"idna>=2.0.0" "cryptography==2.2.2" boto psutil postfix-mta-sts-resolver boto3 b2sdk
+	"idna>=2.0.0" cryptography psutil postfix-mta-sts-resolver boto3 b2sdk
 
 # Make the venv use the packaged gpgme bindings (the ones pip provides are severely out-of-date)
 if [ ! -d $venv/lib/python$(python_version)/site-packages/gpg/ ]; then
@@ -68,7 +88,7 @@ echo $(get_os_code) > $venv/.oscode
 # Create a backup directory and a random key for encrypting backups.
 mkdir -p $STORAGE_ROOT/backup
 if [ ! -f $STORAGE_ROOT/backup/secret_key.txt ]; then
-	$(umask 077; openssl rand -base64 2048 > $STORAGE_ROOT/backup/secret_key.txt)
+	(umask 077; openssl rand -base64 2048 > $STORAGE_ROOT/backup/secret_key.txt)
 fi
 
 
@@ -80,30 +100,30 @@ rm -rf $assets_dir
 mkdir -p $assets_dir
 
 # jQuery CDN URL
-jquery_version=3.6.1
+jquery_version=4.0.0
 jquery_url=https://code.jquery.com # Check this link for new versions
 
 # Get jQuery
-wget_verify $jquery_url/jquery-$jquery_version.min.js ea61688671d0c3044f2c5b2f2c4af0a6620ac6c2 $assets_dir/jquery.min.js
+wget_verify $jquery_url/jquery-$jquery_version.min.js b19b077cdc2cf89c66a644f0305ef4959f8472bc $assets_dir/jquery.min.js
 
 # Bootstrap CDN URL
 # See https://github.com/twbs/bootstrap/releases to check for new versions
-bootstrap_version=5.2.2
+bootstrap_version=5.3.8
 bootstrap_url=https://github.com/twbs/bootstrap/releases/download/v$bootstrap_version/bootstrap-$bootstrap_version-dist.zip
 
 # Get Bootstrap
-wget_verify $bootstrap_url 740b34c22cef5c2f12a34f084b813ea308fedf74 /tmp/bootstrap.zip
+wget_verify $bootstrap_url c3c6d623ef78a8ccdd688765421ac20ee36126c5 /tmp/bootstrap.zip
 unzip -q /tmp/bootstrap.zip -d $assets_dir
 mv $assets_dir/bootstrap-$bootstrap_version-dist $assets_dir/bootstrap
 rm -f /tmp/bootstrap.zip
 
 # FontAwesome CDN URL
 # See https://github.com/FortAwesome/Font-Awesome/releases to check for new versions
-fontawesome_version=6.2.1
+fontawesome_version=7.3.1
 fontawesome_url=https://github.com/FortAwesome/Font-Awesome/releases/download/$fontawesome_version/fontawesome-free-$fontawesome_version-web.zip
 
 # Get FontAwesome
-wget_verify $fontawesome_url cd0f2bcc9653b56e3e2dd82d6598aa6bbca8d796 /tmp/fontawesome.zip
+wget_verify $fontawesome_url c997775ace7090f4fce41d881edce25727927bed /tmp/fontawesome.zip
 unzip -q /tmp/fontawesome.zip -d $assets_dir
 mv $assets_dir/fontawesome-free-$fontawesome_version-web $assets_dir/fontawesome
 rm -f /tmp/fontawesome.zip
@@ -130,9 +150,7 @@ export PYTHONPATH=$(pwd)/management
 exec gunicorn -b localhost:10222 -w 1 --timeout 630 wsgi:app
 EOF
 chmod +x $inst_dir/start
-cp --remove-destination conf/mailinabox.service /lib/systemd/system/mailinabox.service # target was previously a symlink so remove it first
-hide_output systemctl link -f /lib/systemd/system/mailinabox.service
-hide_output systemctl daemon-reload
+install_systemd_unit mailinabox.service conf/mailinabox.service
 hide_output systemctl enable mailinabox.service
 
 # Perform nightly tasks at 3am in system time: take a backup, run

@@ -1,5 +1,5 @@
 # Power Mail-in-a-Box
-## **[Installation](#installation)** (current version: v60.5)
+## **[Installation](#installation)** (current version: v61.0)
 ## **[Upgrading Quick Start](#upgrading)**
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/davness)
@@ -39,13 +39,20 @@ The machine this appliance will be installed on needs to have the following spec
 - 512MB of RAM (**at least 1GB** is recommended);
 - 10GB of disk;
 - **One of the following operating systems:**
-- - Debian GNU/Linux 11 (Bullseye)
-- - Ubuntu LTS 20.04 (Focal Fossa)
+- - Debian GNU/Linux 12 (Bookworm)
+- - Debian GNU/Linux 13 (Trixie)
 - - Ubuntu LTS 22.04 (Jammy Jellyfish)
+- - Ubuntu LTS 24.04 (Noble Numbat)
+
+Regardless of the operating system, the PHP applications (Roundcube, Nextcloud, Z-Push) run on **PHP 8.4**, installed from the [packages.sury.org](https://deb.sury.org) repository (Debian) or the [ondrej/php](https://launchpad.net/~ondrej/+archive/ubuntu/php) PPA (Ubuntu).
 
 ## Legacy Support
 The following distributions are no longer supported for the latest version, but they used to be supported at a earlier time:
 - **Debian 10 (Buster)** <= **v56.5**
+- **Debian 11 (Bullseye)** <= **v60.5**
+- **Ubuntu LTS 20.04 (Focal Fossa)** <= **v60.5**
+
+To upgrade a box running one of these, first upgrade it to the last version supporting its operating system, then upgrade the operating system to a supported release, reboot, and run the setup again. The same applies when upgrading between supported releases (e.g. from Debian 12 to Debian 13): until the setup runs again after the reboot, some services may not work.
 
 <small>_These network requirements are usually not provided by residential ISP's. They are not **strictly required** for Power Mail-in-a-Box to install, but it will take more work to get it running as intended._</small>
 - Static, public IPv4 (most residential connections **do not** provide static addresses);

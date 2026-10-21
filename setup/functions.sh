@@ -150,6 +150,20 @@ function restart_service {
 	hide_output service $1 restart
 }
 
+function install_systemd_unit {
+	# install_systemd_unit unit-name source-file
+	# Installs (or updates) one of our systemd unit files.
+	#
+	# Previous versions also "linked" the unit file into /etc/systemd/system (with
+	# `systemctl link`), which newer versions of systemd refuse to enable. Remove it.
+	if [ -L /etc/systemd/system/$1 ]; then
+		systemctl disable $1 &> /dev/null || /bin/true
+		rm -f /etc/systemd/system/$1
+	fi
+	cp --remove-destination $2 /lib/systemd/system/$1 # target was previously a symlink so remove it first
+	hide_output systemctl daemon-reload
+}
+
 ## Dialog Functions ##
 function message_box {
 	dialog --title "$1" --msgbox "$2" 0 0
@@ -221,12 +235,28 @@ function git_clone {
 	rm -rf $TMPPATH
 }
 
+# PHP version used by every PHP application we ship (Roundcube, Nextcloud, Z-Push).
+# It is pinned (instead of using the distribution default) so that every supported
+# operating system runs the exact same PHP version. The packages come from the
+# sury.org repository (Debian) or the ondrej/php PPA (Ubuntu), see system.sh.
+PHP_VER=8.4
+
+# Older Nextcloud releases refuse to run under newer PHP versions. When an existing
+# Nextcloud installation needs to go through intermediate major versions that do not
+# support $PHP_VER yet, their upgrade steps are run with this (CLI-only) version.
+LEGACY_PHP_VER=8.1
+
 function php_version {
-	php --version | head -n 1 | cut -d " " -f 2 | cut -d "." -f 1,2
+	echo $PHP_VER
 }
 
 function python_version {
 	python3 --version | cut -d " " -f 2 | cut -d "." -f 1,2
+}
+
+function dovecot_version {
+	# Major.minor version of the installed Dovecot (e.g. "2.3" or "2.4").
+	dovecot --version | cut -d " " -f 1 | cut -d "." -f 1,2
 }
 
 export OS_UNSUPPORTED=0
@@ -234,6 +264,9 @@ export OS_DEBIAN_10=1
 export OS_UBUNTU_2004=2
 export OS_DEBIAN_11=3
 export OS_UBUNTU_2204=4
+export OS_DEBIAN_12=5
+export OS_UBUNTU_2404=6
+export OS_DEBIAN_13=7
 
 function get_os_code {
 	# A lot of if-statements here - dirty code looking tasting today
@@ -247,6 +280,12 @@ function get_os_code {
 		elif [[ $VER == "11" ]]; then
 			echo $OS_DEBIAN_11
 			return 0
+		elif [[ $VER == 12* ]]; then
+			echo $OS_DEBIAN_12
+			return 0
+		elif [[ $VER == 13* ]]; then
+			echo $OS_DEBIAN_13
+			return 0
 		fi
 	elif [[ $ID == "Ubuntu" ]]; then
 		if [[ $VER == "20.04" ]]; then
@@ -254,6 +293,9 @@ function get_os_code {
 			return 0
 		elif [[ $VER == "22.04" ]]; then
 			echo $OS_UBUNTU_2204
+			return 0
+		elif [[ $VER == "24.04" ]]; then
+			echo $OS_UBUNTU_2404
 			return 0
 		fi
 	fi

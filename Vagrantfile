@@ -5,20 +5,20 @@
 ip = 2
 machines = [
   {
-    'iso' => "debian/buster64",
-    'host' => "buster"
+    'iso' => "debian/bookworm64",
+    'host' => "bookworm"
   },
   {
-    'iso' => "generic/ubuntu2004",
-    'host' => "focal"
+    'iso' => "debian/trixie64",
+    'host' => "trixie"
   },
   {
-    'iso' => "debian/bullseye64",
-    'host' => "bullseye"
-  },
-	{
     'iso' => "generic/ubuntu2204",
     'host' => "jammy"
+  },
+  {
+    'iso' => "bento/ubuntu-24.04",
+    'host' => "noble"
   },
 ]
 

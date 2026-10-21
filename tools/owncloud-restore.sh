@@ -2,6 +2,7 @@
 #
 # This script will restore the backup made during an installation
 source /etc/mailinabox.conf # load global vars
+PHP_VER=$(grep "^PHP_VER=" setup/functions.sh | cut -d = -f 2) # the PHP version we use
 
 if [ -z "$1" ]; then
 	echo "Usage: owncloud-restore.sh <backup directory>"
@@ -26,7 +27,7 @@ if [ ! -f $1/config.php ]; then
 fi
 
 echo "Restoring backup from $1"
-service php7.3-fpm stop
+service php$PHP_VER-fpm stop
 
 # remove the current ownCloud/Nextcloud installation
 rm -rf /usr/local/lib/owncloud/
@@ -40,10 +41,10 @@ cp "$1/owncloud.db" $STORAGE_ROOT/owncloud/
 cp "$1/config.php" $STORAGE_ROOT/owncloud/
 
 ln -sf $STORAGE_ROOT/owncloud/config.php /usr/local/lib/owncloud/config/config.php
-chown -f -R www-data.www-data $STORAGE_ROOT/owncloud /usr/local/lib/owncloud
-chown www-data.www-data $STORAGE_ROOT/owncloud/config.php
+chown -f -R www-data:www-data $STORAGE_ROOT/owncloud /usr/local/lib/owncloud
+chown www-data:www-data $STORAGE_ROOT/owncloud/config.php
 
-sudo -u www-data php /usr/local/lib/owncloud/occ maintenance:mode --off
+sudo -u www-data php$PHP_VER /usr/local/lib/owncloud/occ maintenance:mode --off
 
-service php7.3-fpm start
+service php$PHP_VER-fpm start
 echo "Done"

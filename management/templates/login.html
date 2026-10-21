@@ -177,7 +177,7 @@ sudo management/cli.py user make-admin me@{{hostname}}</pre>
 		$('#loginOtpInput').val('');
 		$('#loginEmail,#loginPassword').each(function () {
 			var input = $(this);
-			if (!$.trim(input.val())) {
+			if (!String(input.val() || '').trim()) {
 				input.focus();
 				return false;
 			}

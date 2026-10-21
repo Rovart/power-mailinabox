@@ -19,7 +19,33 @@ fi
 
 echo "Installing Nginx (web server)..."
 
-apt_install nginx php-cli php-fpm idn2
+# Previous versions installed the distribution's generic PHP packages (php-gd, php-fpm, ...).
+# With our PHP repositories configured these would pull in yet another PHP version (and maybe
+# even Apache), so replace them with the packages of the PHP version we pin.
+GENERIC_PHP_PACKAGES=$(dpkg-query -W -f='${Package} ${Status}\n' \
+	php php-fpm php-cli php-sqlite3 php-gd php-imap php-curl php-pear php-dev php-xml \
+	php-mbstring php-zip php-apcu php-json php-intl php-imagick php-gmp php-bcmath \
+	php-ldap php-pspell php-gnupg php-soap 2> /dev/null \
+	| grep " installed$" | cut -d " " -f 1 || /bin/true)
+if [ -n "$GENERIC_PHP_PACKAGES" ]; then
+	apt_get_quiet purge $GENERIC_PHP_PACKAGES
+fi
+
+apt_install nginx php${PHP_VER}-cli php${PHP_VER}-fpm idn2
+
+# Several PHP versions may be installed side by side (e.g. the distribution's default
+# version, or the one used by a previous version of Mail-in-a-Box). Make sure the `php`
+# command runs the version we've configured...
+hide_output update-alternatives --set php /usr/bin/php${PHP_VER}
+
+# ...and that no other PHP-FPM version is running our pools, since they would be
+# fighting over the same sockets.
+for fpm_service in $(ls /etc/php/*/fpm/php-fpm.conf 2> /dev/null | cut -d / -f 4); do
+	if [ "$fpm_service" != "$PHP_VER" ]; then
+		rm -f /etc/php/$fpm_service/fpm/pool.d/miab.conf
+		hide_output systemctl disable --now php$fpm_service-fpm || /bin/true
+	fi
+done
 
 rm -f /etc/nginx/sites-enabled/default
 
@@ -46,15 +72,15 @@ management/editconf.py /etc/nginx/nginx.conf -s \
 	ssl_protocols="TLSv1.2 TLSv1.3;"
 
 # Tell PHP not to expose its version number in the X-Powered-By header.
-management/editconf.py /etc/php/$(php_version)/fpm/php.ini -c ';' \
+management/editconf.py /etc/php/$PHP_VER/fpm/php.ini -c ';' \
 	expose_php=Off
 
 # Set PHPs default charset to UTF-8, since we use it. See #367.
-management/editconf.py /etc/php/$(php_version)/fpm/php.ini -c ';' \
+management/editconf.py /etc/php/$PHP_VER/fpm/php.ini -c ';' \
         default_charset="UTF-8"
 
 # Configure the path environment for php-fpm
-management/editconf.py /etc/php/$(php_version)/fpm/pool.d/www.conf -c ';' \
+management/editconf.py /etc/php/$PHP_VER/fpm/pool.d/www.conf -c ';' \
 	env[PATH]=/usr/local/bin:/usr/bin:/bin \
 
 # Configure php-fpm based on the amount of memory the machine has
@@ -64,7 +90,7 @@ management/editconf.py /etc/php/$(php_version)/fpm/pool.d/www.conf -c ';' \
 TOTAL_PHYSICAL_MEM=$(head -n 1 /proc/meminfo | awk '{print $2}' || /bin/true)
 if [ $TOTAL_PHYSICAL_MEM -lt 1000000 ]
 then
-        management/editconf.py /etc/php/$(php_version)/fpm/pool.d/www.conf -c ';' \
+        management/editconf.py /etc/php/$PHP_VER/fpm/pool.d/www.conf -c ';' \
                 pm=ondemand \
                 pm.max_children=8 \
                 pm.start_servers=2 \
@@ -72,7 +98,7 @@ then
                 pm.max_spare_servers=3
 elif [ $TOTAL_PHYSICAL_MEM -lt 2000000 ]
 then
-        management/editconf.py /etc/php/$(php_version)/fpm/pool.d/www.conf -c ';' \
+        management/editconf.py /etc/php/$PHP_VER/fpm/pool.d/www.conf -c ';' \
                 pm=ondemand \
                 pm.max_children=16 \
                 pm.start_servers=4 \
@@ -80,14 +106,14 @@ then
                 pm.max_spare_servers=6
 elif [ $TOTAL_PHYSICAL_MEM -lt 3000000 ]
 then
-        management/editconf.py /etc/php/$(php_version)/fpm/pool.d/www.conf -c ';' \
+        management/editconf.py /etc/php/$PHP_VER/fpm/pool.d/www.conf -c ';' \
                 pm=dynamic \
                 pm.max_children=60 \
                 pm.start_servers=6 \
                 pm.min_spare_servers=3 \
                 pm.max_spare_servers=9
 else
-        management/editconf.py /etc/php/$(php_version)/fpm/pool.d/www.conf -c ';' \
+        management/editconf.py /etc/php/$PHP_VER/fpm/pool.d/www.conf -c ';' \
                 pm=dynamic \
                 pm.max_children=120 \
                 pm.start_servers=12 \
@@ -96,12 +122,12 @@ else
 fi
 
 # Duplicate the socket to isolate MiaB apps from user apps that happen to run php
-cp /etc/php/$(php_version)/fpm/pool.d/www.conf /etc/php/$(php_version)/fpm/pool.d/miab.conf
+cp /etc/php/$PHP_VER/fpm/pool.d/www.conf /etc/php/$PHP_VER/fpm/pool.d/miab.conf
 
-management/editconf.py /etc/php/$(php_version)/fpm/pool.d/miab.conf -c ';' \
+management/editconf.py /etc/php/$PHP_VER/fpm/pool.d/miab.conf -c ';' \
         listen=/run/php/php-default.sock
 
-sed -i 's/\[www\]/[miab]/' /etc/php/$(php_version)/fpm/pool.d/miab.conf
+sed -i 's/\[www\]/[miab]/' /etc/php/$PHP_VER/fpm/pool.d/miab.conf
 
 # Other nginx settings will be configured by the management service
 # since it depends on what domains we're serving, which we don't know
@@ -155,7 +181,7 @@ chown -R $STORAGE_USER $STORAGE_ROOT/www
 
 # Start services.
 restart_service nginx
-restart_service php$(php_version)-fpm
+restart_service php$PHP_VER-fpm
 
 # Open ports.
 ufw_allow http

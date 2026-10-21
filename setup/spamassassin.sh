@@ -20,9 +20,15 @@ source setup/functions.sh # load our functions
 # For more information see Debian Bug #689414:
 # https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=689414
 echo "Installing SpamAssassin..."
-apt_install spampd razor pyzor dovecot-antispam libmail-dkim-perl
+apt_install spampd razor pyzor libmail-dkim-perl
+if [ "$(dovecot_version)" == "2.3" ]; then
+	apt_install dovecot-antispam
+fi
 
-# Allow spamassassin to download new rules.
+# Allow spamassassin to download new rules. (Newer releases don't ship this file
+# anymore, but their daily cron job still reads it, and switches to their systemd
+# timer by itself.)
+touch /etc/default/spamassassin
 management/editconf.py /etc/default/spamassassin \
 	CRON=1
 
@@ -46,10 +52,18 @@ echo "public.pyzor.org:24441" > /etc/spamassassin/pyzor/servers
 # * Increase the maximum message size of scanned messages from the default of 64KB to 500KB, which
 #   is Spamassassin (spamc)'s own default. Specified in KBytes.
 # * Disable localmode so Pyzor, DKIM and DNS checks can be used.
-management/editconf.py /etc/default/spampd \
-	DESTPORT=10026 \
-	ADDOPTS="\"--maxsize=2000\"" \
-	LOCALONLY=0
+if [ -f /etc/spampd.cfg ]; then
+	# spampd 2.60 and later
+	management/editconf.py /etc/spampd.cfg -s \
+		relayport=10026 \
+		maxsize=2000 \
+		local-only=0
+else
+	management/editconf.py /etc/default/spampd \
+		DESTPORT=10026 \
+		ADDOPTS="\"--maxsize=2000\"" \
+		LOCALONLY=0
+fi
 
 # Spamassassin normally wraps spam as an attachment inside a fresh
 # email with a report about the message. This also protects the user
@@ -142,34 +156,11 @@ mkdir -p $STORAGE_ROOT/mail/spamassassin
 chown -R spampd:spampd $STORAGE_ROOT/mail/spamassassin
 
 # To mark mail as spam or ham, just drag it in or out of the Spam folder. We'll
-# use the Dovecot antispam plugin to detect the message move operation and execute
-# a shell script that invokes learning.
+# use the Dovecot antispam plugin (Dovecot 2.3) or IMAPSieve (Dovecot 2.4, where the
+# antispam plugin is no longer available) to detect the message move operation and
+# execute a shell script that invokes learning.
 
-# Enable the Dovecot antispam plugin.
-# (Be careful if we use multiple plugins later.) #NODOC
-sed -i "s/#mail_plugins = .*/mail_plugins = \$mail_plugins antispam/" /etc/dovecot/conf.d/20-imap.conf
-sed -i "s/#mail_plugins = .*/mail_plugins = \$mail_plugins antispam/" /etc/dovecot/conf.d/20-pop3.conf
-
-# Configure the antispam plugin to call sa-learn-pipe.sh.
-cat > /etc/dovecot/conf.d/99-local-spampd.conf << EOF;
-plugin {
-    antispam_backend = pipe
-    antispam_spam_pattern_ignorecase = SPAM
-    antispam_trash_pattern_ignorecase = trash;Deleted *
-    antispam_allow_append_to_spam = yes
-    antispam_pipe_program_spam_args = /usr/local/bin/sa-learn-pipe.sh;--spam
-    antispam_pipe_program_notspam_args = /usr/local/bin/sa-learn-pipe.sh;--ham
-    antispam_pipe_program = /bin/bash
-}
-EOF
-
-# Have Dovecot run its mail process with a supplementary group (the spampd group)
-# so that it can access the learning files.
-
-management/editconf.py /etc/dovecot/conf.d/10-mail.conf \
-	mail_access_groups=spampd
-
-# Here's the script that the antispam plugin executes. It spools the message into
+# Here's the script that is executed. It spools the message into
 # a temporary file and then runs sa-learn on it.
 # from http://wiki2.dovecot.org/Plugins/Antispam
 rm -f /usr/bin/sa-learn-pipe.sh # legacy location #NODOC
@@ -180,6 +171,124 @@ rm -f /tmp/sendmail-msg-\$\$.txt
 exit 0
 EOF
 chmod a+x /usr/local/bin/sa-learn-pipe.sh
+
+if [ "$(dovecot_version)" == "2.3" ]; then
+	# Enable the Dovecot antispam plugin.
+	# (Be careful if we use multiple plugins later.) #NODOC
+	sed -i "s/#mail_plugins = .*/mail_plugins = \$mail_plugins antispam/" /etc/dovecot/conf.d/20-imap.conf
+	sed -i "s/#mail_plugins = .*/mail_plugins = \$mail_plugins antispam/" /etc/dovecot/conf.d/20-pop3.conf
+
+	# Configure the antispam plugin to call sa-learn-pipe.sh.
+	cat > /etc/dovecot/conf.d/99-local-spampd.conf <<- EOF;
+	plugin {
+	    antispam_backend = pipe
+	    antispam_spam_pattern_ignorecase = SPAM
+	    antispam_trash_pattern_ignorecase = trash;Deleted *
+	    antispam_allow_append_to_spam = yes
+	    antispam_pipe_program_spam_args = /usr/local/bin/sa-learn-pipe.sh;--spam
+	    antispam_pipe_program_notspam_args = /usr/local/bin/sa-learn-pipe.sh;--ham
+	    antispam_pipe_program = /bin/bash
+	}
+	EOF
+
+	# Have Dovecot run its mail process with a supplementary group (the spampd group)
+	# so that it can access the learning files.
+
+	management/editconf.py /etc/dovecot/conf.d/10-mail.conf \
+		mail_access_groups=spampd
+else
+	# Sieve can only run programs from the directory configured in sieve_pipe_bin_dir
+	# (and refuses symbolic links, since their permissions look world-writable).
+	# Dovecot runs them with HOME set to the user's mail directory, where sa-learn would
+	# create its .spamassassin directory (which would then show up as a mail folder), so
+	# unset it to have sa-learn use the mail user's home directory, like the antispam
+	# plugin does.
+	mkdir -p /usr/local/lib/mailinabox/sieve-pipe
+	chmod 755 /usr/local/lib/mailinabox/sieve-pipe
+	cat > /usr/local/lib/mailinabox/sieve-pipe/sa-learn-pipe.sh << EOF;
+#!/bin/bash
+unset HOME
+exec /bin/bash /usr/local/bin/sa-learn-pipe.sh "\$@"
+EOF
+	chmod 755 /usr/local/lib/mailinabox/sieve-pipe/sa-learn-pipe.sh
+
+	# Moving (or appending) a message to the Spam folder learns it as spam. Moving
+	# a message out of the Spam folder (except to the trash) learns it as ham.
+	mkdir -p /etc/dovecot/sieve
+	cat > /etc/dovecot/sieve/report-spam.sieve << EOF;
+require ["vnd.dovecot.pipe", "copy", "imapsieve"];
+
+pipe :copy "sa-learn-pipe.sh" ["--spam"];
+EOF
+	cat > /etc/dovecot/sieve/report-ham.sieve << EOF;
+require ["vnd.dovecot.pipe", "copy", "imapsieve", "environment", "variables"];
+
+if environment :matches "imap.mailbox" "*" {
+  set "mailbox" "\${1}";
+}
+
+if anyof (string :comparator "i;ascii-casemap" "\${mailbox}" ["Trash", "Spam"],
+          string :matches :comparator "i;ascii-casemap" "\${mailbox}" "Deleted *") {
+  stop;
+}
+
+pipe :copy "sa-learn-pipe.sh" ["--ham"];
+EOF
+
+	cat > /etc/dovecot/mailinabox.d/40-spampd.conf << EOF;
+## NOTE: This file is automatically generated by Mail-in-a-Box.
+##       Do not edit this file. It is continually updated by
+##       Mail-in-a-Box and your changes will be lost.
+protocol imap {
+  mail_plugins {
+    imap_sieve = yes
+  }
+}
+
+sieve_plugins {
+  sieve_imapsieve = yes
+  sieve_extprograms = yes
+}
+
+sieve_global_extensions {
+  vnd.dovecot.pipe = yes
+}
+
+sieve_pipe_bin_dir = /usr/local/lib/mailinabox/sieve-pipe
+
+# From elsewhere to the Spam folder
+mailbox Spam {
+  sieve_script report-spam {
+    type = before
+    cause = copy append
+    path = /etc/dovecot/sieve/report-spam.sieve
+  }
+}
+
+# From the Spam folder to elsewhere
+imapsieve_from Spam {
+  sieve_script report-ham {
+    type = before
+    cause = copy
+    path = /etc/dovecot/sieve/report-ham.sieve
+  }
+}
+
+# Have Dovecot run its mail process with a supplementary group (the spampd group)
+# so that it can access the learning files.
+mail_access_groups = spampd
+EOF
+
+	# Global scripts must be compiled now because Dovecot won't have permission later.
+	# (sievec compiles them as personal scripts, so the plugins and extensions that
+	# are only available to global scripts have to be enabled explicitly.)
+	for script in report-spam report-ham; do
+		sievec -P sieve_imapsieve -P sieve_extprograms -x "+vnd.dovecot.pipe" \
+			/etc/dovecot/sieve/$script.sieve
+	done
+	chown -R mail:dovecot /etc/dovecot/sieve /etc/dovecot/mailinabox.d/40-spampd.conf
+	chmod -R o-rwx /etc/dovecot/sieve /etc/dovecot/mailinabox.d/40-spampd.conf
+fi
 
 # Create empty bayes training data (if it doesn't exist). Once the files exist,
 # ensure they are group-writable so that the Dovecot process has access.

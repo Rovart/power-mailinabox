@@ -1,4 +1,5 @@
 import os.path
+import re
 
 # DO NOT import non-standard modules. This module is imported by
 # migrate.py which runs on fresh machines before anything is installed
@@ -205,8 +206,9 @@ def wait_for_service(port, public, env, timeout):
 		time.sleep(min(timeout / 4, 1))
 
 def get_php_version():
-	# Gets the version of PHP installed in the system.
-	return shell("check_output", ["/usr/bin/php", "-v"])[4:7]
+	# Gets the version of PHP installed in the system (e.g. "8.4").
+	version = shell("check_output", ["/usr/bin/php", "-v"])
+	return re.match(r"PHP (\d+\.\d+)", version).group(1)
 
 def get_os_code():
 	# Massive mess incoming
@@ -218,11 +220,17 @@ def get_os_code():
 			return "Debian10"
 		elif version == "11":
 			return "Debian11"
+		elif version.startswith("12"):
+			return "Debian12"
+		elif version.startswith("13"):
+			return "Debian13"
 	elif dist == "Ubuntu":
 		if version == "20.04":
 			return "Ubuntu2004"
 		elif version == "22.04":
 			return "Ubuntu2204"
+		elif version == "24.04":
+			return "Ubuntu2404"
 
 	return None
 

@@ -132,6 +132,14 @@ def get_web_domain_flags(env):
 	return flags
 
 
+def get_nginx_version():
+	# Gets the version of nginx installed in the system, e.g. (1, 26, 3).
+	version = shell("check_output", ["/usr/sbin/nginx", "-v"],
+					capture_stderr=True)
+	m = re.search(r"nginx/(\d+)\.(\d+)\.(\d+)", version)
+	return tuple(int(v) for v in m.groups()) if m else (0, 0, 0)
+
+
 def do_web_update(env):
 	# Pre-load what SSL certificates we will use for each domain.
 	ssl_certificates = get_ssl_certificates(env)
@@ -159,6 +167,13 @@ def do_web_update(env):
 	# Load the templates.
 	template0 = open(
 		os.path.join(os.path.dirname(__file__), "../conf/nginx.conf")).read()
+	if get_nginx_version() >= (1, 25, 1):
+		# The http2 parameter of the listen directive is deprecated in favor
+		# of the http2 directive since nginx 1.25.1.
+		template0 = template0.replace("listen 443 ssl http2;",
+									"listen 443 ssl;\n\thttp2 on;")
+		template0 = template0.replace("listen [::]:443 ssl http2;",
+									"listen [::]:443 ssl;")
 	template1 = open(
 		os.path.join(os.path.dirname(__file__),
 					"../conf/nginx-alldomains.conf")).read()

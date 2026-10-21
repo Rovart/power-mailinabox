@@ -74,10 +74,11 @@ def backup_status(env):
 		"/usr/local/bin/duplicity",
 		"collection-status",
 		"--archive-dir", backup_cache_dir,
-		"--gpg-options", "--cipher-algo=AES256",
+		"--gpg-options", "'--cipher-algo=AES256'",
 		"--log-fd", "1",
+		*get_duplicity_additional_args(env),
 		get_duplicity_target_url(config),
-		] + get_duplicity_additional_args(env),
+		],
 		get_duplicity_env_vars(env),
 		trap=True)
 	if code != 0:
@@ -259,8 +260,8 @@ def get_duplicity_additional_args(env):
 
 	if get_target_type(config) == 'rsync':
 		return [
-			f"--ssh-options= -i /root/.ssh/id_rsa_miab -p {port}",
-			f"--rsync-options= -e \"/usr/bin/ssh -oStrictHostKeyChecking=no -oBatchMode=yes -p {port} -i /root/.ssh/id_rsa_miab\"",
+			f"--ssh-options='-i /root/.ssh/id_rsa_miab -p {port}'",
+			f"--rsync-options='-e \"/usr/bin/ssh -oStrictHostKeyChecking=no -oBatchMode=yes -p {port} -i /root/.ssh/id_rsa_miab\"'",
 		]
 	elif get_target_type(config) == 's3':
 		# See note about hostname in get_duplicity_target_url.
@@ -351,7 +352,8 @@ def perform_backup(full_backup, user_initiated=False):
 			['su', env['STORAGE_USER'], '-c', pre_script, config["target"]],
 			env=env)
 
-	# Run a backup of STORAGE_ROOT (but excluding the backups themselves!).
+	# Run a backup of STORAGE_ROOT (but excluding the backups themselves,
+	# and the backups of Nextcloud made during upgrades!).
 	# --allow-source-mismatch is needed in case the box's hostname is changed
 	# after the first backup. See #396.
 	try:
@@ -361,12 +363,14 @@ def perform_backup(full_backup, user_initiated=False):
 			"--verbosity", "warning", "--no-print-statistics",
 			"--archive-dir", backup_cache_dir,
 			"--exclude", backup_root,
+			"--exclude", os.path.join(env["STORAGE_ROOT"], "owncloud-backup"),
 			"--volsize", "250",
-			"--gpg-options", "--cipher-algo=AES256",
+			"--gpg-options", "'--cipher-algo=AES256'",
+			"--allow-source-mismatch",
+			*get_duplicity_additional_args(env),
 			env["STORAGE_ROOT"],
 			get_duplicity_target_url(config),
-			"--allow-source-mismatch"
-			] + get_duplicity_additional_args(env),
+			],
 			get_duplicity_env_vars(env))
 	finally:
 		# Start services again.
@@ -384,8 +388,9 @@ def perform_backup(full_backup, user_initiated=False):
 		"--verbosity", "error",
 		"--archive-dir", backup_cache_dir,
 		"--force",
-		get_duplicity_target_url(config)
-		] + get_duplicity_additional_args(env),
+		*get_duplicity_additional_args(env),
+		get_duplicity_target_url(config),
+		],
 		get_duplicity_env_vars(env))
 
 	# From duplicity's manual:
@@ -399,8 +404,9 @@ def perform_backup(full_backup, user_initiated=False):
 		"--verbosity", "error",
 		"--archive-dir", backup_cache_dir,
 		"--force",
-		get_duplicity_target_url(config)
-		] + get_duplicity_additional_args(env),
+		*get_duplicity_additional_args(env),
+		get_duplicity_target_url(config),
+		],
 		get_duplicity_env_vars(env))
 
 	# Change ownership of backups to the user-data user, so that the after-bcakup
@@ -445,9 +451,11 @@ def run_duplicity_verification():
 		"--compare-data",
 		"--archive-dir", backup_cache_dir,
 		"--exclude", backup_root,
+		"--exclude", os.path.join(env["STORAGE_ROOT"], "owncloud-backup"),
+		*get_duplicity_additional_args(env),
 		get_duplicity_target_url(config),
 		env["STORAGE_ROOT"],
-	] + get_duplicity_additional_args(env), get_duplicity_env_vars(env))
+	], get_duplicity_env_vars(env))
 
 def run_duplicity_restore(args):
 	env = load_environment()
@@ -457,8 +465,10 @@ def run_duplicity_restore(args):
 		"/usr/local/bin/duplicity",
 		"restore",
 		"--archive-dir", backup_cache_dir,
+		*get_duplicity_additional_args(env),
 		get_duplicity_target_url(config),
-		] + get_duplicity_additional_args(env) + args,
+		*args,
+		],
 	get_duplicity_env_vars(env))
 
 def list_target_files(config):
@@ -558,8 +568,8 @@ def list_target_files(config):
 
 		# Extract information from target
 		b2_application_keyid = target.netloc[:target.netloc.index(':')]
-		b2_application_key = target.netloc[target.netloc.index(':') +
-										1:target.netloc.index('@')]
+		b2_application_key = urllib.parse.unquote(target.netloc[target.netloc.index(':') +
+										1:target.netloc.index('@')])
 		b2_bucket = target.netloc[target.netloc.index('@') + 1:]
 
 		try:
