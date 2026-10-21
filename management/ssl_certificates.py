@@ -186,6 +186,50 @@ def get_domain_ssl_files(domain,
 # PROVISIONING CERTIFICATES FROM LETSENCRYPT
 
 
+def is_served_by_this_box(domain, env, timeout=8):
+	# Whether web requests for the domain reach this box even though the domain
+	# doesn't resolve to it in public DNS, e.g. because a reverse proxy or a CDN
+	# (like Cloudflare) sits in front of the box. We place a random file where
+	# Let's Encrypt looks for its HTTP challenges and fetch it through the
+	# domain, following redirects (e.g. to HTTPS) like Let's Encrypt does. If we
+	# get it back, Let's Encrypt's challenges for the domain reach the box too.
+	import secrets
+	import ssl
+	import urllib.request
+
+	challenge_dir = os.path.join(env["STORAGE_ROOT"],
+								"ssl/lets_encrypt/webroot/.well-known/acme-challenge")
+	token = "miab-check-" + secrets.token_urlsafe(24)
+	path = os.path.join(challenge_dir, token)
+	try:
+		host = idna.encode(domain).decode("ascii")
+	except idna.IDNAError:
+		return False
+	try:
+		os.makedirs(challenge_dir, exist_ok=True)
+		with open(path, "w") as f:
+			f.write(token)
+		# Like Let's Encrypt, don't validate the certificate after a redirect to
+		# HTTPS: it may be the very certificate we want to provision.
+		context = ssl.create_default_context()
+		context.check_hostname = False
+		context.verify_mode = ssl.CERT_NONE
+		opener = urllib.request.build_opener(
+			urllib.request.HTTPSHandler(context=context))
+		request = urllib.request.Request(
+			"http://%s/.well-known/acme-challenge/%s" % (host, token),
+			headers={"User-Agent": "Mail-in-a-Box"})
+		with opener.open(request, timeout=timeout) as response:
+			return response.read(len(token) + 1).decode("utf8", "replace") == token
+	except Exception:
+		return False
+	finally:
+		try:
+			os.unlink(path)
+		except FileNotFoundError:
+			pass
+
+
 def get_certificates_to_provision(env,
 								limit_domains=None,
 								show_valid_certs=True):
@@ -194,7 +238,8 @@ def get_certificates_to_provision(env,
 	# for and subtract:
 	# * domains not in limit_domains if limit_domains is not empty
 	# * domains with custom "A" records, i.e. they are hosted elsewhere
-	# * domains with actual "A" records that point elsewhere (misconfiguration)
+	# * domains with actual "A" records that point elsewhere (misconfiguration),
+	#   unless the requests for them reach the box anyway (through a proxy or CDN)
 	# * domains that already have certificates that will be valid for a while
 
 	from web_update import get_web_domains
@@ -233,6 +278,11 @@ def get_certificates_to_provision(env,
 				response = query_dns(domain, rtype)
 				if response != normalize_ip(value):
 					bad_dns.append("%s (%s)" % (response, rtype))
+
+			if bad_dns and is_served_by_this_box(domain, env):
+				# The domain doesn't resolve to this machine, but a reverse proxy
+				# or CDN in front of it passes the HTTP challenges on to it.
+				bad_dns = []
 
 			if bad_dns:
 				domains_cant_provision[domain] = "The domain name does not resolve to this machine: " \

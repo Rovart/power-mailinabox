@@ -23,7 +23,7 @@ import postfix_mta_sts_resolver.resolver
 
 from dns_update import get_dns_zones, build_tlsa_record, get_custom_dns_config, get_secondary_dns, get_custom_dns_records
 from web_update import get_web_domains, get_domains_with_a_records
-from ssl_certificates import get_ssl_certificates, get_domain_ssl_files, check_certificate
+from ssl_certificates import get_ssl_certificates, get_domain_ssl_files, check_certificate, is_served_by_this_box
 from mailconfig import get_mail_domains, get_mail_aliases
 from pgp import get_daemon_key, get_imported_keys
 
@@ -518,6 +518,10 @@ def run_network_checks(env, output):
 					trap=True)
 	if ret == 0:
 		output.print_ok("Outbound mail (SMTP port 25) is not blocked.")
+	elif load_settings(env).get("SMTP_RELAY_ENABLED"):
+		output.print_ok(
+			"Outbound mail (SMTP port 25) seems to be blocked by your network, which is fine: mail is sent through the SMTP relay."
+		)
 	else:
 		output.print_warning(
 			"""Outbound mail (SMTP port 25) seems to be blocked by your network. You
@@ -791,11 +795,15 @@ def check_primary_hostname_dns(domain, env, output, dns_domains,
 		if zone == domain or domain.endswith("." + zone):
 			if query_dns(zone, "DS", nxdomain=None) is not None:
 				has_dnssec = True
-				check_dnssec(zone,
-							env,
-							output,
-							dns_zonefiles,
-							is_checking_primary=True)
+				if uses_external_dns(zone, env):
+					output.print_ok(
+						"DNSSEC is enabled for %s by the provider that hosts its DNS." % zone)
+				else:
+					check_dnssec(zone,
+								env,
+								output,
+								dns_zonefiles,
+								is_checking_primary=True)
 
 	ip = query_dns(domain, "A")
 	ns_ips = query_dns("ns1." + domain, "A") + '/' + \
@@ -812,6 +820,13 @@ def check_primary_hostname_dns(domain, env, output, dns_domains,
 		output.print_ok(
 			"Nameserver glue records are correct at registrar. [ns1/ns2.%s ↦ %s]"
 			% (env['PRIMARY_HOSTNAME'], env['PUBLIC_IP']))
+
+	elif ip == env['PUBLIC_IP'] and any(
+			uses_external_dns(zone, env) for zone in dns_domains
+			if zone == domain or domain.endswith("." + zone)):
+		output.print_ok(
+			"Nameserver glue records (ns1/ns2.%s) aren't needed: this domain's DNS is hosted by another provider."
+			% env['PRIMARY_HOSTNAME'])
 
 	elif ip == env['PUBLIC_IP']:
 		# The NS records are not what we expect, but the domain resolves correctly, so
@@ -853,6 +868,11 @@ def check_primary_hostname_dns(domain, env, output, dns_domains,
 	if existing_rdns_v4 == domain and existing_rdns_v6 in (None, domain):
 		output.print_ok("Reverse DNS is set correctly at ISP. [%s ↦ %s]" %
 						(my_ips, env['PRIMARY_HOSTNAME']))
+	elif load_settings(env).get("SMTP_RELAY_ENABLED"):
+		output.print_ok(
+			"""Reverse DNS doesn't need to be %s since outgoing mail is sent through the SMTP relay.
+			[%s ↦ %s]""" % (domain, my_ips, " / ".join(
+				r for r in (existing_rdns_v4, existing_rdns_v6) if r)))
 	elif existing_rdns_v4 == existing_rdns_v6 or existing_rdns_v6 is None:
 		output.print_error(
 			"""Your box's reverse DNS is currently %s, but it should be %s. Your ISP or cloud provider will have instructions
@@ -906,11 +926,38 @@ def check_alias_exists(alias_name, alias, env, output):
 			% alias)
 
 
+def uses_external_dns(domain, env):
+	# Whether the domain's DNS is hosted by another provider (e.g. Cloudflare)
+	# instead of this box, i.e. its nameservers don't include this box's. Its
+	# records are then managed there, as listed on the External DNS page.
+	ns = query_dns(domain, "NS", nxdomain=None)
+	if not ns or ns in ("[timeout]", "[Not Set]"):
+		return False  # we can't tell
+	return ("ns1." + env["PRIMARY_HOSTNAME"]).lower() not in ns.lower().split("; ")
+
+
+def mail_reaches_this_box(mx, env):
+	# Whether all the hosts in an MX record (as returned by query_dns) resolve to
+	# this box's IPv4 address, e.g. one created by the DNS provider.
+	if not mx or mx.startswith("["):
+		return False
+	hosts = [rr.split(" ")[-1] for rr in mx.split("; ")]
+	return all(query_dns(host, "A", nxdomain=None) == env["PUBLIC_IP"]
+			for host in hosts)
+
+
 def check_dns_zone(domain, env, output, dns_zonefiles):
+	external_dns = uses_external_dns(domain, env)
+
 	# If a DS record is set at the registrar, check DNSSEC first because it will affect the NS query.
-	# If it is not set, we suggest it last.
+	# If it is not set, we suggest it last. If the zone is hosted elsewhere, its
+	# provider signs it, not this box.
 	if query_dns(domain, "DS", nxdomain=None) is not None:
-		check_dnssec(domain, env, output, dns_zonefiles)
+		if external_dns:
+			output.print_ok(
+				"DNSSEC is enabled by the provider that hosts this domain's DNS.")
+		else:
+			check_dnssec(domain, env, output, dns_zonefiles)
 
 	# We provide a DNS zone for the domain. It should have NS records set up
 	# at the domain name's registrar pointing to this box. The secondary DNS
@@ -938,6 +985,15 @@ def check_dns_zone(domain, env, output, dns_zonefiles):
 	if existing_ns.lower() == correct_ns.lower():
 		output.print_ok("Nameservers are set correctly at registrar. [%s]" %
 						correct_ns)
+	elif external_dns and (
+			ip == correct_ip
+			or mail_reaches_this_box(query_dns(domain, "MX", nxdomain=None), env)
+			or is_served_by_this_box(domain, env)):
+		# The DNS is hosted elsewhere (External DNS) and points to this box.
+		output.print_ok(
+			"""This domain's DNS is hosted by another provider [%s] and points to this box. Keep the records
+			there in sync with the ones listed on the External DNS page.""" % existing_ns)
+		probably_external_dns = True
 	elif ip == correct_ip:
 		# The domain resolves correctly, so maybe the user is using External DNS.
 		output.print_warning(
@@ -994,9 +1050,15 @@ def check_dns_zone_suggestions(domain, env, output, dns_zonefiles,
 			% domain)
 
 	# Since DNSSEC is optional, if a DS record is NOT set at the registrar suggest it.
-	# (If it was set, we did the check earlier.)
+	# (If it was set, we did the check earlier.) If the zone is hosted elsewhere,
+	# DNSSEC has to be turned on there.
 	if query_dns(domain, "DS", nxdomain=None) is None:
-		check_dnssec(domain, env, output, dns_zonefiles)
+		if uses_external_dns(domain, env):
+			output.print_na(
+				"DNSSEC is not enabled. This domain's DNS is hosted by another provider: you can enable DNSSEC there."
+			)
+		else:
+			check_dnssec(domain, env, output, dns_zonefiles)
 
 
 def check_dnssec(domain,
@@ -1213,6 +1275,13 @@ def check_mail_domain(domain, env, output):
 		else:
 			output.print_error("MTA-STS policy is missing: {}".format(valid))
 
+	elif mail_reaches_this_box(mx, env):
+		output.print_warning(
+			"""This domain's email reaches this box, but its MX record is '%s' instead of '%s'. Senders that
+			enforce MTA-STS only deliver to %s, so use the recommended record. (Some DNS providers add an MX
+			host of their own, e.g. Cloudflare's _dc-mx records.)""" %
+			(mx, recommended_mx, env['PRIMARY_HOSTNAME']))
+
 	else:
 		output.print_error(
 			"""This domain's DNS MX record is incorrect. It is currently set to '%s' but should be '%s'. Mail will not
@@ -1261,8 +1330,10 @@ def check_web_domain(domain, rounded_time, ssl_certificates, env, output):
 	# See if the domain's A record resolves to our PUBLIC_IP. This is already checked
 	# for PRIMARY_HOSTNAME, for which it is required for mail specifically. For it and
 	# other domains, it is required to access its website.
+	proxied = False
 	if domain != env['PRIMARY_HOSTNAME']:
 		ok_values = []
+		wrong = []
 		for (rtype, expected) in (("A", env['PUBLIC_IP']),
 								("AAAA", env.get('PUBLIC_IPV6'))):
 			if not expected:
@@ -1271,21 +1342,35 @@ def check_web_domain(domain, rounded_time, ssl_certificates, env, output):
 			if value == normalize_ip(expected):
 				ok_values.append(value)
 			else:
-				output.print_error(
-					"""This domain should resolve to your box's IP address (%s %s) if you would like the box to serve
-					webmail or a website on this domain. The domain currently resolves to %s in public DNS. It may take several hours for
-					public DNS to update after a change. This problem may result from other issues listed here."""
-					% (rtype, expected, value))
-				return
+				wrong.append((rtype, expected, value))
 
-		# If both A and AAAA are correct...
-		output.print_ok("Domain resolves to this box's IP address. [%s ↦ %s]" %
-						(domain, '; '.join(ok_values)))
+		if not wrong:
+			# If both A and AAAA are correct...
+			output.print_ok("Domain resolves to this box's IP address. [%s ↦ %s]" %
+							(domain, '; '.join(ok_values)))
+		elif ok_values and wrong == [("AAAA", env.get('PUBLIC_IPV6'), "[Not Set]")]:
+			output.print_warning(
+				"""This domain resolves to this box's IPv4 address but has no IPv6 (AAAA) record, so it can only be
+				reached over IPv4. Set it to %s. [%s ↦ %s]""" %
+				(env.get('PUBLIC_IPV6'), domain, '; '.join(ok_values)))
+		elif is_served_by_this_box(domain, env):
+			proxied = True
+			output.print_ok(
+				"""Domain is served by this box through a proxy or CDN. [%s ↦ %s]""" %
+				(domain, '; '.join(value for _, _, value in wrong)))
+		else:
+			rtype, expected, value = wrong[0]
+			output.print_error(
+				"""This domain should resolve to your box's IP address (%s %s) if you would like the box to serve
+				webmail or a website on this domain. The domain currently resolves to %s in public DNS. It may take several hours for
+				public DNS to update after a change. This problem may result from other issues listed here."""
+				% (rtype, expected, value))
+			return
 
 	# We need a TLS certificate for PRIMARY_HOSTNAME because that's where the
 	# user will log in with IMAP or webmail. Any other domain we serve a
 	# website for also needs a signed certificate.
-	check_ssl_cert(domain, rounded_time, ssl_certificates, env, output)
+	check_ssl_cert(domain, rounded_time, ssl_certificates, env, output, proxied=proxied)
 
 
 def query_dns(qname, rtype, nxdomain='[Not Set]', at=None, as_list=False):
@@ -1341,11 +1426,13 @@ def query_dns(qname, rtype, nxdomain='[Not Set]', at=None, as_list=False):
 	return "; ".join(sorted(str(r).rstrip('.') for r in response))
 
 
-def check_ssl_cert(domain, rounded_time, ssl_certificates, env, output):
+def check_ssl_cert(domain, rounded_time, ssl_certificates, env, output, proxied=False):
 	# Check that TLS certificate is signed.
 
-	# Skip the check if the A record is not pointed here.
-	if query_dns(domain, "A", None) not in (env['PUBLIC_IP'], None):
+	# Skip the check if the A record is not pointed here, unless the domain is
+	# served through a proxy or CDN, which needs a valid certificate on the box too
+	# (e.g. Cloudflare's "Full (strict)" mode).
+	if not proxied and query_dns(domain, "A", None) not in (env['PUBLIC_IP'], None):
 		return
 
 	# Where is the certificate file stored?

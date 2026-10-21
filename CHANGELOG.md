@@ -11,6 +11,17 @@ Unreleased
   Z-Push) while they're turned off: `sudo management/services.py update-turned-off no`. The
   setup then skips them; one that is turned back on is only served after the setup runs again
   and updates it. By default nothing changes: every service is installed and kept up to date.
+* Boxes behind a reverse proxy or CDN (e.g. Cloudflare's proxy): TLS certificates are provisioned
+  for domains that don't resolve to the box when requests for them reach it anyway (the box checks
+  by fetching a random file through the domain, like Let's Encrypt does), and Let's Encrypt's HTTP
+  challenges are also served over HTTPS for proxies that redirect them. The status checks report
+  such domains as served through a proxy instead of misconfigured.
+* Status checks for domains whose DNS is hosted elsewhere (External DNS): no errors about the
+  nameservers, glue records or this box's DNSSEC keys when the domain points to the box (DNSSEC
+  set up at the DNS provider is recognized); MX records whose hosts resolve to the box (like
+  Cloudflare's `_dc-mx` records) are a warning about MTA-STS instead of an error; a missing AAAA
+  record is a warning; and when an SMTP relay is used, a blocked outbound port 25 and the reverse
+  DNS are no longer reported as problems.
 
 Power Mail-in-a-Box v61.0
 -------------------------

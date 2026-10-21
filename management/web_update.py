@@ -343,6 +343,14 @@ def make_domain_config(domain, templates, ssl_certificates, env):
 
 	nginx_conf_extra += "\tinclude %s;\n" % (nginx_conf_custom_include)
 
+	# Some boxes behind a proxy or CDN added a location for Let's Encrypt's
+	# challenges over HTTPS to their custom configuration. The template has it
+	# now, and nginx refuses duplicate locations, so leave the template's out.
+	with open(nginx_conf_custom_include) as f:
+		has_acme_location = re.search(
+			r"^\s*location\s+(\^~\s+|=\s+)?/\.well-known/acme-challenge",
+			f.read(), re.MULTILINE)
+
 	# PUT IT ALL TOGETHER
 
 	# Combine the pieces. Iteratively place each template into the "# ADDITIONAL DIRECTIVES HERE" placeholder
@@ -351,6 +359,11 @@ def make_domain_config(domain, templates, ssl_certificates, env):
 	for t in templates + [nginx_conf_extra]:
 		nginx_conf = re.sub("[ \t]*# ADDITIONAL DIRECTIVES HERE *\n", t,
 							nginx_conf)
+
+	if has_acme_location:
+		nginx_conf = re.sub(
+			r"[ \t]*# BEGIN ACME OVER HTTPS\n.*?# END ACME OVER HTTPS[^\n]*\n", "",
+			nginx_conf, flags=re.DOTALL)
 
 	# Replace substitution strings in the template & return.
 	nginx_conf = nginx_conf.replace("$STORAGE_ROOT", env['STORAGE_ROOT'])
