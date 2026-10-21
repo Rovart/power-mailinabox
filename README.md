@@ -46,7 +46,7 @@ The machine this appliance will be installed on needs to have the following spec
 - - Ubuntu LTS 22.04 (Jammy Jellyfish)
 - - Ubuntu LTS 24.04 (Noble Numbat)
 
-Regardless of the operating system, the PHP applications (Roundcube, Nextcloud, Z-Push) run on **PHP 8.4**, installed from the [packages.sury.org](https://deb.sury.org) repository (Debian) or the [ondrej/php](https://launchpad.net/~ondrej/+archive/ubuntu/php) PPA (Ubuntu).
+Regardless of the operating system, the PHP applications (Roundcube, Nextcloud, Z-Push) run on **PHP 8.4** (8.4.27 or newer), installed from the [packages.sury.org](https://deb.sury.org) repository (Debian) or the [ondrej/php](https://launchpad.net/~ondrej/+archive/ubuntu/php) PPA (Ubuntu).
 
 ## Legacy Support
 The following distributions are no longer supported for the latest version, but they used to be supported at a earlier time:

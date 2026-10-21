@@ -15,7 +15,7 @@ Operating systems:
 * To upgrade the operating system of an existing box (e.g. Debian 12 to 13): upgrade it
   following the distribution's instructions, **reboot**, and then run the setup again (until
   then, some services may not work since their configuration is for the older versions).
-* PHP is pinned to version 8.4 on every operating system. It is installed from
+* PHP is pinned to version 8.4 (8.4.27 or newer) on every operating system. It is installed from
   packages.sury.org (Debian) or the ondrej/php PPA (Ubuntu), which also provide extensions
   no longer bundled with PHP (imap, needed by Z-Push) and the older PHP version needed to
   upgrade old Nextcloud installations. Other PHP-FPM versions are disabled.
