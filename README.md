@@ -1,110 +1,171 @@
 # Power Mail-in-a-Box
-## **[Installation](#installation)** (current version: v61.0)
-## **[Upgrading Quick Start](#upgrading)**
 
-[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/davness)
+A complete, self-hosted mail server that you can deploy on a fresh Debian or Ubuntu machine in a few minutes, and keep up to date with a single command.
 
-Power Mail-in-a-Box (a fork of [Mail-in-a-Box](https://mailinabox.email/)) is a complete pre-configured mail appliance, quickly deployable in a matter of minutes.
+**Current version: v61.0** · [Install](#installation) · [Upgrade](#upgrading) · [Changelog](CHANGELOG.md)
 
-It's main difference to the main project is focused on ad-hoc, advanced features. While Mail-in-a-Box caters to beginners by providing sane configurations, Power Mail-in-a-Box also attempts to cater to advanced users that want deeper levels of customization.
+Power Mail-in-a-Box is based on [Mail-in-a-Box](https://mailinabox.email/). It keeps its promise of sane defaults that work out of the box, and adds the features advanced users ask for: SMTP relays, mailbox quotas, per-domain web server configuration, OpenPGP key publishing, optional services and more.
 
-## Features
-- Configure Power Mail-in-a-Box to use an external SMTP relay;
-- Brand new admin panel (with up-to-date libraries);
-- Perform backups right away from the admin panel;
-- Account quotas support (thanks to **@[jrsupplee](https://github.com/jrsupplee/mailinabox)**!)
-- Customize TTL's for custom DNS records;
-- Publish OpenPGP keys authoritatively via a WKD server;
-- - **In the future:** Allow usage of OpenPGP keys to encrypt backups;
-- Per-domain nginx configuration;
-- Turn optional services (Nextcloud, Z-Push/Exchange ActiveSync, Roundcube webmail, Munin) on or off from the admin panel (*System → Services*) or with `management/cli.py system services`;
-- Make the admin panel, webmail, Nextcloud or ActiveSync reachable only from the box itself (e.g. through an SSH tunnel) and trusted networks, with a 403 for everyone else (`management/cli.py system web-access`; `management/cli.py system web-access all public` undoes it);
+## Project status
 
-## Goals
-- **Easy of use** - deployment shouldn't take too many technical details to understand. Power Mail-in-a-Box already comes with default configurations which should be good for most users.
-- **Privacy, security and independence** - keeping your mail and data safe from advertisers and prying eyes.
-- **Accessible customizability** - bring the features closer to the people instead of tucking them away in configuration files.
-- **Customizability potential** - allow for deep customization by power users.
-- **Concentration** - all the services you need in just one box.
-- **Support** - support a wide range of operating systems when possible, without compromising the codebase as a whole.
-- **Lightweight** - should be able to run even with very limited resources.
+This repository is where Power Mail-in-a-Box is developed and released. The [original project](https://github.com/ddavness/power-mailinabox) by David Duque has not been updated since v60.5 (November 2022); this repository continues it: new releases, operating system support, security fixes and the fixes made to Mail-in-a-Box since then.
 
-## Non-goals
-- **Scalability** - this appliance is geared towards individuals and small/mid-sized organizations. If your use case is mission-critical it probably is a better idea to shop for a product that provides support.
-- **Portability** - I didn't figure out yet a way to easily transition from Mail-in-a-Box to Power Mail-in-a-Box.
+Boxes installed from the original repository upgrade to this one with the usual upgrade command (see [Upgrading](#upgrading)). Nothing else needs to be changed.
 
-# Minimum Pre-requisites
-The machine this appliance will be installed on needs to have the following specs (or better). Most cloud providers are able to provide VM's that satisfy these specs at relatively low cost.
+## What's new in v61.0
 
-<small>_These specs depend on the number of users being served and/or amount of traffic_</small>
-- 1 CPU core;
-- 512MB of RAM (**at least 1GB** is recommended);
-- 10GB of disk;
-- **One of the following operating systems:**
-- - Debian GNU/Linux 12 (Bookworm)
-- - Debian GNU/Linux 13 (Trixie)
-- - Ubuntu LTS 22.04 (Jammy Jellyfish)
-- - Ubuntu LTS 24.04 (Noble Numbat)
+- Runs on Debian 12 and 13 and Ubuntu 22.04 and 24.04, with **PHP 8.4** on every one of them.
+- Nextcloud 34, Roundcube 1.7 and Z-Push 2.7.6. Existing Nextcloud installations (23 or later) are upgraded automatically.
+- A redesigned control panel: light and dark themes, usable on phones, pages you can bookmark, security fixes and better accessibility.
+- Nextcloud, Exchange ActiveSync, webmail and Munin can be turned off, and the web applications can be restricted to local access.
+- The fixes made to Mail-in-a-Box up to v77, including protection against SMTP smuggling.
 
-Regardless of the operating system, the PHP applications (Roundcube, Nextcloud, Z-Push) run on **PHP 8.4** (8.4.27 or newer), installed from the [packages.sury.org](https://deb.sury.org) repository (Debian) or the [ondrej/php](https://launchpad.net/~ondrej/+archive/ubuntu/php) PPA (Ubuntu).
+The [changelog](CHANGELOG.md) has the full list.
 
-## Legacy Support
-The following distributions are no longer supported for the latest version, but they used to be supported at a earlier time:
-- **Debian 10 (Buster)** <= **v56.5**
-- **Debian 11 (Bullseye)** <= **v60.5**
-- **Ubuntu LTS 20.04 (Focal Fossa)** <= **v60.5**
+## What's in the box
 
-To upgrade a box running one of these, first upgrade it to the last version supporting its operating system, then upgrade the operating system to a supported release, reboot, and run the setup again. The same applies when upgrading between supported releases (e.g. from Debian 12 to Debian 13): until the setup runs again after the reboot, some services may not work.
+**Mail**
+- SMTP with Postfix and IMAP, POP3 and ManageSieve with Dovecot, all over TLS.
+- Spam filtering with SpamAssassin, greylisting and the Spamhaus block lists.
+- DKIM signing, SPF and DMARC records, MTA-STS and DANE.
+- Automatic configuration for mail clients (Thunderbird autoconfig, Exchange autodiscover, iOS and macOS profiles).
 
-<small>_These network requirements are usually not provided by residential ISP's. They are not **strictly required** for Power Mail-in-a-Box to install, but it will take more work to get it running as intended._</small>
-- Static, public IPv4 (most residential connections **do not** provide static addresses);
-- - If the machine is behind a NAT, manual configuration might be required.
-- Reverse DNS for that IPv4 address (**Caution:** some cloud providers do not provide this);
-- You should be able to edit the firewall for that address. **In particular, outbound port 25 should not be blocked.**
+**Webmail, contacts, calendars and files**
+- Roundcube webmail.
+- Nextcloud for contacts, calendars and files, with CalDAV and CardDAV.
+- Exchange ActiveSync with Z-Push, for phones and Outlook.
 
-# Firewall
-If the machine is behind an external firewall or NAT, the following **inbound ports SHOULD** be open to external traffic:
+**DNS, certificates and websites**
+- An authoritative DNS server (nsd) with DNSSEC, or instructions to use an external DNS provider.
+- Free TLS certificates from Let's Encrypt, provisioned and renewed automatically.
+- Static websites for every domain.
 
-- `25/tcp`
-- `53/tcp`
-- `53/udp`
-- `80/tcp`
-- `443/tcp`
-- `465/tcp`
-- `587/tcp`
-- `993/tcp`
-- `995/tcp`
-- `4190/tcp`
+**Administration**
+- A web control panel with two-factor authentication, to manage users, aliases, DNS, certificates, websites and backups.
+- System status checks, with a daily email when something needs attention, and Munin monitoring.
+- Encrypted backups (duplicity) to the box itself, an rsync server, Amazon S3 or another S3-compatible service, or Backblaze B2.
+- A firewall (ufw) and protection against brute-force logins (fail2ban).
 
-# Installation
+### What Power Mail-in-a-Box adds
 
-1. Power Mail-in-a-Box uses `ufw` to configure it's internal firewall. If your cloud provider requires you to use another tool (usually it does not, but <small>\*cough\* _Oracle Cloud_ \*cough\*</small>), you can follow [these instructions](https://github.com/ddavness/power-mailinabox/discussions/21).
+- **SMTP relays:** send outgoing mail through an external relay.
+- **Mailbox quotas,** with a default for new users (thanks to [@jrsupplee](https://github.com/jrsupplee/mailinabox)).
+- **Custom TTLs** for custom DNS records.
+- **OpenPGP keys:** keep a keyring and publish keys for your domains through Web Key Directory (WKD).
+- **Per-domain web server configuration:** `/home/user-data/www/<domain>.conf` is included in that domain's nginx configuration, so you can add PHP, proxies or anything else nginx supports.
+- **Optional services:** turn Nextcloud, Exchange ActiveSync, Roundcube or Munin off and back on. Their data is kept and backed up.
+- **Local-only access:** make the control panel, webmail, Nextcloud or Exchange ActiveSync reachable only from the box itself (e.g. through an SSH tunnel or a VPN) and from trusted networks. Everyone else gets a 403.
+- **Backups on demand** from the control panel.
+- **Debian support,** besides Ubuntu.
 
-2. Make sure `curl` is installed and locales are configured correctly - you'll want to make sure the primary locale is set to `en_US.UTF-8`:
-```
-sudo apt install curl locales
-sudo dpkg-reconfigure locales
-```
+### Who it's for
 
-3. Run the following command, and then follow the instructions that appear on the screen:
+Individuals and small and medium-sized organizations who want to run their own mail. It's not meant for mission-critical deployments that need commercial support.
+
+## Requirements
+
+**Machine**
+- A fresh installation of Debian 12 (bookworm), Debian 13 (trixie), Ubuntu 22.04 LTS or Ubuntu 24.04 LTS, on x86_64.
+- 1 CPU core, 1 GB of RAM (512 MB is the minimum) and 10 GB of disk. Needs grow with the number of users and the amount of mail.
+- `/tmp` mounted with exec permissions.
+
+PHP 8.4 (8.4.27 or newer) is installed from [packages.sury.org](https://deb.sury.org) on Debian and from the [ondrej/php](https://launchpad.net/~ondrej/+archive/ubuntu/php) PPA on Ubuntu, so every operating system runs the same version.
+
+**Network**
+- A static public IPv4 address, with reverse DNS pointing to the box's hostname.
+- Outbound port 25 open. Many cloud providers block it by default and unblock it on request.
+
+Residential connections rarely meet these requirements. The box can still be installed, but mail delivery will need more work.
+
+**Firewall**
+
+The box configures its own firewall. If it is behind an external firewall or NAT, open these inbound ports:
+
+| Port | Service |
+| --- | --- |
+| 22/tcp | SSH (or the port your SSH server uses) |
+| 25/tcp | SMTP (incoming mail) |
+| 53/tcp, 53/udp | DNS |
+| 80/tcp, 443/tcp | HTTP and HTTPS |
+| 465/tcp, 587/tcp | SMTP submission (sending mail) |
+| 993/tcp | IMAP |
+| 995/tcp | POP3 |
+| 4190/tcp | ManageSieve (mail filters) |
+
+## Installation
+
+1. Make sure `curl` is installed and the primary locale is `en_US.UTF-8`:
+
+   ```
+   sudo apt install curl locales
+   sudo dpkg-reconfigure locales
+   ```
+
+2. Run the setup and follow the instructions on the screen:
+
+   ```
+   curl -L https://raw.githubusercontent.com/Rovart/power-mailinabox/v61.0/setup/bootstrap.sh | sudo bash
+   ```
+
+3. Open the control panel at `https://<your box's hostname>/admin` and follow the status checks to finish the DNS configuration.
+
+The box manages its firewall with `ufw`. Some cloud providers (Oracle Cloud, for example) add firewall rules of their own that have to be adjusted; see [these instructions](https://github.com/ddavness/power-mailinabox/discussions/21).
+
+## Upgrading
+
+Run the same command as for a new installation:
+
 ```
 curl -L https://raw.githubusercontent.com/Rovart/power-mailinabox/v61.0/setup/bootstrap.sh | sudo bash
 ```
 
-# Upgrading
+It downloads the new version and runs the setup again, keeping your data and settings. To be told when a new version is out, turn on *Check for new versions* in the control panel's status checks (it is off by default). To run the setup again without upgrading, use `sudo mailinabox`.
 
-To upgrade an existing box to the latest version, run the same command as you do to perform a new installation:
+**From the original Power Mail-in-a-Box.** The same command works: the box's copy of the code is switched to this repository automatically.
 
-```
-curl -L https://raw.githubusercontent.com/Rovart/power-mailinabox/v61.0/setup/bootstrap.sh | sudo bash
-```
+**From Mail-in-a-Box.** There is no automatic migration. Install Power Mail-in-a-Box on a new machine and move your mail and settings over.
 
-## Installing or upgrading to a different version
-If for some reason you wish to install a different version (for example, an older version for a workaround, or a beta/release candidate version for testing), you can use the following command.
+### Operating system upgrades
+
+To move a box to a newer operating system (e.g. from Debian 12 to Debian 13), upgrade the operating system following its own instructions, **reboot**, and run the setup again. Until then, some services may not work, since their configuration is for the older versions.
+
+These operating systems are no longer supported. Boxes running them can install the last version that supported them, and then upgrade the operating system:
+
+| Operating system | Last version |
+| --- | --- |
+| Debian 11 (bullseye), Ubuntu 20.04 | v60.5 |
+| Debian 10 (buster) | v56.5 |
+
+### Installing a specific version
 
 ```
 curl -L https://raw.githubusercontent.com/Rovart/power-mailinabox/<VERSION>/setup/bootstrap.sh | sudo bash
 ```
-Where `<VERSION>` is the version you want to install. (**Example:** `v60.0`).
 
-> ⚠️ **Downgrading might not always be possible and is not supported!** Make sure you know what you're doing before doing so.
+Where `<VERSION>` is a release tag, such as `v60.5`. Downgrading is not supported and may not work.
+
+## Command line
+
+Most settings are also available from the command line, with `management/cli.py` in the box's copy of the code (`/root/mailinabox` when installed with the command above). For example:
+
+```
+sudo /root/mailinabox/management/cli.py system services
+sudo /root/mailinabox/management/cli.py system services disable nextcloud
+sudo /root/mailinabox/management/cli.py system web-access webmail local
+```
+
+Run `management/cli.py` without arguments to see every command. If local-only access locks you out of the control panel, `sudo /root/mailinabox/management/cli.py system web-access all public` makes everything reachable again.
+
+## Development
+
+The [Vagrantfile](Vagrantfile) starts a virtual machine for each supported operating system (`bookworm`, `trixie`, `jammy` and `noble`) and installs the box from your working copy:
+
+```
+vagrant up --provision trixie
+```
+
+Contributions are welcome as pull requests. Please describe user-visible changes in the [changelog](CHANGELOG.md).
+
+## Credits and license
+
+Power Mail-in-a-Box was created by [David Duque](https://github.com/ddavness) as a fork of [Mail-in-a-Box](https://github.com/mail-in-a-box/mailinabox), by Joshua Tauberer and its contributors. Both projects, and this one, are released into the public domain under [CC0 1.0](LICENSE).
