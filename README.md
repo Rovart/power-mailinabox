@@ -88,7 +88,7 @@ sudo dpkg-reconfigure locales
 
 3. Run the following command, and then follow the instructions that appear on the screen:
 ```
-curl -L https://power-mailinabox.net/setup.sh | sudo bash
+curl -L https://raw.githubusercontent.com/Rovart/power-mailinabox/v61.0/setup/bootstrap.sh | sudo bash
 ```
 
 # Upgrading
@@ -96,7 +96,7 @@ curl -L https://power-mailinabox.net/setup.sh | sudo bash
 To upgrade an existing box to the latest version, run the same command as you do to perform a new installation:
 
 ```
-curl -L https://power-mailinabox.net/setup.sh | sudo bash
+curl -L https://raw.githubusercontent.com/Rovart/power-mailinabox/v61.0/setup/bootstrap.sh | sudo bash
 ```
 
 ## Installing or upgrading to a different version

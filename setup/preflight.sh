@@ -20,7 +20,7 @@ case $(get_os_code) in
 		echo
 		echo "You can install the latest version of Power Mail-in-a-Box supporting it by running the following command:"
 		echo
-		echo "curl -L https://power-mailinabox.net/setup.sh | sudo bash"
+		echo "curl -L https://raw.githubusercontent.com/Rovart/power-mailinabox/v60.5/setup/bootstrap.sh | sudo bash"
 		echo
 		echo "Then upgrade your operating system to one of the following releases and run this setup again:"
 		echo "* Debian 12 (bookworm)"

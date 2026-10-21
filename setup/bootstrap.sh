@@ -2,7 +2,7 @@
 #########################################################
 # This script is intended to be run like this:
 #
-#   curl -L https://power-mailinabox.net/setup.sh | sudo bash
+#   curl -L https://raw.githubusercontent.com/Rovart/power-mailinabox/v61.0/setup/bootstrap.sh | sudo bash
 #
 #########################################################
 
@@ -102,7 +102,7 @@ fi
 # The repository to download Power Mail-in-a-Box from. It can be
 # overridden (e.g. to test a fork) with the SOURCE environment variable.
 if [ -z "$SOURCE" ]; then
-	SOURCE=https://github.com/ddavness/power-mailinabox
+	SOURCE=https://github.com/Rovart/power-mailinabox
 fi
 
 # Clone the Mail-in-a-Box repository if it doesn't exist.
@@ -130,6 +130,9 @@ cd $HOME/mailinabox
 # Update it.
 if [ "$TAG" != "$(git describe --tags)" ]; then
 	echo Updating Mail-in-a-Box to $TAG . . .
+	if [ "$(git remote get-url origin 2>/dev/null)" != "$SOURCE" ]; then
+		git remote set-url origin "$SOURCE"
+	fi
 	git fetch --depth 1 --force --prune origin tag $TAG
 	if ! git checkout -q $TAG; then
 		echo "Update failed. Did you modify something in $(pwd)?"
