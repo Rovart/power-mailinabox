@@ -32,6 +32,18 @@ Optional services:
   at any time. When Nextcloud is off, the webmail's address book, the contacts and calendars of
   Exchange ActiveSync and the CalDAV/CardDAV accounts of the iOS/macOS profile go away too.
 
+Access from the internet:
+
+* The control panel (and Munin), webmail, Nextcloud (with CalDAV/CardDAV) and Exchange
+  ActiveSync can each be made available only locally (System → Services, or
+  `management/cli.py system web-access <area> local|public`): requests that don't come from
+  the box itself or from the trusted networks listed there are refused with 403 Forbidden.
+  This is meant for boxes exposed to the internet whose web applications are used through an
+  SSH tunnel or a VPN. Mail protocols, DNS, mail autoconfiguration and static websites are not
+  affected. `sudo management/cli.py system web-access all public` (or
+  `management/services.py web-access all public`, which works even without the management
+  daemon) makes everything available again.
+
 Control panel:
 
 * Redesigned: new navigation bar (with the current page highlighted), a dashboard, light, dark

@@ -77,6 +77,9 @@ if len(sys.argv) < 2:
 {cli} system default-quota [new default]       (set default quota for system)
 {cli} system services                          (lists the optional services)
 {cli} system services enable|disable nextcloud|zpush|webmail|munin
+{cli} system web-access                        (lists which web apps are only available locally)
+{cli} system web-access all|admin|webmail|nextcloud|zpush local|public
+{cli} system web-access allow "10.0.0.0/8 192.0.2.1"   (networks allowed besides the box itself)
 {cli} user                                     (lists users)
 {cli} user add user@domain.com [password]
 {cli} user password user@domain.com [password]
@@ -214,6 +217,27 @@ elif sys.argv[1] == "system" and sys.argv[2] == "services" and len(
 			"service": sys.argv[4],
 			"enabled": "true" if sys.argv[3] == "enable" else "false"
 		}))
+
+elif sys.argv[1] == "system" and sys.argv[2] == "web-access" and len(
+		sys.argv) == 3:
+	access = mgmt("/system/web-access", is_json=True)
+	for area in access["areas"]:
+		print("%-10s %-11s %s" % (area["name"], "local only" if area["local_only"]
+								else "public", area["title"]))
+	print("Allowed networks besides the box itself: %s" %
+		(" ".join(access["allowed_networks"]) or "none"))
+
+elif sys.argv[1] == "system" and sys.argv[2] == "web-access" and len(
+		sys.argv) == 5 and sys.argv[4] in ("local", "public"):
+	print(
+		mgmt("/system/web-access", {
+			"area": sys.argv[3],
+			"local_only": "true" if sys.argv[4] == "local" else "false"
+		}))
+
+elif sys.argv[1] == "system" and sys.argv[2] == "web-access" and len(
+		sys.argv) == 5 and sys.argv[3] == "allow":
+	print(mgmt("/system/web-access", {"allowed_networks": sys.argv[4]}))
 
 else:
 	print("Invalid command-line arguments.")

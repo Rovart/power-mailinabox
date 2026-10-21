@@ -13,8 +13,13 @@
 # $STORAGE_ROOT/settings.yaml. The effective state is also written to
 # /var/lib/mailinabox/services.json so that the PHP applications (Roundcube
 # and Z-Push) can read it.
+#
+# The web applications can also be restricted to the box itself (e.g. through
+# an SSH tunnel) and, optionally, to trusted networks: requests from anywhere
+# else get "403 Forbidden". This is stored in the "web_access" key.
 ########################################################################
 
+import ipaddress
 import json
 import os
 import re
@@ -51,6 +56,27 @@ SERVICES = {
 		"Graphs of the resource usage of the box, collected every five minutes.",
 		"paths": ["/admin/munin"],
 		"installed": "/usr/sbin/munin-node",
+	},
+}
+
+# Web applications that can be restricted to local access. Their nginx locations
+# are marked with "# ACCESS <name>" lines in the templates in conf/.
+WEB_ACCESS_AREAS = {
+	"admin": {
+		"title": "Control panel & monitoring",
+		"paths": ["/admin"],
+	},
+	"webmail": {
+		"title": "Webmail (Roundcube)",
+		"paths": ["/mail"],
+	},
+	"nextcloud": {
+		"title": "Nextcloud & CalDAV/CardDAV",
+		"paths": ["/cloud", "/caldav", "/carddav", "/webdav"],
+	},
+	"zpush": {
+		"title": "Exchange ActiveSync (Z-Push)",
+		"paths": ["/Microsoft-Server-ActiveSync", "/autodiscover/autodiscover.xml"],
 	},
 }
 
@@ -114,7 +140,7 @@ def set_service_enabled(name, enabled, env):
 	return apply_services(env)
 
 
-def filter_template(text, enabled):
+def filter_template(text, enabled, access_rules=None):
 	# Remove the blocks of the configuration templates in conf/ that belong to
 	# disabled services. They are marked with lines like these (nginx, or XML):
 	#   # BEGIN SERVICE nextcloud           <!-- BEGIN SERVICE nextcloud -->
@@ -123,11 +149,125 @@ def filter_template(text, enabled):
 	def strip(m):
 		return "" if not enabled.get(m.group(1), True) else m.group(0)
 
-	return re.sub(
+	text = re.sub(
 		r"^[ \t]*(?:#|<!--) BEGIN SERVICE (\w+)\b.*?\n.*?^[ \t]*(?:#|<!--) END SERVICE \1\b[^\n]*\n",
 		strip,
 		text,
 		flags=re.MULTILINE | re.DOTALL)
+
+	# In nginx templates, "# ACCESS <area>" lines are replaced by the rules that
+	# restrict the area to local access, if it is restricted.
+	if access_rules is not None:
+
+		def access(m):
+			rules = access_rules.get(m.group(2))
+			if not rules:
+				return ""
+			return "".join(m.group(1) + rule + "\n" for rule in rules)
+
+		text = re.sub(r"^([ \t]*)# ACCESS (\w+)[^\n]*\n",
+					access,
+					text,
+					flags=re.MULTILINE)
+
+	return text
+
+
+def get_box_addresses(env):
+	# The addresses requests from the box itself come from.
+	addresses = ["127.0.0.1", "::1"]
+	for key in ("PUBLIC_IP", "PUBLIC_IPV6", "PRIVATE_IP", "PRIVATE_IPV6"):
+		value = env.get(key)
+		if value and value not in addresses:
+			addresses.append(value)
+	return addresses
+
+
+def parse_networks(networks):
+	# Validates and normalizes a list of IP addresses or networks (CIDR), given
+	# as a list or as a string separated by spaces, commas or new lines.
+	if isinstance(networks, str):
+		networks = re.split(r"[\s,]+", networks)
+	result = []
+	for network in networks:
+		network = network.strip()
+		if not network:
+			continue
+		try:
+			network = str(ipaddress.ip_network(network, strict=False))
+		except ValueError:
+			raise ValueError("%s is not a valid IP address or network." % network)
+		if network not in result:
+			result.append(network)
+	return result
+
+
+def get_web_access(env):
+	# Returns which areas are restricted to local access, and the networks
+	# that are allowed besides the box itself.
+	config = utils.load_settings(env).get("web_access")
+	if not isinstance(config, dict):
+		config = {}
+	local_only = config.get("local_only")
+	if not isinstance(local_only, dict):
+		local_only = {}
+	try:
+		allowed_networks = parse_networks(config.get("allowed_networks") or [])
+	except ValueError:
+		allowed_networks = []
+	return {
+		"local_only": {
+			name: local_only.get(name) is True
+			for name in WEB_ACCESS_AREAS
+		},
+		"allowed_networks": allowed_networks,
+	}
+
+
+def set_web_access(env, area=None, local_only=None, allowed_networks=None):
+	# Restricts an area ("all" for every area) to local access, or opens it,
+	# and/or sets the allowed networks.
+	access = get_web_access(env)
+	if area is not None:
+		if area != "all" and area not in WEB_ACCESS_AREAS:
+			raise ValueError("Unknown area: %s" % area)
+		for name in (WEB_ACCESS_AREAS if area == "all" else [area]):
+			access["local_only"][name] = bool(local_only)
+	if allowed_networks is not None:
+		access["allowed_networks"] = parse_networks(allowed_networks)
+
+	config = utils.load_settings(env)
+	config["web_access"] = access
+	utils.write_settings(config, env)
+	return access
+
+
+def is_address_allowed(address, env):
+	# Whether requests from this address are allowed to local-only areas.
+	try:
+		address = ipaddress.ip_address(address)
+	except ValueError:
+		return False
+	if address.is_loopback:
+		return True
+	networks = get_box_addresses(env) + get_web_access(env)["allowed_networks"]
+	for network in networks:
+		network = ipaddress.ip_network(network, strict=False)
+		if address.version == network.version and address in network:
+			return True
+	return False
+
+
+def get_access_rules(env):
+	# The nginx directives for each area that is restricted to local access.
+	access = get_web_access(env)
+	rules = ["allow %s;" % a for a in get_box_addresses(env)]
+	rules += ["allow %s;" % n for n in access["allowed_networks"]]
+	rules += ["deny all;"]
+	return {
+		name: ["# Only from the box itself and the allowed networks."] + rules
+		for name, local_only in access["local_only"].items() if local_only
+	}
 
 
 def write_mobileconfig(env, enabled):
@@ -216,7 +356,15 @@ def apply_services(env):
 
 if __name__ == "__main__":
 	env = utils.load_environment()
-	if len(sys.argv) == 3 and sys.argv[1] == "is-enabled" and sys.argv[2] in SERVICES:
+	if len(sys.argv) == 4 and sys.argv[1] == "web-access" and sys.argv[3] in ("local", "public"):
+		# Works without the management daemon, e.g. to undo a restriction:
+		#   management/services.py web-access all public
+		set_web_access(env, sys.argv[2], sys.argv[3] == "local")
+		from web_update import do_web_update
+		do_web_update(env)
+		for name, local_only in get_web_access(env)["local_only"].items():
+			print("%-10s %s" % (name, "local only" if local_only else "public"))
+	elif len(sys.argv) == 3 and sys.argv[1] == "is-enabled" and sys.argv[2] in SERVICES:
 		# Exits with status 0 if the service is enabled.
 		sys.exit(0 if is_enabled(sys.argv[2], env) else 1)
 	elif len(sys.argv) == 2 and sys.argv[1] == "apply":
@@ -226,6 +374,6 @@ if __name__ == "__main__":
 			print("%-10s %-4s %s" % (service["name"], "on" if
 									service["enabled"] else "off", service["title"]))
 	else:
-		print("Usage: %s apply | list | is-enabled {%s}" %
-			(sys.argv[0], ",".join(SERVICES)))
+		print("Usage: %s apply | list | is-enabled {%s} | web-access {all,%s} {local,public}" %
+			(sys.argv[0], ",".join(SERVICES), ",".join(WEB_ACCESS_AREAS)))
 		sys.exit(2)
