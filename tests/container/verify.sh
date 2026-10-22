@@ -3,6 +3,8 @@
 # Expected versions, from the setup scripts being tested.
 PHP_VER=$(sed -n 's/^PHP_VER=//p' /root/mailinabox/setup/functions.sh)
 NC_MAJOR=$(sed -n 's/^nextcloud_ver=\([0-9]*\)\..*/\1/p' /root/mailinabox/setup/nextcloud.sh)
+ZPUSH_VER=$(sed -n 's/^VERSION=//p' /root/mailinabox/setup/zpush.sh)
+NC_APPS=$(sed -n 's/^\(contacts\|calendar\|user_external\)_ver=/\1=/p' /root/mailinabox/setup/nextcloud.sh)
 U=me@example.com
 P='Secret123!pw'
 H=https://127.0.0.1
@@ -61,11 +63,13 @@ check "nextcloud status ($NC_MAJOR, installed)" '$C $H/cloud/status.php | grep -
 check "nextcloud IMAP login (user_external) + CardDAV" '$C -u "$U:$P" -X PROPFIND -H "Depth: 0" -o /dev/null -w "%{http_code}" $H/cloud/remote.php/dav/addressbooks/users/$U/contacts/ | grep -q 207'
 check "nextcloud CalDAV" '$C -u "$U:$P" -X PROPFIND -H "Depth: 0" -o /dev/null -w "%{http_code}" $H/cloud/remote.php/dav/calendars/$U/personal/ | grep -q 207'
 check "nextcloud apps enabled" 'sudo -u www-data php /usr/local/lib/owncloud/occ app:list --enabled 2>/dev/null | grep -q "user_external" && sudo -u www-data php /usr/local/lib/owncloud/occ app:list --enabled 2>/dev/null | grep -q "calendar" && sudo -u www-data php /usr/local/lib/owncloud/occ app:list --enabled 2>/dev/null | grep -q "contacts"'
+check "nextcloud apps at the setup's versions ($(echo $NC_APPS))" 'sudo -u www-data php$PHP_VER /usr/local/lib/owncloud/occ app:list --enabled --output=json 2>/dev/null | python3 -c "import json, sys; enabled = json.load(sys.stdin)[\"enabled\"]; wrong = {a: enabled.get(a) for a, v in (x.split(\"=\") for x in sys.argv[1:]) if enabled.get(a) != v}; wrong and print(\"installed:\", wrong); sys.exit(1 if wrong else 0)" $NC_APPS'
 check "nextcloud config read-only" 'grep -q "config_is_read_only. => true" /home/user-data/owncloud/config.php'
 
 echo "== z-push"
 check "activesync OPTIONS" '$C -u "$U:$P" -X OPTIONS -D - -o /dev/null $H/Microsoft-Server-ActiveSync | grep -qi "MS-ASProtocolVersions"'
 check "autodiscover" '$C -X POST -H "Content-Type: text/xml" -u "$U:$P" --data "<?xml version=\"1.0\" encoding=\"utf-8\"?><Autodiscover xmlns=\"http://schemas.microsoft.com/exchange/autodiscover/mobilesync/requestschema/2006\"><Request><EMailAddress>$U</EMailAddress><AcceptableResponseSchema>http://schemas.microsoft.com/exchange/autodiscover/mobilesync/responseschema/2006</AcceptableResponseSchema></Request></Autodiscover>" $H/autodiscover/autodiscover.xml | grep -qi "Microsoft-Server-ActiveSync"'
+check "z-push $ZPUSH_VER installed" '[ "$(cat /usr/local/lib/z-push/version)" == "$ZPUSH_VER" ]'
 check "z-push-admin" 'z-push-admin -a list 2>&1 | grep -qi "device\|All synchronized\|no devices"'
 printf '\x03\x01\x6a\x00\x00\x07\x56\x52\x030\x00\x01\x01' > /tmp/foldersync.wbxml
 check "activesync FolderSync (WBXML, IMAP backend)" '$C -u "$U:$P" -X POST -H "MS-ASProtocolVersion: 14.0" -H "Content-Type: application/vnd.ms-sync.wbxml" -H "User-Agent: Apple-iPhone/1" --data-binary @/tmp/foldersync.wbxml -o /tmp/foldersync.out -w "%{http_code} %{content_type}" "$H/Microsoft-Server-ActiveSync?Cmd=FolderSync&User=$U&DeviceId=TESTDEVICE1&DeviceType=iPhone" | grep -q "^200 application/vnd.ms-sync.wbxml" && [ -s /tmp/foldersync.out ]'
