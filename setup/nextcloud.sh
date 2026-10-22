@@ -295,6 +295,36 @@ if [ ! -d /usr/local/lib/owncloud/ ] || [[ ! ${CURRENT_NEXTCLOUD_VER} =~ ^$nextc
 	InstallNextcloud $nextcloud_ver $nextcloud_hash $contacts_ver $contacts_hash $calendar_ver $calendar_hash $user_external_ver $user_external_hash
 fi
 
+# InstallNextcloud installs the apps along with Nextcloud itself. On boxes that already run
+# this version of Nextcloud, update the apps whose versions changed.
+function UpdateNextcloudApp {
+	app=$1
+	version=$2
+	hash=$3
+
+	installed=$(sed -n 's|^\s*<version>\(.*\)</version>|\1|p' /usr/local/lib/owncloud/apps/$app/appinfo/info.xml 2> /dev/null | head -n 1 || /bin/true)
+	if [ "$installed" == "$version" ]; then
+		return 1
+	fi
+
+	echo "Updating the Nextcloud app $app to version $version..."
+	wget_verify https://github.com/nextcloud-releases/$app/releases/download/v$version/$app-v$version.tar.gz $hash /tmp/$app.tgz
+	rm -rf /usr/local/lib/owncloud/apps/$app
+	tar -xf /tmp/$app.tgz -C /usr/local/lib/owncloud/apps/
+	rm /tmp/$app.tgz
+	chown -R www-data:www-data /usr/local/lib/owncloud/apps/$app
+}
+if [ -e $STORAGE_ROOT/owncloud/owncloud.db ]; then
+	apps_updated=0
+	UpdateNextcloudApp contacts $contacts_ver $contacts_hash && apps_updated=1
+	UpdateNextcloudApp calendar $calendar_ver $calendar_hash && apps_updated=1
+	UpdateNextcloudApp user_external $user_external_ver $user_external_hash && apps_updated=1
+	if [ $apps_updated == 1 ]; then
+		# Run the apps' database migrations.
+		occ upgrade
+	fi
+fi
+
 # ### Configuring Nextcloud
 
 # Setup Nextcloud if the Nextcloud database does not yet exist. Running setup when
