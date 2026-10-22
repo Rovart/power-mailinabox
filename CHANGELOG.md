@@ -6,7 +6,9 @@ Power Mail-in-a-Box v61.2
 
 * Z-Push updated to 2.7.7, which fixes several security issues (header injection, unsanitized
   HTML, SSRF and others) and verifies the TLS certificates of CalDAV/CardDAV servers. Ours is
-  the box itself (127.0.0.1), which Z-Push keeps trusting without verification.
+  the box itself (127.0.0.1), which Z-Push keeps trusting without verification. Includes a
+  workaround for a bug in Z-Push 2.7.7 that broke autodiscover (the automatic setup of
+  Exchange ActiveSync accounts) when contacts and calendars are synchronized.
 * Nextcloud apps updated: Contacts 8.9.2 and Calendar 6.6.3.
 * The setup now also updates the Nextcloud apps (Contacts, Calendar and user_external) on boxes
   that already run the current Nextcloud version. Before, they were only updated together with
