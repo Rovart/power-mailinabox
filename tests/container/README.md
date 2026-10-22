@@ -7,6 +7,9 @@ receiving mail, IMAP/POP/SMTP logins, spam learning, quotas, webmail, Nextcloud
 status checks, turning the optional services off and on, and restricting the web
 applications to local access.
 
+Run them before releasing a new version (the quick checks in `tests/static-checks.sh`
+are enough for everyday changes):
+
 ```
 tests/container/run-all.sh                     # fresh installs on every OS
 tests/container/run-all.sh debian-13           # only one OS
