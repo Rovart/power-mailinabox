@@ -15,10 +15,11 @@ for f in setup/*.sh management/*.sh tests/container/*.sh $(grep -l '^#!/bin/bash
 done
 
 # Python: the management daemon and tools.
+pycache=$(mktemp -d)
 for f in management/*.py setup/migrate.py tools/*.py; do
-	python3 -W ignore -m py_compile "$f" 2>/dev/null || bad "python syntax: $f"
+	PYTHONPYCACHEPREFIX=$pycache python3 -W ignore -m py_compile "$f" 2>/dev/null || bad "python syntax: $f"
 done
-find . -name __pycache__ -path "./management/*" -prune -exec rm -rf {} + 2>/dev/null
+rm -rf "$pycache"
 
 # JavaScript in the control panel's templates (with Jinja expressions replaced).
 if command -v node >/dev/null; then
