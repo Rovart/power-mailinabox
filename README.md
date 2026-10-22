@@ -4,7 +4,7 @@ A complete, self-hosted mail server that you can deploy on a fresh Debian or Ubu
 
 This is a maintained, unofficial fork of [Power Mail-in-a-Box](https://github.com/ddavness/power-mailinabox) by David Duque.
 
-**Current version: v61.1** · [Install](#installation) · [Upgrade](#upgrading) · [Changelog](CHANGELOG.md)
+**Current version: v61.2** · [Install](#installation) · [Upgrade](#upgrading) · [Changelog](CHANGELOG.md)
 
 Power Mail-in-a-Box is based on [Mail-in-a-Box](https://mailinabox.email/). It keeps its promise of sane defaults that work out of the box, and adds the features advanced users ask for: SMTP relays, mailbox quotas, per-domain web server configuration, OpenPGP key publishing, optional services and more.
 
@@ -15,6 +15,11 @@ Power Mail-in-a-Box is based on [Mail-in-a-Box](https://mailinabox.email/). It k
 It is not the official project, nor is it affiliated with or endorsed by its author. Everything here is released under the same public domain dedication as the original (CC0), so any of it can be taken back into the original project.
 
 Boxes installed from the original repository can switch to this fork with the usual upgrade command (see [Upgrading](#upgrading)).
+
+## What's new in v61.2
+
+- Security update of Z-Push (Exchange ActiveSync) to 2.7.7.
+- Nextcloud Contacts 8.9.2 and Calendar 6.6.3, and the Nextcloud apps are now kept up to date on existing boxes too.
 
 ## What's new in v61.1
 
@@ -115,7 +120,7 @@ The box configures its own firewall. If it is behind an external firewall or NAT
 2. Run the setup and follow the instructions on the screen:
 
    ```
-   curl -L https://raw.githubusercontent.com/Rovart/power-mailinabox/v61.1/setup/bootstrap.sh | sudo bash
+   curl -L https://raw.githubusercontent.com/Rovart/power-mailinabox/v61.2/setup/bootstrap.sh | sudo bash
    ```
 
 3. Open the control panel at `https://<your box's hostname>/admin` and follow the status checks to finish the DNS configuration.
@@ -127,7 +132,7 @@ The box manages its firewall with `ufw`. Some cloud providers (Oracle Cloud, for
 Run the same command as for a new installation:
 
 ```
-curl -L https://raw.githubusercontent.com/Rovart/power-mailinabox/v61.1/setup/bootstrap.sh | sudo bash
+curl -L https://raw.githubusercontent.com/Rovart/power-mailinabox/v61.2/setup/bootstrap.sh | sudo bash
 ```
 
 It downloads the new version and runs the setup again, keeping your data and settings. To be told when a new version is out, turn on *Check for new versions* in the control panel's status checks (it is off by default). To run the setup again without upgrading, use `sudo mailinabox`.
