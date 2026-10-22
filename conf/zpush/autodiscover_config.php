@@ -23,4 +23,9 @@ $specialLogUsers = array();
 
 // the backend data provider
 define('BACKEND_PROVIDER', 'BackendCombined');
+
+// Whether the CalDAV and CardDAV backends verify the servers' TLS certificates: yes, except
+// for servers on the box itself (like ours). Z-Push 2.7.7 only sets this default for
+// ActiveSync, not for autodiscover, which then fails with "Undefined constant DAV_SSL_VERIFY".
+define('DAV_SSL_VERIFY', DAV_SSL_VERIFY_AUTO);
 ?>
