@@ -1,8 +1,8 @@
 CHANGELOG
 =========
 
-Unreleased
-----------
+Power Mail-in-a-Box v61.3
+-------------------------
 
 * Fixed the setup stopping with "The PHP imap extension could not be installed for PHP 8.4"
   although it was installed: the check failed depending on timing, mostly on boxes with many
