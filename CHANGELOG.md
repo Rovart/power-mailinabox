@@ -1,6 +1,23 @@
 CHANGELOG
 =========
 
+Power Mail-in-a-Box v61.6
+-------------------------
+
+* New control panel page, Mail > Filtering, with two lists:
+  * Allowed servers skip greylisting. Senders that use a different return address for every
+    message (notifications, verification codes, newsletters) were greylisted every time, so their
+    mail only arrived when they tried again, up to an hour later. Entries are host names (which
+    also cover their subdomains) or IP addresses and networks; the other checks still apply.
+  * Mail from blocked senders (addresses or domains) or servers (IP addresses or networks) is
+    refused before it is accepted. The box's own users aren't affected.
+
+  The page also lists the servers whose mail was held back by greylisting today, with a button to
+  allow them. The lists are kept in `settings.yaml` (and backed up with it) and are also available
+  in the API (`/admin/mail/filtering`) and on the command line (`management/cli.py mail filtering`).
+  Empty lists change nothing. A `/etc/postgrey/whitelist_clients.local` written by hand is shown as
+  the allow list, and a copy of it is kept when the lists are first saved.
+
 Power Mail-in-a-Box v61.5
 -------------------------
 
