@@ -1,6 +1,17 @@
 CHANGELOG
 =========
 
+Unreleased
+----------
+
+* The setup no longer changes the owner of every file in `$STORAGE_ROOT/www`. It used to give
+  them all to the user that owns the box's data, which broke web applications whose files belong
+  to another user (e.g. those written as `www-data`) after every run, and also handed over the
+  custom nginx configuration, which nginx reads as root. Now it only takes over, from root, the
+  web root itself and the default site; the sites in it and the custom nginx configuration keep
+  their owners and permissions. It also no longer stops when some of those files can't be changed
+  (e.g. immutable ones), and doesn't follow symbolic links.
+
 Power Mail-in-a-Box v61.3
 -------------------------
 
