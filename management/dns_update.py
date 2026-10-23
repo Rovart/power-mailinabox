@@ -325,6 +325,14 @@ def build_zone(domain,
 		if has_rec(qname, rtype):
 			continue
 
+		# An MX record without a preference makes the zone invalid, and then it
+		# can't be signed. The control panel rejects them, but older versions
+		# didn't, so leave out the ones already saved.
+		if rtype == "MX" and not is_valid_mx_value(value):
+			print("Leaving out the invalid MX record %s of %s." % (value, qname or domain),
+				file=sys.stderr)
+			continue
+
 		# The "local" keyword on A/AAAA records are short-hand for our own IP.
 		# This also flags for web configuration that the user wants a website here.
 		if rtype == "A" and value == "local":
@@ -1124,6 +1132,12 @@ def get_custom_dns_config(env, only_real_records=False):
 				raise ValueError()
 
 
+def is_valid_mx_value(value):
+	# "<preference> <mail server>", e.g. "10 mail.example.com.".
+	m = re.match(r"^(\d{1,5})\s+(\S+)$", str(value).strip())
+	return bool(m) and int(m.group(1)) <= 65535
+
+
 def filter_custom_records(domain, custom_dns_iter):
 	for qname, rtype, value, ttl in custom_dns_iter:
 		# We don't count the secondary nameserver config (if present) as a record - that would just be
@@ -1231,7 +1245,12 @@ def set_custom_dns_record(qname, rtype, value, action, env, ttl=None):
 
 			if not re.search(DOMAIN_RE, value):
 				raise ValueError("Invalid value.")
-		elif rtype in ("CNAME", "TXT", "SRV", "MX", "SSHFP", "CAA"):
+		elif rtype == "MX":
+			if not is_valid_mx_value(value):
+				raise ValueError(
+					"An MX record needs a preference and a mail server, e.g. '10 mail.example.com'."
+				)
+		elif rtype in ("CNAME", "TXT", "SRV", "SSHFP", "CAA"):
 			# anything goes
 			pass
 		else:

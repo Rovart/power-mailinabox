@@ -1,6 +1,16 @@
 CHANGELOG
 =========
 
+Unreleased
+----------
+
+* Upgrading Nextcloud no longer stops PHP-FPM, which took down every other PHP site on the box
+  (they share it) until Nextcloud's upgrade finished. Nextcloud is put in maintenance mode by its
+  upgrade, and PHP-FPM is restarted at the end.
+* Custom MX records without a preference (e.g. `mail.example.com` instead of `10 mail.example.com`)
+  are rejected by the control panel, and the ones already saved are left out of the zone with a
+  warning: they made the zone invalid, so it couldn't be signed and the DNS update failed.
+
 Power Mail-in-a-Box v61.4
 -------------------------
 

@@ -207,8 +207,9 @@ fi
 # from the version currently installed, do the install/upgrade
 if [ ! -d /usr/local/lib/owncloud/ ] || [[ ! ${CURRENT_NEXTCLOUD_VER} =~ ^$nextcloud_ver ]]; then
 
-	# Stop php-fpm if running. If theyre not running (which happens on a previously failed install), dont bail.
-	service php$PHP_VER-fpm stop &> /dev/null || /bin/true
+	# Don't stop php-fpm during the upgrade: other sites on the box may use it too.
+	# The upgrade puts Nextcloud in maintenance mode, and php-fpm is restarted at
+	# the end of this script.
 
 	# Backup the existing ownCloud/Nextcloud.
 	# Create a backup directory to store the current installation and database to
