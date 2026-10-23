@@ -211,7 +211,19 @@ mkdir -p $STORAGE_ROOT/www/default
 if [ ! -f $STORAGE_ROOT/www/default/index.html ]; then
 	sed "s/{{PRIMARY_HOSTNAME}}/$PRIMARY_HOSTNAME/" conf/www_default.html | sed "s#{{STORAGE_ROOT}}#$STORAGE_ROOT#" > $STORAGE_ROOT/www/default/index.html
 fi
-chown -R $STORAGE_USER $STORAGE_ROOT/www
+# The user that owns the box's data owns the web root and the default site, so
+# that it can put static sites there. Only those two are handed over, and only
+# while root owns them: the sites in the web root keep the owners and
+# permissions they have (e.g. the files a web application writes as www-data),
+# and so does the custom nginx configuration next to them, which nginx reads as
+# root. Symbolic links themselves are changed, not what they point to, and files
+# that can't be changed (e.g. made immutable with chattr +i) don't stop the setup.
+WEB_ROOT_OWNER_OK=1
+find $STORAGE_ROOT/www -maxdepth 0 -user root -exec chown $STORAGE_USER {} + 2> /dev/null || WEB_ROOT_OWNER_OK=0
+find $STORAGE_ROOT/www/default -user root -exec chown -h $STORAGE_USER {} + 2> /dev/null || WEB_ROOT_OWNER_OK=0
+if [ $WEB_ROOT_OWNER_OK = 0 ]; then
+	echo "Warning: couldn't change the owner of some files in $STORAGE_ROOT/www."
+fi
 
 # Start services.
 restart_service nginx
