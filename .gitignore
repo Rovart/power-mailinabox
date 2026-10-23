@@ -8,3 +8,6 @@ externals/
 api/docs/api-docs.html
 mailinabox-ca.crt
 tests/container/cas/
+
+# Local assistant settings
+.claude/
