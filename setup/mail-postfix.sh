@@ -226,6 +226,8 @@ management/editconf.py /etc/postfix/main.cf  -e lmtp_destination_recipient_limit
 # * `reject_rhsbl_sender`: Reject return paths that use blacklisted domains.
 # * `permit_sasl_authenticated`: Authenticated users (i.e. on port 587) can skip further checks.
 # * `permit_mynetworks`: Mail that originates locally can skip further checks.
+# * `check_client_access`, `check_sender_access`: Reject mail from the servers and senders the administrator
+#   blocked in the control panel (Mail > Filtering, see management/mail_filtering.py).
 # * `reject_rbl_client`: Reject connections from IP addresses blacklisted in zen.spamhaus.org
 #   (only actual listings, which are reported in the 127.0.0.2-11 range; Spamhaus uses other
 #   addresses to report errors, like when queried through a public DNS resolver)
@@ -237,9 +239,14 @@ management/editconf.py /etc/postfix/main.cf  -e lmtp_destination_recipient_limit
 # so these IPs get mail delivered quickly. But when an IP is not listed in the permit_dnswl_client list (i.e. it is not #NODOC
 # whitelisted) then postfix does a DEFER_IF_REJECT, which results in all "unknown user" sorts of messages turning into #NODOC
 # "450 4.7.1 Client host rejected: Service unavailable". This is a retry code, so the mail doesn't properly bounce. #NODOC
+# The lists of blocked servers and senders must exist before Postfix uses them. They
+# are written from the administrator's lists by management/mail_filtering.py (see start.sh).
+touch /etc/postfix/blocked_clients.cidr /etc/postfix/blocked_senders
+postmap /etc/postfix/blocked_senders
+
 management/editconf.py /etc/postfix/main.cf \
 	smtpd_sender_restrictions="reject_non_fqdn_sender,reject_unknown_sender_domain,reject_authenticated_sender_login_mismatch,reject_rhsbl_sender dbl.spamhaus.org=127.0.1.[2..99]" \
-	smtpd_recipient_restrictions="check_recipient_access sqlite:/etc/postfix/noreply-addresses.cf",permit_sasl_authenticated,permit_mynetworks,"reject_rbl_client zen.spamhaus.org=127.0.0.[2..11]",reject_unlisted_recipient,"check_policy_service inet:127.0.0.1:10023","check_policy_service inet:127.0.0.1:12340"
+	smtpd_recipient_restrictions="check_recipient_access sqlite:/etc/postfix/noreply-addresses.cf",permit_sasl_authenticated,permit_mynetworks,"check_client_access cidr:/etc/postfix/blocked_clients.cidr","check_sender_access hash:/etc/postfix/blocked_senders","reject_rbl_client zen.spamhaus.org=127.0.0.[2..11]",reject_unlisted_recipient,"check_policy_service inet:127.0.0.1:10023","check_policy_service inet:127.0.0.1:12340"
 
 # Postfix connects to Postgrey on the 127.0.0.1 interface specifically. Ensure that
 # Postgrey listens on the same interface (and not IPv6, for instance).

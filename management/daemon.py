@@ -336,6 +336,32 @@ def mail_domains():
 	return "".join(x + "\n" for x in get_mail_domains(env))
 
 
+@app.route('/mail/filtering')
+@authorized_personnel_only()
+def mail_filtering_get():
+	from mail_filtering import get_filtering_status
+	return json_response(get_filtering_status(env))
+
+
+@app.route('/mail/filtering', methods=['POST'])
+@authorized_personnel_only()
+def mail_filtering_set():
+	# action "add" or "remove" an entry, or "set" a whole list.
+	from mail_filtering import add_entry, remove_entry, set_list
+	name = request.form.get('list', '')
+	action = request.form.get('action', '')
+	try:
+		if action == "add":
+			return add_entry(name, request.form.get('entry', ''), env)
+		if action == "remove":
+			return remove_entry(name, request.form.get('entry', ''), env)
+		if action == "set":
+			return set_list(name, request.form.get('entries', ''), env)
+		return ("Unknown action: %s" % action, 400)
+	except ValueError as e:
+		return (str(e), 400)
+
+
 # DNS
 
 
