@@ -1,8 +1,8 @@
 CHANGELOG
 =========
 
-Unreleased
-----------
+Power Mail-in-a-Box v61.5
+-------------------------
 
 * Upgrading Nextcloud no longer stops PHP-FPM, which took down every other PHP site on the box
   (they share it) until Nextcloud's upgrade finished. Nextcloud is put in maintenance mode by its
