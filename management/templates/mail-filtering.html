@@ -1,0 +1,203 @@
+<div class="page-header">
+	<h2>Filtering</h2>
+	<p class="text-body-secondary">Incoming mail goes through a few checks before it is accepted. The first time a
+		server sends mail from a new sender, it is asked to try again a few minutes later (greylisting), which most
+		spam senders never do. Here you can let the mail servers you trust skip that wait, and refuse mail from
+		senders you never want to hear from.</p>
+</div>
+
+<div class="alert alert-info d-none" id="filtering-imported" role="status">
+	The allow list below comes from <code class="filtering-postgrey-file"></code>, which was edited by hand. It
+	becomes managed here the first time you change a list<span id="filtering-not-imported"></span>.
+</div>
+
+<div class="card mb-4 d-none" id="filtering-delayed-card">
+	<div class="card-header">
+		<h3 class="h5 mb-0" id="filtering-delayed-title">Recently held back by greylisting</h3>
+	</div>
+	<div class="card-body">
+		<p class="text-body-secondary mb-3">Mail from these servers arrived at least ten minutes late, according to
+			today&rsquo;s mail log. Servers that send every message from a different address (notifications,
+			newsletters) are held back every time.</p>
+		<div class="table-responsive">
+			<table class="table align-middle mb-0" aria-labelledby="filtering-delayed-title">
+				<thead>
+					<tr>
+						<th scope="col">Domain</th>
+						<th scope="col">Servers</th>
+						<th scope="col" class="text-end">Messages</th>
+						<th scope="col" class="text-end">Longest wait</th>
+						<th scope="col"><span class="visually-hidden">Actions</span></th>
+					</tr>
+				</thead>
+				<tbody id="filtering-delayed"></tbody>
+			</table>
+		</div>
+	</div>
+</div>
+
+<div class="row g-4 mb-4">
+	<div class="col-lg-6">
+		<div class="card h-100">
+			<div class="card-header">
+				<h3 class="h5 mb-0" id="filtering-allow-title"><span class="fa-solid fa-circle-check me-2 text-success"
+						aria-hidden="true"></span>Allowed servers</h3>
+			</div>
+			<div class="card-body">
+				<p class="text-body-secondary">Mail from these servers is accepted without greylisting. The other
+					checks (Spamhaus, SPF, DKIM, DMARC and the spam filter) still apply.</p>
+				<form class="mb-3" onsubmit="filtering_add('allow'); return false;">
+					<label for="filtering-allow-entry" class="form-label">Add a server</label>
+					<div class="input-group">
+						<input type="text" class="form-control font-monospace" id="filtering-allow-entry"
+							autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="x.com"
+							aria-describedby="filtering-allow-help" required>
+						<button type="submit" class="btn btn-primary"><span class="fa-solid fa-plus me-1"
+								aria-hidden="true"></span>Add</button>
+					</div>
+					<div id="filtering-allow-help" class="form-text">A host name, which also covers its subdomains
+						(<code>x.com</code> covers <code>mail.x.com</code>), or an IP address or network. Sender
+						addresses can be forged, so servers are matched by their verified reverse DNS name instead.</div>
+				</form>
+				<ul class="list-group" id="filtering-allow" aria-labelledby="filtering-allow-title"
+					aria-live="polite"></ul>
+			</div>
+		</div>
+	</div>
+
+	<div class="col-lg-6">
+		<div class="card h-100">
+			<div class="card-header">
+				<h3 class="h5 mb-0" id="filtering-block-title"><span class="fa-solid fa-ban me-2 text-danger"
+						aria-hidden="true"></span>Blocked senders</h3>
+			</div>
+			<div class="card-body">
+				<p class="text-body-secondary">Mail from these senders or servers is refused before it is accepted:
+					it doesn&rsquo;t reach any mailbox, and the sending server gets an error.</p>
+				<form class="mb-3" onsubmit="filtering_add('block'); return false;">
+					<label for="filtering-block-entry" class="form-label">Add a sender</label>
+					<div class="input-group">
+						<input type="text" class="form-control font-monospace" id="filtering-block-entry"
+							autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="spam@example.com"
+							aria-describedby="filtering-block-help" required>
+						<button type="submit" class="btn btn-danger"><span class="fa-solid fa-ban me-1"
+								aria-hidden="true"></span>Block</button>
+					</div>
+					<div id="filtering-block-help" class="form-text">An email address, a domain (which also covers its
+						subdomains) or the IP address or network of a server. Addresses and domains are matched against
+						the sender of the message envelope (its return path).</div>
+				</form>
+				<ul class="list-group" id="filtering-block" aria-labelledby="filtering-block-title"
+					aria-live="polite"></ul>
+			</div>
+		</div>
+	</div>
+</div>
+
+<p class="text-body-secondary small">You can also edit the lists on the box with
+	<code>sudo management/cli.py mail filtering allow|block add|remove ENTRY</code>.</p>
+
+<template id="filtering-entry-template">
+	<li class="list-group-item d-flex align-items-center gap-2">
+		<code class="flex-grow-1 text-break filtering-entry"></code>
+		<span class="badge text-bg-secondary filtering-kind"></span>
+		<button type="button" class="btn btn-sm btn-outline-secondary filtering-remove"><span
+				class="fa-solid fa-xmark" aria-hidden="true"></span><span
+				class="visually-hidden filtering-remove-label"></span></button>
+	</li>
+</template>
+
+<script>
+	const filtering_kinds = {
+		network: "IP address",
+		host: "Server",
+		domain: "Domain",
+		address: "Address",
+	};
+
+	function filtering_wait(seconds) {
+		if (seconds < 3600)
+			return Math.round(seconds / 60) + " min";
+		var hours = Math.floor(seconds / 3600), minutes = Math.round((seconds % 3600) / 60);
+		return hours + " h" + (minutes ? " " + minutes + " min" : "");
+	}
+
+	function show_mail_filtering() {
+		api(
+			"/mail/filtering",
+			"GET",
+			{},
+			function (r) {
+				$('.filtering-postgrey-file').text(r.postgrey_file);
+				$('#filtering-imported').toggleClass('d-none', !r.imported);
+				$('#filtering-not-imported').text(r.not_imported
+					? " (" + r.not_imported + " of its lines can't be shown here; the file will be kept as " + r.postgrey_file + ".before-mailinabox)"
+					: "");
+
+				["allow", "block"].forEach(function (name) {
+					var list = $('#filtering-' + name).empty();
+					if (!r[name].length)
+						list.append($('<li class="list-group-item text-body-secondary"/>').text(
+							name == "allow" ? "No servers are allowed yet." : "No senders are blocked."));
+					r[name].forEach(function (item) {
+						var li = $($('#filtering-entry-template').html());
+						li.find('.filtering-entry').text(item.entry);
+						li.find('.filtering-kind').text(filtering_kinds[item.kind] || item.kind);
+						li.find('.filtering-remove-label').text("Remove " + item.entry);
+						li.find('.filtering-remove').attr('title', "Remove").on('click', function () {
+							filtering_remove(name, item.entry);
+						});
+						list.append(li);
+					});
+				});
+
+				var delayed = $('#filtering-delayed').empty();
+				$('#filtering-delayed-card').toggleClass('d-none', !r.delayed.length);
+				r.delayed.forEach(function (server) {
+					var row = $('<tr/>').append(
+						$('<td/>').append($('<code/>').text(server.domain)),
+						$('<td class="small text-break"/>').text(server.hosts.join(", ")),
+						$('<td class="text-end"/>').text(server.messages),
+						$('<td class="text-end text-nowrap"/>').text(filtering_wait(server.longest_delay)),
+						$('<td class="text-end"/>').append(
+							$('<button type="button" class="btn btn-sm btn-outline-primary text-nowrap"/>')
+								.text("Allow " + server.domain)
+								.on('click', function () { filtering_change("allow", "add", server.domain); })));
+					delayed.append(row);
+				});
+			});
+	}
+
+	function filtering_change(name, action, entry, done) {
+		api(
+			"/mail/filtering",
+			"POST",
+			{
+				list: name,
+				action: action,
+				entry: entry
+			},
+			function () {
+				if (done) done();
+				show_mail_filtering();
+			},
+			function (r) {
+				show_modal_error("Filtering", r || "Something went wrong, sorry.");
+			});
+	}
+
+	function filtering_add(name) {
+		var input = $('#filtering-' + name + '-entry');
+		filtering_change(name, "add", input.val(), function () { input.val(''); });
+	}
+
+	function filtering_remove(name, entry) {
+		show_modal_confirm(
+			"Filtering",
+			name == "allow"
+				? "Remove " + entry + " from the allowed servers? Its mail will be greylisted again."
+				: "Unblock " + entry + "? Its mail will be accepted again.",
+			"Remove",
+			function () { filtering_change(name, "remove", entry); });
+	}
+</script>

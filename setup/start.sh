@@ -157,6 +157,10 @@ done
 # turned back on at any time.
 management/services.py apply > /dev/null
 
+# Write the mail servers and senders that the administrator allowed or blocked in
+# the control panel (Mail > Filtering) to the files postgrey and Postfix read.
+management/mail_filtering.py apply > /dev/null
+
 # ...and then have it write the DNS and nginx configuration files and start those
 # services.
 tools/dns_update

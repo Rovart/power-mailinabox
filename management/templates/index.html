@@ -378,12 +378,14 @@
 
 						<li class="nav-item dropdown if-logged-in-admin">
 							<button class="nav-link dropdown-toggle" type="button" data-bs-toggle="dropdown"
-								aria-expanded="false" data-panels="users aliases mail-guide sync_guide">Mail</button>
+								aria-expanded="false" data-panels="users aliases mail_filtering mail-guide sync_guide">Mail</button>
 							<ul class="dropdown-menu">
 								<li><a class="dropdown-item" href="#users"><span class="fa-solid fa-users me-2"
 											aria-hidden="true"></span>Users</a></li>
 								<li><a class="dropdown-item" href="#aliases"><span class="fa-solid fa-at me-2"
 											aria-hidden="true"></span>Aliases</a></li>
+								<li><a class="dropdown-item" href="#mail_filtering"><span class="fa-solid fa-filter me-2"
+											aria-hidden="true"></span>Filtering</a></li>
 								<li>
 									<hr class="dropdown-divider">
 								</li>
@@ -469,6 +471,10 @@
 
 			<div id="panel_aliases" class="admin_panel">
 				{% include "aliases.html" %}
+			</div>
+
+			<div id="panel_mail_filtering" class="admin_panel">
+				{% include "mail-filtering.html" %}
 			</div>
 
 			<div id="panel_mail-guide" class="admin_panel">

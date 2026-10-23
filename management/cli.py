@@ -94,6 +94,9 @@ if len(sys.argv) < 2:
 {cli} alias add incoming.name@domain.com sent.to@other.domain.com
 {cli} alias add incoming.name@domain.com 'sent.to@other.domain.com, multiple.people@other.domain.com'
 {cli} alias remove incoming.name@domain.com
+{cli} mail filtering                           (lists the allowed and blocked servers and senders)
+{cli} mail filtering allow add|remove x.com     (mail servers that skip greylisting: host name or IP)
+{cli} mail filtering block add|remove spam@example.com   (refused senders: address, domain or IP)
 
 Removing a mail user does not delete their mail folders on disk. It only prevents IMAP/SMTP login.
 """.format(cli="management/cli.py"))
@@ -195,6 +198,19 @@ elif sys.argv[1] == "alias" and sys.argv[2] == "add" and len(sys.argv) == 5:
 
 elif sys.argv[1] == "alias" and sys.argv[2] == "remove" and len(sys.argv) == 4:
 	print(mgmt("/mail/aliases/remove", {"address": sys.argv[3]}))
+
+elif sys.argv[1] == "mail" and len(sys.argv) == 3 and sys.argv[2] == "filtering":
+	lists = mgmt("/mail/filtering", is_json=True)
+	for name in ("allow", "block"):
+		for item in lists[name]:
+			print("%-5s %-7s %s" % (name, item["kind"], item["entry"]))
+
+elif sys.argv[1] == "mail" and len(sys.argv) == 6 and sys.argv[2] == "filtering" and sys.argv[4] in ("add", "remove"):
+	print(mgmt("/mail/filtering", {
+		"list": sys.argv[3],
+		"action": sys.argv[4],
+		"entry": sys.argv[5]
+	}), end="")
 
 elif sys.argv[1] == "system" and sys.argv[2] == "default-quota" and len(
 		sys.argv) == 3:
