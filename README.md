@@ -16,6 +16,15 @@ It is not the official project, nor is it affiliated with or endorsed by its aut
 
 Boxes installed from the original repository can switch to this fork with the usual upgrade command (see [Upgrading](#upgrading)).
 
+## What's new in v61.3 – v61.5
+
+Fixes found upgrading a production box from v60.5:
+
+- Upgrading Nextcloud no longer stops PHP-FPM, so other PHP sites on the box stay online.
+- The setup no longer changes the owner of the files of the sites in the web root, and leaves the custom nginx configuration alone.
+- Custom MX records without a preference are rejected instead of breaking DNSSEC signing.
+- Fixed the setup stopping at the PHP imap extension check on boxes with many PHP extensions.
+
 ## What's new in v61.2
 
 - Security update of Z-Push (Exchange ActiveSync) to 2.7.7.
