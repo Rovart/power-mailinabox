@@ -1,8 +1,8 @@
 CHANGELOG
 =========
 
-Unreleased
-----------
+Power Mail-in-a-Box v61.4
+-------------------------
 
 * The setup no longer changes the owner of every file in `$STORAGE_ROOT/www`. It used to give
   them all to the user that owns the box's data, which broke web applications whose files belong
