@@ -36,7 +36,9 @@ fi
 # needs it (and other PHP applications users may run might too).
 apt_install nginx php${PHP_VER}-cli php${PHP_VER}-fpm php${PHP_VER}-imap idn2
 phpenmod -v $PHP_VER imap
-if ! php$PHP_VER -m | grep -qx imap; then
+# (No "grep -q": it stops reading at the first match, and php then fails writing
+# the rest of the list with SIGPIPE, which makes the pipeline fail with pipefail.)
+if ! php$PHP_VER -m | grep -x imap > /dev/null; then
 	echo "The PHP imap extension could not be installed for PHP $PHP_VER."
 	exit 1
 fi
