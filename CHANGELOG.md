@@ -1,8 +1,8 @@
 CHANGELOG
 =========
 
-Unreleased
-----------
+Power Mail-in-a-Box v61.7
+-------------------------
 
 * Setup keeps the administrator's own firewall rules for SSH. It used to add `ufw limit ssh` on
   every run, which opened SSH to everyone again on boxes where it had been restricted to some
