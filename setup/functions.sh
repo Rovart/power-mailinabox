@@ -146,6 +146,18 @@ function ufw_limit {
 	fi
 }
 
+function ufw_has_rule_for_port {
+	# Whether the administrator's ufw rules already mention this port, with any
+	# action, source or interface (e.g. "limit 22/tcp", "allow from 1.2.3.4 to
+	# any port 22", "allow in on tailscale0 to any port 22"). Comments are ignored.
+	local pattern="(^| )$1(/tcp)?( |$)| port $1( |$)"
+	if [ "$1" == "22" ]; then
+		pattern="$pattern|(^| )'?(ssh|OpenSSH)'?( |$)"
+	fi
+	# (Not grep -q: exiting early would SIGPIPE sed and fail the pipeline under pipefail.)
+	ufw show added 2> /dev/null | grep '^ufw ' | sed "s/ comment '.*'$//" | grep -E "$pattern" > /dev/null
+}
+
 function restart_service {
 	hide_output service $1 restart
 }
