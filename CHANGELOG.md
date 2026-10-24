@@ -1,6 +1,17 @@
 CHANGELOG
 =========
 
+Unreleased
+----------
+
+* Setup keeps the administrator's own firewall rules for SSH. It used to add `ufw limit ssh` on
+  every run, which opened SSH to everyone again on boxes where it had been restricted to some
+  addresses or to a VPN interface. A rule is now only added on a new box (firewall not enabled
+  yet); if the firewall is on and has no rule for SSH, setup asks first (and leaves it closed when
+  run non-interactively). Only the ports sshd actually listens on are opened.
+* Dovecot's quota service for Postfix (port 12340) now listens only on 127.0.0.1. It listened on
+  every address, although only Postfix uses it and the firewall blocked it from outside.
+
 Power Mail-in-a-Box v61.6
 -------------------------
 

@@ -316,18 +316,26 @@ if [ -z "${DISABLE_FIREWALL:-}" ]; then
 	# It's not critical for us to have one, so if it isn't installed,
 	# no need to open the port
 	if [ -x "$(command -v sshd)" ]; then
-		# Allow incoming connections to SSH.
-		ufw_limit ssh;
-
-		# ssh might be running on an alternate port. Use sshd -T to dump sshd's #NODOC
-		# settings, find the port it is supposedly running on, and open that port #NODOC
-		# too. #NODOC
-		# (sshd may listen on several ports.)
+		# Allow incoming connections to SSH, on every port sshd listens on.
+		# Use sshd -T to dump sshd's settings (sshd may listen on several ports). #NODOC
+		#
+		# The administrator's own SSH rules are kept as they are: SSH may be
+		# reachable only from some addresses or only over a VPN interface, and
+		# adding "limit ssh" for everyone would undo that on every setup run.
+		# A rule is only added on a new box (firewall not enabled yet), where
+		# enabling ufw without one would lock the administrator out.
 		SSH_PORT=$(sshd -T 2>/dev/null | grep "^port " | sed "s/port //" | tr '\n' ' ') #NODOC
-		for port in $SSH_PORT; do
-			if [ "$port" != "22" ]; then
-				echo Opening alternate SSH port $port. #NODOC
-				ufw_limit $port #NODOC
+		for port in ${SSH_PORT:-22}; do
+			if ufw_has_rule_for_port $port; then
+				echo "Keeping the existing firewall rules for SSH port $port." #NODOC
+			elif ! ufw status | grep "^Status: active" > /dev/null; then
+				ufw_limit $port
+			elif [ -z "${NONINTERACTIVE:-}" ] \
+				&& dialog --title "SSH firewall rule" --defaultno --yesno \
+				"The firewall is on but has no rule for SSH port $port, so SSH is not reachable from outside.\n\nOpen port $port to everyone (rate limited)?" 0 0; then
+				ufw_limit $port
+			else
+				echo "Not opening SSH port $port: the firewall is on and has no rule for it." #NODOC
 			fi
 		done
 	fi
