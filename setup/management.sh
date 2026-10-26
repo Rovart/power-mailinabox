@@ -70,7 +70,10 @@ hide_output $venv/bin/pip install --upgrade pip
 # Install other Python 3 packages used by the management daemon.
 # The first line is the packages that Josh maintains himself!
 # NOTE: email_validator is also used in setup/questions.sh (from the distribution's packages).
-hide_output $venv/bin/pip install --upgrade \
+# --upgrade-strategy eager also upgrades their dependencies: with the default only-if-needed,
+# an existing venv keeps old Jinja2, Werkzeug, urllib3 or aiohttp (behind the admin panel and
+# the MTA-STS resolver) on every setup run, whatever security fixes they got.
+hide_output $venv/bin/pip install --upgrade --upgrade-strategy eager \
 	rtyaml "email_validator>=1.0.0" "exclusiveprocess" \
 	flask dnspython python-dateutil expiringdict gunicorn \
 	qrcode[pil] pyotp \
