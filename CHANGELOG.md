@@ -1,6 +1,11 @@
 CHANGELOG
 =========
 
+Unreleased
+----------
+
+* Nextcloud Calendar updated to 6.6.4.
+
 Power Mail-in-a-Box v61.7
 -------------------------
 
