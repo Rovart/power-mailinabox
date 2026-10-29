@@ -44,7 +44,9 @@ if [ ! -f $duplicity_venv/.oscode ] || [ "$(cat $duplicity_venv/.oscode)" != $(g
 	hide_output python3 -m venv $duplicity_venv
 fi
 hide_output $duplicity_venv/bin/pip install --upgrade pip
-hide_output $duplicity_venv/bin/pip install --upgrade duplicity b2sdk boto3
+# Eager upgrades and an explicit setuptools: the venv was created with the old setuptools 59
+# (path traversal in PackageIndex.download, GHSA-5rjg-fvgr-3xxf) and only-if-needed keeps it.
+hide_output $duplicity_venv/bin/pip install --upgrade --upgrade-strategy eager "setuptools>=78.1.1" duplicity b2sdk boto3
 echo $(get_os_code) > $duplicity_venv/.oscode
 ln -sf $duplicity_venv/bin/duplicity /usr/local/bin/duplicity
 
