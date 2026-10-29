@@ -1,6 +1,14 @@
 CHANGELOG
 =========
 
+Unreleased
+----------
+
+* The control panel draws the QR codes for two-factor authentication with pypng instead of
+  Pillow, and setup removes Pillow from the management daemon's environment. Pillow 13, which
+  fixes several heap overflows in its image decoders, no longer supports the Python 3.10 of
+  Ubuntu 22.04, so those boxes were stuck on a vulnerable version they didn't need.
+
 Power Mail-in-a-Box v61.7
 -------------------------
 
