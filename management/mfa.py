@@ -4,6 +4,7 @@ import io
 import os
 import pyotp
 import qrcode
+import qrcode.image.pure
 
 from mailconfig import open_database
 
@@ -102,10 +103,11 @@ def provision_totp(email, env):
 		name=email,
 		issuer_name=env["PRIMARY_HOSTNAME"] + " Mail-in-a-Box Control Panel")
 
-	# Generate a QR code as a base64-encode PNG image.
-	qr = qrcode.make(uri)
+	# Generate a QR code as a base64-encode PNG image. pypng writes it in pure
+	# Python, so the management daemon doesn't need Pillow and its image decoders.
+	qr = qrcode.make(uri, image_factory=qrcode.image.pure.PyPNGImage)
 	byte_arr = io.BytesIO()
-	qr.save(byte_arr, format='PNG')
+	qr.save(byte_arr)
 	png_b64 = base64.b64encode(byte_arr.getvalue()).decode('utf-8')
 
 	return {"type": "totp", "secret": secret, "qr_code_base64": png_b64}

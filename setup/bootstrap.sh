@@ -2,7 +2,7 @@
 #########################################################
 # This script is intended to be run like this:
 #
-#   curl -L https://raw.githubusercontent.com/Rovart/power-mailinabox/v61.7/setup/bootstrap.sh | sudo bash
+#   curl -L https://raw.githubusercontent.com/Rovart/power-mailinabox/v61.8/setup/bootstrap.sh | sudo bash
 #
 #########################################################
 
@@ -38,7 +38,7 @@ if [ -z "$TAG" ]; then
 	if  [[ "$OS_ID" == "Debian" && ( "$OS_VER" == 12* || "$OS_VER" == 13* ) ]] ||
 		[[ "$OS_ID" == "Ubuntu" && ( "$OS_VER" == "22.04" || "$OS_VER" == "24.04" ) ]]
 	then
-		TAG=v61.7
+		TAG=v61.8
 	elif [[ "$OS_ID" == "Debian" && "$OS_VER" == "11" ]] ||
 		[[ "$OS_ID" == "Ubuntu" && "$OS_VER" == "20.04" ]]
 	then

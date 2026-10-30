@@ -30,6 +30,7 @@ for s in nginx php$PHP_VER-fpm dovecot postfix spampd opendkim opendmarc nsd bin
 done
 check "php imap extension (CLI and FPM)" 'php$PHP_VER -m | grep -qx imap && php-fpm$PHP_VER -m | grep -qx imap'
 check "php imap_open against Dovecot" '[ "$(php$PHP_VER -r "\$m = imap_open(\"{127.0.0.1:993/imap/ssl/novalidate-cert}INBOX\", \"$U\", \"$P\"); echo \$m ? \"ok\" : imap_last_error();" 2>&1)" == ok ]'
+check "unattended-upgrades installs updates from the PHP repository" 'o=$(sed -n "s/.*\"origin=\([^,]*\),.*/\1/p" /etc/apt/apt.conf.d/51mailinabox-php-updates); c=$(lsb_release -cs); [ -n "$o" ] && apt-cache policy | grep -q "o=$o,a=[^,]*,n=$c," && unattended-upgrade --dry-run --debug 2>&1 | grep -m1 "Allowed origins are:" | grep -q "origin=$o,codename=$c"'
 check "php CLI is $PHP_VER" '[ "$(php -r "echo PHP_MAJOR_VERSION.\".\".PHP_MINOR_VERSION;")" == "$PHP_VER" ]'
 check "only php$PHP_VER-fpm running" '[ -z "$(systemctl list-units --type=service --state=running --no-legend | grep -o "php[0-9.]*-fpm" | grep -v php$PHP_VER-fpm)" ]'
 
@@ -45,6 +46,7 @@ check "API: backup config" '$C -u "$U:$KEY" $H/admin/system/backup/config | grep
 check "API: pgp keyring" '$C -u "$U:$KEY" $H/admin/system/pgp/ | grep -q "daemon"'
 check "API: ssl status" '$C -u "$U:$KEY" $H/admin/ssl/status | grep -q "can_provision"'
 MC=$(mktemp)
+check "API: 2FA QR code is a PNG, drawn without Pillow" '$C -u "$U:$KEY" -X POST $H/admin/mfa/status | python3 -c "import base64, json, sys; png = base64.b64decode(json.load(sys.stdin)[\"new_mfa\"][\"totp\"][\"qr_code_base64\"]); sys.exit(0 if png[:8] == b\"\\x89PNG\\r\\n\\x1a\\n\" else 1)" && ! /usr/local/lib/mailinabox/env/bin/python -c "import PIL" 2>/dev/null'
 check "API: munin" '$C -c $MC -u "$U:$KEY" $H/admin/munin/ | grep -q OK && $C -b $MC -o /dev/null -w "%{http_code}" $H/admin/munin/index.html | grep -q 200'
 
 echo "== webmail"

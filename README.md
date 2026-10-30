@@ -4,7 +4,7 @@ A complete, self-hosted mail server that you can deploy on a fresh Debian or Ubu
 
 This is a maintained, unofficial fork of [Power Mail-in-a-Box](https://github.com/ddavness/power-mailinabox) by David Duque.
 
-**Current version: v61.7** · [Install](#installation) · [Upgrade](#upgrading) · [Changelog](CHANGELOG.md)
+**Current version: v61.8** · [Install](#installation) · [Upgrade](#upgrading) · [Changelog](CHANGELOG.md)
 
 Power Mail-in-a-Box is based on [Mail-in-a-Box](https://mailinabox.email/). It keeps its promise of sane defaults that work out of the box, and adds the features advanced users ask for: SMTP relays, mailbox quotas, per-domain web server configuration, OpenPGP key publishing, optional services and more.
 
@@ -15,6 +15,12 @@ Power Mail-in-a-Box is based on [Mail-in-a-Box](https://mailinabox.email/). It k
 It is not the official project, nor is it affiliated with or endorsed by its author. Everything here is released under the same public domain dedication as the original (CC0), so any of it can be taken back into the original project.
 
 Boxes installed from the original repository can switch to this fork with the usual upgrade command (see [Upgrading](#upgrading)).
+
+## What's new in v61.8
+
+- **Security update.** PHP security releases are now installed automatically every day, like the distribution's own security updates. PHP 8.4.27 fixes "PHP2Shell", remote code execution that is being actively exploited: if your box still runs an older PHP, upgrade it right away (see [Upgrading](#upgrading)), then reboot if the status checks ask for it.
+- The webmail's CardDAV plugin is updated to 5.1.5 (security fixes), and Nextcloud Contacts and Calendar to 8.9.3 and 6.6.4.
+- The control panel no longer needs Pillow, and the Python packages of the control panel and the backups are upgraded with their dependencies on every setup run.
 
 ## What's new in v61.7
 
@@ -139,7 +145,7 @@ The box configures its own firewall. If it is behind an external firewall or NAT
 2. Run the setup and follow the instructions on the screen:
 
    ```
-   curl -L https://raw.githubusercontent.com/Rovart/power-mailinabox/v61.7/setup/bootstrap.sh | sudo bash
+   curl -L https://raw.githubusercontent.com/Rovart/power-mailinabox/v61.8/setup/bootstrap.sh | sudo bash
    ```
 
 3. Open the control panel at `https://<your box's hostname>/admin` and follow the status checks to finish the DNS configuration.
@@ -151,7 +157,7 @@ The box manages its firewall with `ufw`. Your own rules for SSH are left as they
 Run the same command as for a new installation:
 
 ```
-curl -L https://raw.githubusercontent.com/Rovart/power-mailinabox/v61.7/setup/bootstrap.sh | sudo bash
+curl -L https://raw.githubusercontent.com/Rovart/power-mailinabox/v61.8/setup/bootstrap.sh | sudo bash
 ```
 
 It downloads the new version and runs the setup again, keeping your data and settings. To be told when a new version is out, turn on *Check for new versions* in the control panel's status checks (it is off by default). To run the setup again without upgrading, use `sudo mailinabox`.
