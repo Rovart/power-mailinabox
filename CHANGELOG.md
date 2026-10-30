@@ -1,6 +1,21 @@
 CHANGELOG
 =========
 
+Unreleased
+----------
+
+* PHP security updates are now installed automatically every day, like the distribution's own
+  security updates. Until now, unattended-upgrades left out the PHP repository (packages.sury.org on
+  Debian, ppa:ondrej/php on Ubuntu), so boxes only got new PHP releases when the setup ran again.
+  This matters now: PHP 8.4.27 fixes "PHP2Shell" (CVE-2026-109618 and CVE-2026-109619), remote
+  code execution that is being actively exploited. Boxes still running an older PHP should run the
+  setup again (or `sudo apt-get update && sudo apt-get upgrade`) right away.
+* Security update of the webmail's CardDAV plugin (rcmcarddav) to 5.1.5: contact photos referenced
+  by URL are no longer downloaded (anyone able to put a contact in an address book could make the
+  box send requests to internal hosts), and the account credentials are only sent to the address
+  book's own server.
+* Nextcloud apps updated: Contacts 8.9.3 and Calendar 6.6.4.
+
 Power Mail-in-a-Box v61.7
 -------------------------
 

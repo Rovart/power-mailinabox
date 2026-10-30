@@ -303,6 +303,20 @@ APT::Periodic::Unattended-Upgrade "1";
 APT::Periodic::Verbose "0";
 EOF
 
+# unattended-upgrades only installs updates from the distribution's own security repository by
+# default. Also allow the PHP repository we add above, or boxes wouldn't get PHP's security
+# releases until the setup runs again.
+if [ "$(lsb_release -is)" == "Ubuntu" ]; then
+	PHP_REPO_ORIGIN=LP-PPA-ondrej-php
+else
+	PHP_REPO_ORIGIN=deb.sury.org
+fi
+cat > /etc/apt/apt.conf.d/51mailinabox-php-updates <<EOF;
+Unattended-Upgrade::Origins-Pattern {
+	"origin=$PHP_REPO_ORIGIN,codename=\${distro_codename}";
+};
+EOF
+
 # ### Firewall
 
 # Various virtualized environments like Docker and some VPSs don't provide #NODOC

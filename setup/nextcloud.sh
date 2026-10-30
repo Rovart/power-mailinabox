@@ -34,10 +34,10 @@ nextcloud_hash=dd2998ea28f8951cecab5e0e40eb44652686fa04
 #   or by querying https://apps.nextcloud.com/api/v1/platform/<nextcloud version>/apps.json
 # * The hash is the SHA1 hash of the release tarball (from the releases/download URL, not the
 #   source archive), which you can find by running: curl -sL <url> | sha1sum
-contacts_ver=8.9.2
-contacts_hash=9539f80acbdf9a9dd3f3a7006939b785c8bafe18
-calendar_ver=6.6.3
-calendar_hash=0c338d025d7b2ae430a854fd0bef5e68da80ef82
+contacts_ver=8.9.3
+contacts_hash=f49ce5ed333d61a5b867686d877c9e2bc8d22a14
+calendar_ver=6.6.4
+calendar_hash=587cba617e9557d6963ad651272e673dc0dfd4ba
 # user_external is what allows Nextcloud to authenticate users against our IMAP server.
 # It is the one holding us back from newer Nextcloud versions: check that a compatible
 # release exists before bumping Nextcloud to a new major version!
