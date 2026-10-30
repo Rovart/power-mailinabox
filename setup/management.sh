@@ -78,8 +78,13 @@ hide_output $venv/bin/pip install --upgrade pip
 hide_output $venv/bin/pip install --upgrade --upgrade-strategy eager \
 	rtyaml "email_validator>=1.0.0" "exclusiveprocess" \
 	flask dnspython python-dateutil expiringdict gunicorn \
-	qrcode[pil] pyotp \
+	qrcode[png] pyotp \
 	"idna>=2.0.0" cryptography psutil postfix-mta-sts-resolver boto3 b2sdk
+
+# Earlier versions installed Pillow for the TOTP QR codes, which are now drawn with pypng.
+# Remove it from existing environments: nothing else uses it, and it no longer gets security
+# fixes for the Python 3.10 of Ubuntu 22.04.
+hide_output $venv/bin/pip uninstall -y pillow
 
 # Make the venv use the packaged gpgme bindings (the ones pip provides are severely out-of-date)
 if [ ! -d $venv/lib/python$(python_version)/site-packages/gpg/ ]; then
