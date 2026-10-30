@@ -4,6 +4,10 @@ CHANGELOG
 Unreleased
 ----------
 
+* Security update of the webmail's CardDAV plugin (rcmcarddav) to 5.1.5: contact photos referenced
+  by URL are no longer downloaded (anyone able to put a contact in an address book could make the
+  box send requests to internal hosts), and the account credentials are only sent to the address
+  book's own server.
 * Nextcloud apps updated: Contacts 8.9.3 and Calendar 6.6.4.
 
 Power Mail-in-a-Box v61.7
