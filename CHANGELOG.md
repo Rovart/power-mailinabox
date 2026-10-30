@@ -1,8 +1,8 @@
 CHANGELOG
 =========
 
-Unreleased
-----------
+Power Mail-in-a-Box v61.8
+-------------------------
 
 * PHP security updates are now installed automatically every day, like the distribution's own
   security updates. Until now, unattended-upgrades left out the PHP repository (packages.sury.org on
@@ -19,6 +19,10 @@ Unreleased
   Pillow, and setup removes Pillow from the management daemon's environment. Pillow 13, which
   fixes several heap overflows in its image decoders, no longer supports the Python 3.10 of
   Ubuntu 22.04, so those boxes were stuck on a vulnerable version they didn't need.
+* The Python packages of the management daemon and of the backups (duplicity) are upgraded
+  together with their dependencies every time the setup runs. Before, the dependencies stayed
+  at the versions first installed (e.g. Jinja2, Werkzeug, urllib3, aiohttp and setuptools, all
+  with published security fixes).
 
 Power Mail-in-a-Box v61.7
 -------------------------
