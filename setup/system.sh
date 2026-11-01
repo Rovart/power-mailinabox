@@ -355,6 +355,42 @@ if [ -z "${DISABLE_FIREWALL:-}" ]; then
 	fi
 
 	ufw --force enable;
+
+	# Drop incoming TCP packets that carry IPv4 options. Legitimate TCP traffic doesn't use them,
+	# and they're needed to trigger the kernel's use-after-free CVE-2026-98432 in the TCP handshake.
+	# This is a separate nftables table loaded by its own service, so it leaves ufw's rules alone.
+	# (The table is declared and deleted first so that loading it again doesn't duplicate it.)
+	apt_install nftables
+	cat > /etc/mailinabox-tcp-ipoptions.nft <<EOF;
+table inet mailinabox_tcp_ipoptions
+delete table inet mailinabox_tcp_ipoptions
+table inet mailinabox_tcp_ipoptions {
+	chain input {
+		type filter hook input priority filter - 10; policy accept;
+		meta nfproto ipv4 ip hdrlength > 5 meta l4proto tcp drop
+	}
+}
+EOF
+	cat > /etc/systemd/system/mailinabox-tcp-ipoptions.service <<EOF;
+[Unit]
+Description=Drop incoming TCP packets with IPv4 options
+Wants=network-pre.target
+Before=network-pre.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f /etc/mailinabox-tcp-ipoptions.nft
+ExecStop=/usr/sbin/nft delete table inet mailinabox_tcp_ipoptions
+
+[Install]
+WantedBy=multi-user.target
+EOF
+	hide_output systemctl daemon-reload
+	hide_output systemctl enable mailinabox-tcp-ipoptions
+	if ! systemctl restart mailinabox-tcp-ipoptions &> /dev/null; then
+		echo "Could not load the nftables rule that drops TCP packets with IPv4 options (does this kernel support nftables?)."
+	fi
 fi #NODOC
 
 # ### Local DNS Service

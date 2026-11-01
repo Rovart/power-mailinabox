@@ -1,6 +1,15 @@
 CHANGELOG
 =========
 
+Unreleased
+----------
+
+* Mitigation for the Linux kernel's CVE-2026-98432, a use-after-free in the IPv4 TCP handshake
+  that can be triggered remotely: the firewall now drops incoming TCP packets with IPv4 options,
+  which legitimate traffic doesn't use. The fix itself is a kernel update: on Debian it's already
+  in the security updates (reboot the box if the status checks say so); Ubuntu hasn't released it
+  yet. The rule is a separate nftables table (service `mailinabox-tcp-ipoptions`) next to ufw's.
+
 Power Mail-in-a-Box v61.8
 -------------------------
 
