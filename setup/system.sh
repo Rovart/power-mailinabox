@@ -371,11 +371,16 @@ table inet mailinabox_tcp_ipoptions {
 	}
 }
 EOF
+	# (Like ufw.service and nftables.service, it has no default dependencies, so that it can be
+	# loaded before the network comes up.)
 	cat > /etc/systemd/system/mailinabox-tcp-ipoptions.service <<EOF;
 [Unit]
 Description=Drop incoming TCP packets with IPv4 options
+DefaultDependencies=no
 Wants=network-pre.target
-Before=network-pre.target
+After=local-fs.target
+Before=network-pre.target shutdown.target
+Conflicts=shutdown.target
 
 [Service]
 Type=oneshot
