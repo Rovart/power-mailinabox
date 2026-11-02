@@ -1,8 +1,8 @@
 CHANGELOG
 =========
 
-Unreleased
-----------
+Power Mail-in-a-Box v61.9
+-------------------------
 
 * Mitigation for the Linux kernel's CVE-2026-98432, a use-after-free in the IPv4 TCP handshake
   that can be triggered remotely: the firewall now drops incoming TCP packets with IPv4 options,
