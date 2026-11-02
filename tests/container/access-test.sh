@@ -13,6 +13,14 @@ check() { if eval "$2"; then ok "$1"; else bad "$1"; fi; }
 ext() { curl -sk --noproxy "*" --max-time 30 -o /dev/null -w "%{http_code}" "$@"; }
 loc() { docker exec $N curl -sk --max-time 30 -o /dev/null -w "%{http_code}" "$@"; }
 box() { docker exec $N bash -c "$1"; }
+# Opens a TCP connection, optionally with IPv4 options (in hex).
+tcp() { python3 -c "import socket, sys; s = socket.socket(); s.settimeout(5); sys.argv[3] and s.setsockopt(socket.IPPROTO_IP, socket.IP_OPTIONS, bytes.fromhex(sys.argv[3])); s.connect((sys.argv[1], int(sys.argv[2])))" "$@" 2>/dev/null; }
+
+if box "systemctl is-active --quiet mailinabox-tcp-ipoptions"; then
+	echo "== TCP with IPv4 options (CVE-2026-98432 mitigation)"
+	check "plain TCP connection from outside works" 'tcp $IP 443 ""'
+	check "TCP connection with IPv4 options from outside is dropped" '! tcp $IP 443 01010100'
+fi
 
 echo "== all public"
 check "CLI lists 4 public areas" '[ $(box "$CLI system web-access" | grep -c " public ") == 4 ]'

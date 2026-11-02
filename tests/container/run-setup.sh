@@ -1,6 +1,7 @@
 #!/bin/bash
 # Installs (or upgrades) Power Mail-in-a-Box from a directory in a test container,
-# creating the container if it doesn't exist.
+# creating the container if it doesn't exist. The firewall is set up as on a real box,
+# unless DISABLE_FIREWALL=1 is set.
 # usage: run-setup.sh <container> <image> <source directory>
 NAME=$1; IMAGE=$2; SRC=$3
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -17,7 +18,7 @@ docker exec $NAME bash /root/patch-for-container.sh
 
 IP=$(docker exec $NAME hostname -I | awk '{print $1}')
 docker exec -e NONINTERACTIVE=1 -e PRIMARY_HOSTNAME=box.example.com -e PUBLIC_IP=$IP -e PUBLIC_IPV6= \
-	-e PRIVATE_IP=$IP -e PRIVATE_IPV6= -e SKIP_NETWORK_CHECKS=1 -e DISABLE_FIREWALL=1 \
+	-e PRIVATE_IP=$IP -e PRIVATE_IPV6= -e SKIP_NETWORK_CHECKS=1 ${DISABLE_FIREWALL:+-e DISABLE_FIREWALL=1} \
 	-e EMAIL_ADDR=me@example.com -e EMAIL_PW='Secret123!pw' \
 	-e REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt -e PIP_CERT=/etc/ssl/certs/ca-certificates.crt \
 	-w /root/mailinabox $NAME bash -c 'setup/start.sh' 2>&1
