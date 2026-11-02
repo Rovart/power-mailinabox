@@ -23,7 +23,8 @@ containers (`pmiab-test-<os>`) are kept until the next run, so you can look insi
 them with `docker exec -it pmiab-test-debian-13 bash`.
 
 The box is set up as `box.example.com` with the user `me@example.com` and password
-`Secret123!pw`. `patch-for-container.sh` makes a few test-only changes to the copy
+`Secret123!pw`, with the firewall on as on a real box (set `DISABLE_FIREWALL=1` to
+install without it). `patch-for-container.sh` makes a few test-only changes to the copy
 in the container (no IPv6, Docker's `/etc/resolv.conf`) — never to the repository.
 
 | Script | What it does |

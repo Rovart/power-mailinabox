@@ -28,6 +28,10 @@ check "no failed systemd units" '[ -z "$(systemctl --failed --no-legend --plain 
 for s in nginx php$PHP_VER-fpm dovecot postfix spampd opendkim opendmarc nsd bind9 fail2ban mailinabox postgrey munin-node cron; do
 	check "service $s active" "systemctl is-active --quiet $s"
 done
+if command -v ufw >/dev/null; then
+	check "firewall (ufw) active" 'ufw status | grep -q "^Status: active"'
+	check "TCP packets with IPv4 options dropped (CVE-2026-98432)" 'systemctl is-active --quiet mailinabox-tcp-ipoptions && nft list table inet mailinabox_tcp_ipoptions | grep -q "ip hdrlength > 5"'
+fi
 check "php imap extension (CLI and FPM)" 'php$PHP_VER -m | grep -qx imap && php-fpm$PHP_VER -m | grep -qx imap'
 check "php imap_open against Dovecot" '[ "$(php$PHP_VER -r "\$m = imap_open(\"{127.0.0.1:993/imap/ssl/novalidate-cert}INBOX\", \"$U\", \"$P\"); echo \$m ? \"ok\" : imap_last_error();" 2>&1)" == ok ]'
 check "unattended-upgrades installs updates from the PHP repository" 'o=$(sed -n "s/.*\"origin=\([^,]*\),.*/\1/p" /etc/apt/apt.conf.d/51mailinabox-php-updates); c=$(lsb_release -cs); [ -n "$o" ] && apt-cache policy | grep -q "o=$o,a=[^,]*,n=$c," && unattended-upgrade --dry-run --debug 2>&1 | grep -m1 "Allowed origins are:" | grep -q "origin=$o,codename=$c"'
