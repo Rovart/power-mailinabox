@@ -1,0 +1,57 @@
+# Creates the release tags the installer downloads. When a push to main changes
+# setup/bootstrap.sh and the version it names (TAG=vX.Y) has no tag yet, that commit
+# is tagged. It can also be run by hand (Actions > Tag release > Run workflow) to tag
+# a given commit of main.
+name: Tag release
+
+on:
+  push:
+    branches: [main]
+    paths: [setup/bootstrap.sh]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to create (e.g. v61.8). Empty: the version named in setup/bootstrap.sh."
+        required: false
+      ref:
+        description: "Commit of main to tag. Empty: the latest one."
+        required: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tag-release
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create the tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_TAG: ${{ inputs.tag }}
+          INPUT_REF: ${{ inputs.ref }}
+        run: |
+          set -euo pipefail
+          git clone --quiet --no-checkout "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" repo
+          cd repo
+          commit=$(git rev-parse --verify "${INPUT_REF:-$GITHUB_SHA}^{commit}")
+          if ! git merge-base --is-ancestor "$commit" origin/main; then
+            echo "::error::$commit is not on main."
+            exit 1
+          fi
+          tag=${INPUT_TAG:-$(git show "$commit:setup/bootstrap.sh" | sed -n 's/^\s*TAG=\(v[0-9][0-9.]*\)\s*$/\1/p' | head -n 1)}
+          if ! [[ "$tag" =~ ^v[0-9]+(\.[0-9]+)*$ ]]; then
+            echo "::error::Not a version tag: '$tag'."
+            exit 1
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" > /dev/null; then
+            echo "$tag already exists."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$tag" -m "Power Mail-in-a-Box $tag" "$commit"
+          git push --quiet origin "refs/tags/$tag"
+          echo "Created $tag at $commit."
