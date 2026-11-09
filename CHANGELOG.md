@@ -1,6 +1,28 @@
 CHANGELOG
 =========
 
+Power Mail-in-a-Box v61.14
+--------------------------
+
+* A Security section on the dashboard (administrators only), for the last 24 hours (by hour),
+  7 days or 30 days (by day), each compared with the period before:
+  * failed logins (sending mail on ports 465/587, and IMAP, POP and Sieve), from the mail logs,
+    including the rotated and compressed ones;
+  * bans by fail2ban, by jail, from fail2ban's logs;
+  * connections dropped by the IP blocklists. nftables only keeps a running total, so a new
+    hourly job (`management/security_metrics.py collect`) samples it, and the chart fills from
+    the first sample;
+  * the most active attackers, with where they are (looked up every hour on RIPEstat, only the
+    address is sent; off with "Show locations" in Mail > Filtering), whether fail2ban bans them
+    now and whether they are on the blocklists, and the countries the attacks come from.
+
+  The charts are drawn by the panel itself (`conf/panel/charts.js`, no libraries): columns with a
+  tooltip for every series, the keyboard (arrow keys) and a table view, in colors checked for
+  color blindness in both themes. Also in the API: `/admin/system/security-metrics?range=24h`.
+* Logins from new places: the table lists every network remembered (up to 180 days, not only
+  the last 30), and can be filtered by account, by when it was last used and by address, place
+  or provider, and sorted by any column.
+
 Power Mail-in-a-Box v61.13
 --------------------------
 

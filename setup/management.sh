@@ -173,7 +173,8 @@ cat > /etc/cron.d/mailinabox-nightly << EOF;
 $minute 3 * * *	root	(cd $(pwd) && management/daily_tasks.sh)
 EOF
 
-# Every hour, email the administrator about logins from new places (management/login_alerts.py),
+# Every hour, email the administrator about logins from new places (management/login_alerts.py)
+# and sample the counters of the dashboard's security charts (management/security_metrics.py),
 # and every 6 hours download the public IP blocklists again (management/ip_blocklists.py).
 # Only errors of the blocklists are emailed.
 mkdir -p /var/lib/mailinabox
@@ -181,6 +182,7 @@ cat > /etc/cron.d/mailinabox-login-protection << EOF;
 # Mail-in-a-Box --- Do not edit / will be overwritten on update.
 $minute * * * *	root	(cd $(pwd) && management/login_alerts.py 2>&1 | management/email_administrator.py "Logins from new places")
 $(( (minute + 7) % 60 )) */6 * * *	root	(cd $(pwd) && management/ip_blocklists.py update 2>&1 > /dev/null | management/email_administrator.py "IP blocklists error")
+$(( (minute + 3) % 60 )) * * * *	root	(cd $(pwd) && management/security_metrics.py collect > /dev/null 2>&1)
 EOF
 
 # Start the management server.
