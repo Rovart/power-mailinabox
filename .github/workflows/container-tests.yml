@@ -60,6 +60,8 @@ jobs:
           for unit in $(sudo docker exec $name systemctl --failed --no-legend --plain | awk '{print $1}'); do
             sudo docker exec $name journalctl -u "$unit" --no-pager -n 40 || true
           done
+          sudo docker exec $name journalctl -u munin-node --no-pager -n 60 || true
+          sudo docker exec $name cat /var/log/munin/munin-node.log 2>/dev/null | tail -30 || true
 
       - name: Keep the logs
         if: always()
