@@ -1,6 +1,11 @@
 CHANGELOG
 =========
 
+Unreleased
+----------
+
+* Nextcloud apps updated: Contacts 8.9.5 and Calendar 6.6.5.
+
 Power Mail-in-a-Box v61.9
 -------------------------
 
