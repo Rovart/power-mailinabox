@@ -41,6 +41,8 @@
 ########################################################################
 
 import datetime
+import glob
+import gzip
 import ipaddress
 import json
 import os
@@ -95,6 +97,45 @@ def known_blocks(networks):
 		except ValueError:
 			pass
 	return blocks
+
+
+SYSLOG_TIME_RE = re.compile(r"^([A-Z][a-z]{2})\s+(\d{1,2}) (\d{2}):(\d{2}):(\d{2}) ")
+ISO_TIME_RE = re.compile(r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.\d+)?(Z|[+-]\d{2}:?\d{2})? ")
+MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+
+def line_time(line, reference=None):
+	# When a log line was written, as an ISO 8601 string in UTC, or None. Lines start
+	# with a syslog time without a year ("Nov  9 10:00:01", also Dovecot's own log) or
+	# an ISO 8601 time (rsyslog's default on newer Debian). Times without a time zone are
+	# the box's local time; the year is the one that puts the time in the past.
+	reference = reference or now()
+	m = ISO_TIME_RE.match(line)
+	if m:
+		try:
+			zone = m.group(2) or ""
+			if zone == "Z":
+				zone = "+00:00"
+			elif zone and ":" not in zone:
+				zone = zone[:3] + ":" + zone[3:]
+			when = datetime.datetime.fromisoformat(m.group(1) + zone)
+			if when.tzinfo is None:
+				when = when.astimezone()
+			return when.astimezone(datetime.timezone.utc).isoformat(timespec="seconds")
+		except ValueError:
+			return None
+	m = SYSLOG_TIME_RE.match(line)
+	if not m or m.group(1) not in MONTHS:
+		return None
+	month, day, hour, minute, second = MONTHS.index(m.group(1)) + 1, *map(int, m.groups()[1:])
+	for year in (reference.year, reference.year - 1):
+		try:
+			when = datetime.datetime(year, month, day, hour, minute, second).astimezone()
+		except ValueError:
+			continue  # e.g. Feb 29
+		if when <= reference + datetime.timedelta(days=1):
+			return when.astimezone(datetime.timezone.utc).isoformat(timespec="seconds")
+	return None
 
 
 def parse_line(line):
@@ -173,12 +214,15 @@ def record(state, lines, env):
 	# logins from operator blocks the user never used before.
 	new = {}
 	blocks = {user: known_blocks(networks) for user, networks in state["users"].items()}
-	stamp = now().isoformat(timespec="seconds")
+	reference = now()
+	default_stamp = reference.isoformat(timespec="seconds")
 	for line in lines:
 		login = parse_line(line)
 		if not login:
 			continue
 		user, address, service = login
+		# When the login happened, from the log line (not when this runs).
+		stamp = line_time(line, reference) or default_stamp
 		try:
 			ip, network = network_of(address)
 		except ValueError:
@@ -193,12 +237,62 @@ def record(state, lines, env):
 			if block_of(network) not in user_blocks:
 				user_blocks.add(block_of(network))
 				new[(user, str(network))] = known
-		known["last"] = stamp
-		known["address"] = str(ip)
+		known["first"] = min(known.get("first") or stamp, stamp)
+		if stamp >= known.get("last", ""):
+			known["last"] = stamp
+			known["address"] = str(ip)
 		known["count"] += 1
 		if service not in known["services"]:
 			known["services"].append(service)
 	return new
+
+
+def all_mail_logs():
+	# The mail log and its rotated copies, oldest first.
+	def rotation(fn):
+		m = re.search(r"\.(\d+)(\.gz)?$", fn)
+		return -int(m.group(1)) if m else 0
+	return sorted(glob.glob(MAIL_LOG + "*"), key=rotation)
+
+
+def read_log(fn):
+	try:
+		opener = gzip.open if fn.endswith(".gz") else open
+		with opener(fn, "rt", errors="replace") as f:
+			return f.readlines()
+	except (OSError, EOFError):
+		return []
+
+
+def fix_times(state):
+	# Until v61.13 the first and last times of a network were when this script read the
+	# log, not when the logins happened. Sets them once from all the mail logs (also the
+	# rotated ones), for the networks already known. Counts are left as they are.
+	reference = now()
+	seen = {}
+	for fn in all_mail_logs():
+		for line in read_log(fn):
+			login = parse_line(line)
+			if not login:
+				continue
+			user, address, _ = login
+			try:
+				ip, network = network_of(address)
+			except ValueError:
+				continue
+			known = state["users"].get(user, {}).get(str(network))
+			stamp = line_time(line, reference)
+			if known is None or stamp is None:
+				continue
+			times = seen.setdefault((user, str(network)), [stamp, stamp, str(ip)])
+			if stamp < times[0]:
+				times[0] = stamp
+			if stamp >= times[1]:
+				times[1], times[2] = stamp, str(ip)
+	for (user, network), (first, last, address) in seen.items():
+		known = state["users"][user][network]
+		known["first"], known["last"], known["address"] = first, last, address
+	state["times"] = "log"
 
 
 def forget_old(state):
@@ -406,6 +500,9 @@ def run(env):
 		# Learn from the previous log too (no email on the first run anyway).
 		with open(MAIL_LOG + ".1", errors="replace") as f:
 			lines = list(f) + lines
+	if not first_run and state.get("times") != "log":
+		fix_times(state)
+	state["times"] = "log"
 	trusted_before = set(get_recent_networks(state=state))
 	new = record(state, lines, env)
 	forget_old(state)
