@@ -102,7 +102,8 @@ if [ ! -f $STORAGE_ROOT/backup/secret_key.txt ]; then
 fi
 
 
-# Download jQuery and Bootstrap local files
+# Download jQuery, Font Awesome and the panel's typeface, and install the panel's own
+# stylesheet and scripts (conf/panel).
 
 # Make sure we have the directory to save to.
 assets_dir=$inst_dir/vendor/assets
@@ -116,16 +117,15 @@ jquery_url=https://code.jquery.com # Check this link for new versions
 # Get jQuery
 wget_verify $jquery_url/jquery-$jquery_version.min.js b19b077cdc2cf89c66a644f0305ef4959f8472bc $assets_dir/jquery.min.js
 
-# Bootstrap CDN URL
-# See https://github.com/twbs/bootstrap/releases to check for new versions
-bootstrap_version=5.3.8
-bootstrap_url=https://github.com/twbs/bootstrap/releases/download/v$bootstrap_version/bootstrap-$bootstrap_version-dist.zip
-
-# Get Bootstrap
-wget_verify $bootstrap_url c3c6d623ef78a8ccdd688765421ac20ee36126c5 /tmp/bootstrap.zip
-unzip -q /tmp/bootstrap.zip -d $assets_dir
-mv $assets_dir/bootstrap-$bootstrap_version-dist $assets_dir/bootstrap
-rm -f /tmp/bootstrap.zip
+# The control panel's own stylesheet and scripts (it doesn't use Bootstrap since v61.12),
+# and its typeface: Inter, variable, Latin characters (SIL Open Font License), from the
+# fontsource package. See https://www.npmjs.com/package/@fontsource-variable/inter for
+# new versions.
+mkdir -p $assets_dir/panel
+cp conf/panel/* $assets_dir/panel/
+inter_version=5.2.8
+inter_url=https://cdn.jsdelivr.net/npm/@fontsource-variable/inter@$inter_version/files/inter-latin-wght-normal.woff2
+wget_verify $inter_url f11d729bb0a4d8350d2ea3d0fc062cf6ef2d5298 $assets_dir/panel/inter.woff2
 
 # FontAwesome CDN URL
 # See https://github.com/FortAwesome/Font-Awesome/releases to check for new versions

@@ -383,8 +383,8 @@ curl -X POST -d "address=new_alias@mydomain.com" https://{{hostname}}/admin/mail
 	}
 
 	function scroll_top() {
-		// Scrolls back up to the form. (Bootstrap's smooth scrolling is turned off for
-		// users who prefer reduced motion, and a jQuery animation would fight with it.)
+		// Scrolls back up to the form, instantly (no animation: the user asked for this
+		// page change, and a smooth scroll would only delay it).
 		document.getElementById('panel_aliases').scrollIntoView({ block: 'start' });
 	}
 </script>
