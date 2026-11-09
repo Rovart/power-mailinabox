@@ -1,6 +1,18 @@
 CHANGELOG
 =========
 
+Power Mail-in-a-Box v61.11
+--------------------------
+
+* The emails about logins from new places report new internet provider blocks (a /16 for IPv4,
+  a /32 for IPv6) instead of every new /24 or /64. Mobile operators give phones a new address,
+  and a new IPv6 /64, nearly every time they connect: on a real box, one phone on Movistar used
+  55 different /64s in 17 days, all in the same /32, and each would have sent an email. Replayed
+  on that box's last three weeks of logins, the emails go from 125 to 35, most of them in the
+  first week while the accounts' usual providers are learned, and 3 in the last week. A login
+  through a provider the account already uses is no longer reported, even if a stranger made it;
+  the fail2ban jail and the IP blocklists still trust only the exact /24 or /64 that logged in.
+
 Power Mail-in-a-Box v61.10
 --------------------------
 
