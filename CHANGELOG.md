@@ -12,6 +12,12 @@ Power Mail-in-a-Box v61.11
   first week while the accounts' usual providers are learned, and 3 in the last week. A login
   through a provider the account already uses is no longer reported, even if a stranger made it;
   the fail2ban jail and the IP blocklists still trust only the exact /24 or /64 that logged in.
+* Where the logins come from: the emails and the table in Mail > Filtering (now full width, with
+  the services, number of logins and first and last time of each network) show the approximate
+  city, country and internet provider of each address. They are looked up once per network by
+  the hourly job on RIPEstat (stat.ripe.net, the RIPE NCC's public API with MaxMind's GeoLite
+  data); only the address is sent. It can be turned off in the panel ("Show locations") or with
+  `management/login_alerts.py locate off`.
 
 Power Mail-in-a-Box v61.10
 --------------------------

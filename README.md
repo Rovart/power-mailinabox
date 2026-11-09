@@ -19,6 +19,7 @@ Boxes installed from the original repository can switch to this fork with the us
 ## What's new in v61.11
 
 - **Fewer emails about logins from new places.** They now report a login through an internet provider's block of addresses the account never used (another provider or another country), not every new address: mobile phones get a new one, and a new IPv6 /64, almost every time they connect.
+- The emails and the logins table in Mail > Filtering show the approximate city, country and internet provider of each address.
 
 ## What's new in v61.10
 
