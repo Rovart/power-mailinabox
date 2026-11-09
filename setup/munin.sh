@@ -38,9 +38,13 @@ chown munin: /var/log/munin/munin-cgi-html.log
 chown munin: /var/log/munin/munin-cgi-graph.log
 
 # ensure munin-node knows the name of this machine
-# and reduce logging level to warning
+# and reduce logging level to warning.
+# munin-node only listens on 127.0.0.1: munin itself connects there (see the host tree
+# above), and munin-node only accepts connections from the box anyway (allow). Listening
+# on every address ("host *") fails on boxes without IPv6.
 management/editconf.py /etc/munin/munin-node.conf -s \
 	host_name=$PRIMARY_HOSTNAME \
+	host=127.0.0.1 \
 	log_level=1
 
 # Update the activated plugins through munin's autoconfiguration.

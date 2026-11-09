@@ -31,6 +31,8 @@ fail2ban jails (20 failures in 30 seconds) never catch.
   (`smtpd_client_auth_rate_limit`) and disconnect after 10 errors (`smtpd_hard_error_limit`).
   The box's own apps (127.0.0.1) are exempt.
 * Nextcloud apps updated: Contacts 8.9.5 and Calendar 6.6.5.
+* munin-node listens only on 127.0.0.1, where munin connects. It listened on every address, which
+  failed on boxes without IPv6 (Debian 12 and 13, Ubuntu 24.04).
 * The container tests run on GitHub Actions for every pull request that changes the setup.
 
 Power Mail-in-a-Box v61.9
