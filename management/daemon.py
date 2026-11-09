@@ -160,7 +160,23 @@ def index():
 		backup_s3_hosts=backup_s3_hosts,
 		csr_country_codes=csr_country_codes,
 		services=get_served_services(env),
+		assets_version=get_panel_assets_version(),
 	)
+
+
+def get_panel_assets_version():
+	# A short hash of the panel's stylesheet and scripts (conf/panel), added to their
+	# addresses so that browsers don't keep using cached copies after an update.
+	import hashlib
+	panel_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "conf", "panel")
+	digest = hashlib.sha1()
+	try:
+		for name in sorted(os.listdir(panel_dir)):
+			with open(os.path.join(panel_dir, name), "rb") as f:
+				digest.update(f.read())
+	except OSError:
+		pass
+	return digest.hexdigest()[:10]
 
 
 # Create a session key by checking the username/password in the Authorization header.

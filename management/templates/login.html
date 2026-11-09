@@ -39,7 +39,7 @@ sudo management/cli.py user make-admin me@{{hostname}}</code></pre>
 			<div class="text-center mb-4">
 				<span class="brand-mark mb-3" aria-hidden="true"><span class="fa-solid fa-envelope"></span></span>
 				<h2 class="h4 mb-1">Sign in</h2>
-				<p class="text-body-secondary mb-0">to the control panel of <span class="text-break">{{hostname}}</span>
+				<p class="text-body-secondary mb-0">to Power Mail-in-a-Box at <span class="text-break">{{hostname}}</span>
 				</p>
 			</div>
 
@@ -196,7 +196,7 @@ sudo management/cli.py user make-admin me@{{hostname}}</code></pre>
 
 	function show_hide_menus() {
 		// Parts of the page are only shown to logged in users, or to administrators,
-		// or to users who are not administrators (see the CSS in index.html).
+		// or to users who are not administrators (see conf/panel/panel.css).
 		var is_logged_in = (api_credentials != null && api_credentials.privileges !== undefined);
 		var privs = is_logged_in ? (api_credentials.privileges || []) : [];
 		var is_admin = privs.indexOf("admin") >= 0;
@@ -205,5 +205,6 @@ sudo management/cli.py user make-admin me@{{hostname}}</code></pre>
 			.toggleClass('logged-in-admin', is_logged_in && is_admin)
 			.toggleClass('logged-in-not-admin', is_logged_in && !is_admin);
 		$('.account-email').text(is_logged_in ? api_credentials.username : '');
+		$('.account-avatar').text(is_logged_in ? String(api_credentials.username || '?').charAt(0) : '');
 	}
 </script>

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-bs-theme="light">
+<html lang="en" data-theme="light">
 
 	<head>
 		<meta charset="utf-8">
@@ -7,7 +7,7 @@
 		<meta name="robots" content="noindex, nofollow">
 		<meta name="color-scheme" content="light dark">
 
-		<title>{{hostname}} - Mail-in-a-Box Control Panel</title>
+		<title>Power Mail-in-a-Box · {{hostname}}</title>
 		<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232f6fb4'/%3E%3Cpath d='M7 10h18v12H7z' fill='none' stroke='%23fff' stroke-width='2'/%3E%3Cpath d='M7 10l9 7 9-7' fill='none' stroke='%23fff' stroke-width='2'/%3E%3C/svg%3E">
 
 		<script>
@@ -26,437 +26,139 @@
 				var theme = pref;
 				if (pref === "auto")
 					theme = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-				document.documentElement.setAttribute("data-bs-theme", theme);
+				document.documentElement.setAttribute("data-theme", theme);
 				return pref;
 			}
 			apply_theme();
 		</script>
 
-		<link rel="stylesheet" href="/admin/assets/bootstrap/css/bootstrap.min.css">
+		<link rel="stylesheet" href="/admin/assets/panel/panel.css?v={{ assets_version }}">
 		<link rel="stylesheet" href="/admin/assets/fontawesome/css/fontawesome.min.css">
 		<link rel="stylesheet" href="/admin/assets/fontawesome/css/solid.min.css">
 
 		<!-- Loaded before the panels, whose scripts may use them right away. -->
 		<script src="/admin/assets/jquery.min.js"></script>
-		<script src="/admin/assets/bootstrap/js/bootstrap.bundle.min.js"></script>
-
-		<style>
-			:root {
-				--miab-brand: #2f6fb4;
-				--miab-brand-rgb: 47, 111, 180;
-			}
-
-			[data-bs-theme="dark"] {
-				--miab-brand: #6ea8e8;
-				--miab-brand-rgb: 110, 168, 232;
-			}
-
-			html {
-				scroll-padding-top: 5rem;
-			}
-
-			body {
-				overflow-y: scroll;
-				min-height: 100vh;
-				display: flex;
-				flex-direction: column;
-				background-color: var(--bs-body-bg);
-			}
-
-			main {
-				flex: 1 0 auto;
-			}
-
-			p {
-				margin-bottom: 1.25em;
-			}
-
-			h2 {
-				font-size: 1.75rem;
-				font-weight: 600;
-				margin: 0 0 .75rem;
-			}
-
-			h3 {
-				font-size: 1.25rem;
-				font-weight: 600;
-				border-bottom: 1px solid var(--bs-border-color);
-				padding-bottom: .4rem;
-				margin: 2rem 0 1rem;
-			}
-
-			.card-header h3,
-			.list-group-item h3,
-			h3.h4,
-			h3.h5,
-			h3.h6,
-			.modal h3 {
-				border: none;
-				padding: 0;
-				margin: 0;
-			}
-
-			h4 {
-				font-size: 1.05rem;
-				font-weight: 600;
-				margin: 1.25rem 0 .75rem;
-			}
-
-			h4:first-child {
-				margin-top: .25rem;
-			}
-
-			ol li {
-				margin-bottom: 1em;
-			}
-
-			pre {
-				white-space: pre-wrap;
-				word-break: break-word;
-			}
-
-			.page-header {
-				margin-bottom: 1.5rem;
-				padding-bottom: 1rem;
-				border-bottom: 1px solid var(--bs-border-color);
-			}
-
-			.page-header p:last-child {
-				margin-bottom: 0;
-			}
-
-			.admin_panel {
-				display: none;
-				padding-top: 1.75rem;
-				padding-bottom: 2rem;
-			}
-
-			/* Bootstrap's secondary outline buttons don't have enough contrast in dark mode. */
-			[data-bs-theme="dark"] .btn-outline-secondary {
-				--bs-btn-color: #b4bcc4;
-				--bs-btn-border-color: #6c757d;
-			}
-
-			main:focus {
-				outline: none;
-			}
-
-			/* What is shown depends on who is logged in (see show_hide_menus). */
-			body:not(.logged-in) .if-logged-in,
-			body:not(.logged-in-admin) .if-logged-in-admin,
-			body:not(.logged-in-not-admin) .if-logged-in-not-admin,
-			body.logged-in .if-not-logged-in {
-				display: none !important;
-			}
-
-			/* Navigation bar */
-			.miab-navbar {
-				background-color: var(--bs-tertiary-bg);
-				border-bottom: 1px solid var(--bs-border-color);
-			}
-
-			.miab-navbar .navbar-brand {
-				font-weight: 600;
-				max-width: 60vw;
-			}
-
-			.brand-mark {
-				display: inline-flex;
-				align-items: center;
-				justify-content: center;
-				width: 2rem;
-				height: 2rem;
-				border-radius: .5rem;
-				background-color: var(--miab-brand);
-				color: var(--bs-body-bg);
-				font-size: .95rem;
-				flex-shrink: 0;
-			}
-
-			.miab-navbar .nav-link {
-				border-radius: .375rem;
-				padding-left: .75rem !important;
-				padding-right: .75rem !important;
-			}
-
-			.miab-navbar .nav-link:hover,
-			.miab-navbar .nav-link:focus-visible {
-				background-color: var(--bs-secondary-bg);
-			}
-
-			.miab-navbar .nav-link.active {
-				color: var(--miab-brand);
-				background-color: rgba(var(--miab-brand-rgb), .12);
-				font-weight: 500;
-			}
-
-			.miab-navbar .dropdown-item.active,
-			.miab-navbar .dropdown-item:active {
-				color: var(--bs-emphasis-color);
-				background-color: rgba(var(--miab-brand-rgb), .18);
-			}
-
-			.miab-navbar .dropdown-item .fa-solid,
-			.miab-navbar .nav-link .fa-solid {
-				width: 1.25em;
-				text-align: center;
-				opacity: .85;
-			}
-
-			.account-email {
-				max-width: 16rem;
-			}
-
-			/* Dashboard */
-			.tile {
-				display: flex;
-				gap: 1rem;
-				align-items: flex-start;
-				height: 100%;
-				padding: 1.1rem 1.25rem;
-				border: 1px solid var(--bs-border-color);
-				border-radius: .75rem;
-				background-color: var(--bs-body-bg);
-				color: var(--bs-body-color);
-				text-decoration: none;
-				transition: border-color .15s, box-shadow .15s, transform .15s;
-			}
-
-			a.tile:hover,
-			a.tile:focus-visible {
-				border-color: rgba(var(--miab-brand-rgb), .6);
-				box-shadow: 0 .25rem .75rem rgba(0, 0, 0, .08);
-				color: var(--bs-body-color);
-			}
-
-			.tile-icon {
-				display: inline-flex;
-				align-items: center;
-				justify-content: center;
-				width: 2.5rem;
-				height: 2.5rem;
-				border-radius: .6rem;
-				background-color: rgba(var(--miab-brand-rgb), .12);
-				color: var(--miab-brand);
-				flex-shrink: 0;
-			}
-
-			.tile-title {
-				font-weight: 600;
-				margin-bottom: .15rem;
-			}
-
-			.tile-text {
-				color: var(--bs-secondary-color);
-				font-size: .9rem;
-				margin: 0;
-			}
-
-			.stat-value {
-				font-size: 1.75rem;
-				font-weight: 600;
-				line-height: 1.1;
-			}
-
-			/* Loading indicator */
-			#ajax_loading_indicator {
-				display: none;
-				position: fixed;
-				inset: 0;
-				z-index: 2000;
-				background-color: rgba(var(--bs-body-bg-rgb), .55);
-				backdrop-filter: blur(1px);
-				cursor: progress;
-			}
-
-			#ajax_loading_indicator .loading-box {
-				position: absolute;
-				top: 35%;
-				left: 50%;
-				transform: translate(-50%, -50%);
-				opacity: 0;
-				transition: opacity .2s;
-			}
-
-			#ajax_loading_indicator.visible .loading-box {
-				opacity: 1;
-			}
-
-			#ajax_progress {
-				position: fixed;
-				top: 0;
-				left: 0;
-				height: 3px;
-				width: 0;
-				z-index: 2001;
-				background-color: var(--miab-brand);
-				transition: width 4s cubic-bezier(.1, .7, .2, 1), opacity .3s;
-				opacity: 0;
-			}
-
-			#ajax_progress.running {
-				width: 85%;
-				opacity: 1;
-			}
-
-			@media (prefers-reduced-motion: reduce) {
-
-				.tile,
-				#ajax_progress,
-				#ajax_loading_indicator .loading-box {
-					transition: none;
-				}
-			}
-		</style>
+		<script src="/admin/assets/panel/panel.js?v={{ assets_version }}"></script>
 	</head>
 
 	<body>
-		<a class="visually-hidden-focusable position-absolute top-0 start-0 m-2 btn btn-primary" href="#main"
+		<a class="visually-hidden-focusable skip-link btn btn-primary" href="#main"
 			onclick="document.getElementById('main').focus(); return false;">Skip to content</a>
 
 		<div id="ajax_progress" aria-hidden="true"></div>
 
-		<header class="navbar navbar-expand-lg miab-navbar sticky-top">
-			<nav class="container-xl" aria-label="Main navigation">
-				<a class="navbar-brand d-flex align-items-center gap-2" href="#welcome">
+		<div class="app">
+			<aside class="sidebar if-logged-in" id="sidebar" aria-label="Sidebar">
+				<a class="sidebar-brand" href="#welcome" aria-label="Power Mail-in-a-Box, dashboard">
 					<span class="brand-mark" aria-hidden="true"><span class="fa-solid fa-envelope"></span></span>
-					<span class="text-truncate">{{hostname}}</span>
+					<span class="text-truncate"><span class="brand-name">Power Mail-in-a-Box</span><span
+							class="brand-sub">by Rovart</span></span>
 				</a>
+				<div class="host-chip" title="This box"><span class="host-dot" aria-hidden="true"></span><span>{{hostname}}</span></div>
 
-				<div class="d-flex align-items-center gap-1 order-lg-last">
-					<div class="dropdown">
-						<button class="btn btn-link nav-link px-2" type="button" id="theme-menu" data-bs-toggle="dropdown"
-							aria-expanded="false" aria-label="Color theme" title="Color theme">
-							<span class="fa-solid fa-circle-half-stroke" id="theme-icon" aria-hidden="true"></span>
-						</button>
-						<ul class="dropdown-menu dropdown-menu-end" aria-labelledby="theme-menu">
-							<li><button type="button" class="dropdown-item" data-theme-value="light"><span
-										class="fa-solid fa-sun me-2" aria-hidden="true"></span>Light</button></li>
-							<li><button type="button" class="dropdown-item" data-theme-value="dark"><span
-										class="fa-solid fa-moon me-2" aria-hidden="true"></span>Dark</button></li>
-							<li><button type="button" class="dropdown-item" data-theme-value="auto"><span
-										class="fa-solid fa-circle-half-stroke me-2" aria-hidden="true"></span>Automatic</button></li>
-						</ul>
-					</div>
-
-					<div class="dropdown if-logged-in">
-						<button class="btn btn-link nav-link px-2 d-flex align-items-center gap-2" type="button"
-							id="account-menu" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Your account">
-							<span class="fa-solid fa-circle-user fs-5" aria-hidden="true"></span>
-							<span class="account-email text-truncate d-none d-xl-inline"></span>
-						</button>
-						<ul class="dropdown-menu dropdown-menu-end" aria-labelledby="account-menu">
-							<li>
-								<h6 class="dropdown-header">Signed in as<br><span
-										class="account-email d-inline-block text-truncate fw-semibold text-body"></span></h6>
-							</li>
-							<li><a class="dropdown-item" href="#manage-password"><span class="fa-solid fa-key me-2"
-										aria-hidden="true"></span>Change password</a></li>
-							<li><a class="dropdown-item" href="#mfa"><span class="fa-solid fa-shield-halved me-2"
-										aria-hidden="true"></span>Two-factor authentication</a></li>
-							<li>
-								<hr class="dropdown-divider">
-							</li>
-							<li><button type="button" class="dropdown-item" onclick="do_logout(); return false;"><span
-										class="fa-solid fa-right-from-bracket me-2" aria-hidden="true"></span>Log out</button></li>
-						</ul>
-					</div>
-
-					<button class="navbar-toggler if-logged-in ms-1" type="button" data-bs-toggle="collapse"
-						data-bs-target="#navbarContent" aria-controls="navbarContent" aria-expanded="false"
-						aria-label="Toggle navigation">
-						<span class="navbar-toggler-icon"></span>
-					</button>
-				</div>
-
-				<div class="collapse navbar-collapse" id="navbarContent">
-					<ul class="navbar-nav me-auto mt-2 mt-lg-0 if-logged-in">
-						<li class="nav-item">
-							<a class="nav-link" href="#welcome"><span class="fa-solid fa-gauge-high me-1"
-									aria-hidden="true"></span>Dashboard</a>
-						</li>
-
-						<li class="nav-item dropdown if-logged-in-admin">
-							<button class="nav-link dropdown-toggle" type="button" data-bs-toggle="dropdown"
-								aria-expanded="false" data-panels="users aliases mail_filtering mail-guide sync_guide">Mail</button>
-							<ul class="dropdown-menu">
-								<li><a class="dropdown-item" href="#users"><span class="fa-solid fa-users me-2"
-											aria-hidden="true"></span>Users</a></li>
-								<li><a class="dropdown-item" href="#aliases"><span class="fa-solid fa-at me-2"
-											aria-hidden="true"></span>Aliases</a></li>
-								<li><a class="dropdown-item" href="#mail_filtering"><span class="fa-solid fa-filter me-2"
-											aria-hidden="true"></span>Filtering</a></li>
-								<li>
-									<hr class="dropdown-divider">
-								</li>
-								<li><a class="dropdown-item" href="#mail-guide"><span class="fa-solid fa-book-open me-2"
-											aria-hidden="true"></span>Mail guide</a></li>
-								<li class="requires-service-nextcloud"><a class="dropdown-item" href="#sync_guide"><span
-											class="fa-solid fa-address-book me-2" aria-hidden="true"></span>Contacts &amp;
-										calendar guide</a></li>
-							</ul>
-						</li>
-
-						<li class="nav-item if-logged-in-not-admin">
-							<a class="nav-link" href="#mail-guide"><span class="fa-solid fa-book-open me-1"
-									aria-hidden="true"></span>Mail guide</a>
-						</li>
-						<li class="nav-item if-logged-in-not-admin requires-service-nextcloud">
-							<a class="nav-link" href="#sync_guide"><span class="fa-solid fa-address-book me-1"
-									aria-hidden="true"></span>Contacts &amp; calendar</a>
-						</li>
-
-						<li class="nav-item dropdown if-logged-in-admin">
-							<button class="nav-link dropdown-toggle" type="button" data-bs-toggle="dropdown"
-								aria-expanded="false"
-								data-panels="system_status services tls system_backup smtp_relays munin">System</button>
-							<ul class="dropdown-menu">
-								<li><a class="dropdown-item" href="#system_status"><span
-											class="fa-solid fa-heart-pulse me-2" aria-hidden="true"></span>Status checks</a>
-								</li>
-								<li><a class="dropdown-item" href="#services"><span class="fa-solid fa-toggle-on me-2"
-											aria-hidden="true"></span>Services</a></li>
-								<li><a class="dropdown-item" href="#tls"><span class="fa-solid fa-certificate me-2"
-											aria-hidden="true"></span>TLS (SSL) certificates</a></li>
-								<li><a class="dropdown-item" href="#system_backup"><span
-											class="fa-solid fa-cloud-arrow-up me-2" aria-hidden="true"></span>Backups</a></li>
-								<li><a class="dropdown-item" href="#smtp_relays"><span class="fa-solid fa-paper-plane me-2"
-											aria-hidden="true"></span>SMTP relays</a></li>
-								<li class="requires-service-munin"><a class="dropdown-item" href="#munin"><span
-											class="fa-solid fa-chart-line me-2" aria-hidden="true"></span>Monitoring
-										(Munin)</a></li>
-							</ul>
-						</li>
-
-						<li class="nav-item dropdown if-logged-in-admin">
-							<button class="nav-link dropdown-toggle" type="button" data-bs-toggle="dropdown"
-								aria-expanded="false" data-panels="custom_dns external_dns pgp_keyring wkd">DNS &amp;
-								Keys</button>
-							<ul class="dropdown-menu">
-								<li><a class="dropdown-item" href="#custom_dns"><span class="fa-solid fa-sitemap me-2"
-											aria-hidden="true"></span>Custom DNS</a></li>
-								<li><a class="dropdown-item" href="#external_dns"><span class="fa-solid fa-globe me-2"
-											aria-hidden="true"></span>External DNS</a></li>
-								<li>
-									<hr class="dropdown-divider">
-								</li>
-								<li><a class="dropdown-item" href="#pgp_keyring"><span class="fa-solid fa-key me-2"
-											aria-hidden="true"></span>PGP keyring</a></li>
-								<li><a class="dropdown-item" href="#wkd"><span class="fa-solid fa-fingerprint me-2"
-											aria-hidden="true"></span>Web Key Directory</a></li>
-							</ul>
-						</li>
-
-						<li class="nav-item if-logged-in-admin">
-							<a class="nav-link" href="#web"><span class="fa-solid fa-globe me-1"
-									aria-hidden="true"></span>Web</a>
-						</li>
+				<nav class="sidebar-nav" aria-label="Main navigation">
+					<ul>
+						<li><a class="nav-link" href="#welcome"><span class="fa-solid fa-gauge-high" aria-hidden="true"></span>Dashboard</a></li>
+						<li class="if-logged-in-not-admin"><a class="nav-link" href="#mail-guide"><span class="fa-solid fa-book-open" aria-hidden="true"></span>Mail guide</a></li>
+						<li class="if-logged-in-not-admin requires-service-nextcloud"><a class="nav-link" href="#sync_guide"><span class="fa-solid fa-address-book" aria-hidden="true"></span>Contacts &amp; calendar</a></li>
 					</ul>
-				</div>
-			</nav>
-		</header>
+					<div class="if-logged-in-admin">
+						<div class="nav-section" id="nav-mail">Mail</div>
+						<ul aria-labelledby="nav-mail">
+							<li><a class="nav-link" href="#users"><span class="fa-solid fa-users" aria-hidden="true"></span>Users</a></li>
+							<li><a class="nav-link" href="#aliases"><span class="fa-solid fa-at" aria-hidden="true"></span>Aliases</a></li>
+							<li><a class="nav-link" href="#mail_filtering"><span class="fa-solid fa-filter" aria-hidden="true"></span>Filtering</a></li>
+							<li><a class="nav-link" href="#mail-guide"><span class="fa-solid fa-book-open" aria-hidden="true"></span>Mail guide</a></li>
+							<li class="requires-service-nextcloud"><a class="nav-link" href="#sync_guide"><span class="fa-solid fa-address-book" aria-hidden="true"></span>Contacts &amp; calendar</a></li>
+						</ul>
+						<div class="nav-section" id="nav-system">System</div>
+						<ul aria-labelledby="nav-system">
+							<li><a class="nav-link" href="#system_status"><span class="fa-solid fa-heart-pulse" aria-hidden="true"></span>Status checks</a></li>
+							<li><a class="nav-link" href="#services"><span class="fa-solid fa-toggle-on" aria-hidden="true"></span>Services</a></li>
+							<li><a class="nav-link" href="#tls"><span class="fa-solid fa-certificate" aria-hidden="true"></span>TLS certificates</a></li>
+							<li><a class="nav-link" href="#system_backup"><span class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></span>Backups</a></li>
+							<li><a class="nav-link" href="#smtp_relays"><span class="fa-solid fa-paper-plane" aria-hidden="true"></span>SMTP relays</a></li>
+							<li class="requires-service-munin"><a class="nav-link" href="#munin"><span class="fa-solid fa-chart-line" aria-hidden="true"></span>Monitoring</a></li>
+						</ul>
+						<div class="nav-section" id="nav-dns">DNS &amp; keys</div>
+						<ul aria-labelledby="nav-dns">
+							<li><a class="nav-link" href="#custom_dns"><span class="fa-solid fa-sitemap" aria-hidden="true"></span>Custom DNS</a></li>
+							<li><a class="nav-link" href="#external_dns"><span class="fa-solid fa-globe" aria-hidden="true"></span>External DNS</a></li>
+							<li><a class="nav-link" href="#pgp_keyring"><span class="fa-solid fa-key" aria-hidden="true"></span>PGP keyring</a></li>
+							<li><a class="nav-link" href="#wkd"><span class="fa-solid fa-fingerprint" aria-hidden="true"></span>Web Key Directory</a></li>
+						</ul>
+						<div class="nav-section" id="nav-web">Web</div>
+						<ul aria-labelledby="nav-web">
+							<li><a class="nav-link" href="#web"><span class="fa-solid fa-window-maximize" aria-hidden="true"></span>Websites</a></li>
+						</ul>
+					</div>
+				</nav>
 
-		<main id="main" class="container-xl" tabindex="-1">
+				<div class="sidebar-footer">
+					<div class="dropdown flex-grow-1" style="min-width: 0">
+						<button class="btn btn-ghost account-button w-100" type="button" data-toggle="dropdown"
+							aria-haspopup="true" aria-expanded="false" aria-label="Your account">
+							<span class="account-avatar" aria-hidden="true"></span>
+							<span class="account-email text-truncate"></span>
+						</button>
+						<div class="dropdown-menu" role="menu" aria-label="Your account">
+							<div class="dropdown-header">Signed in as<br><span
+									class="account-email d-inline-block text-truncate fw-semibold text-body"></span></div>
+							<a class="dropdown-item" role="menuitem" href="#manage-password"><span class="fa-solid fa-key"
+									aria-hidden="true"></span>Change password</a>
+							<a class="dropdown-item" role="menuitem" href="#mfa"><span class="fa-solid fa-shield-halved"
+									aria-hidden="true"></span>Two-factor authentication</a>
+							<hr class="dropdown-divider">
+							<button type="button" class="dropdown-item" role="menuitem" onclick="do_logout(); return false;"><span
+									class="fa-solid fa-right-from-bracket" aria-hidden="true"></span>Log out</button>
+						</div>
+					</div>
+					<div class="dropdown">
+						<button class="btn btn-ghost btn-icon" type="button" data-toggle="dropdown" aria-haspopup="true"
+							aria-expanded="false" aria-label="Color theme" title="Color theme">
+							<span class="fa-solid fa-circle-half-stroke theme-icon" aria-hidden="true"></span>
+						</button>
+						<div class="dropdown-menu dropdown-menu-end" role="menu" aria-label="Color theme">
+							<button type="button" class="dropdown-item" role="menuitemradio" data-theme-value="light"><span
+									class="fa-solid fa-sun" aria-hidden="true"></span>Light</button>
+							<button type="button" class="dropdown-item" role="menuitemradio" data-theme-value="dark"><span
+									class="fa-solid fa-moon" aria-hidden="true"></span>Dark</button>
+							<button type="button" class="dropdown-item" role="menuitemradio" data-theme-value="auto"><span
+									class="fa-solid fa-circle-half-stroke" aria-hidden="true"></span>Automatic</button>
+						</div>
+					</div>
+				</div>
+			</aside>
+			<div class="sidebar-backdrop" data-toggle="sidebar" aria-hidden="true"></div>
+
+			<div class="app-main">
+				<header class="topbar">
+					<button class="btn btn-ghost btn-icon sidebar-toggle if-logged-in" type="button" data-toggle="sidebar"
+						aria-controls="sidebar" aria-expanded="false" aria-label="Menu">
+						<span class="fa-solid fa-bars" aria-hidden="true"></span>
+					</button>
+					<a class="sidebar-brand" href="#welcome" aria-label="Power Mail-in-a-Box, dashboard">
+					<span class="brand-mark" aria-hidden="true"><span class="fa-solid fa-envelope"></span></span>
+					<span class="text-truncate"><span class="brand-name">Power Mail-in-a-Box</span><span
+							class="brand-sub">by Rovart</span></span>
+				</a>
+					<div class="dropdown">
+						<button class="btn btn-ghost btn-icon" type="button" data-toggle="dropdown" aria-haspopup="true"
+							aria-expanded="false" aria-label="Color theme" title="Color theme">
+							<span class="fa-solid fa-circle-half-stroke theme-icon" aria-hidden="true"></span>
+						</button>
+						<div class="dropdown-menu dropdown-menu-end" role="menu" aria-label="Color theme">
+							<button type="button" class="dropdown-item" role="menuitemradio" data-theme-value="light"><span
+									class="fa-solid fa-sun" aria-hidden="true"></span>Light</button>
+							<button type="button" class="dropdown-item" role="menuitemradio" data-theme-value="dark"><span
+									class="fa-solid fa-moon" aria-hidden="true"></span>Dark</button>
+							<button type="button" class="dropdown-item" role="menuitemradio" data-theme-value="auto"><span
+									class="fa-solid fa-circle-half-stroke" aria-hidden="true"></span>Automatic</button>
+						</div>
+					</div>
+				</header>
+
+				<main id="main" class="content" tabindex="-1">
 			<div id="panel_welcome" class="admin_panel">
 				{% include "welcome.html" %}
 			</div>
@@ -536,15 +238,15 @@
 			<div id="panel_mfa" class="admin_panel">
 				{% include "mfa.html" %}
 			</div>
-		</main>
+				</main>
 
-		<footer class="border-top bg-body-tertiary py-3 mt-auto">
-			<div class="container-xl d-flex flex-wrap justify-content-between gap-2 small text-body-secondary">
-				<span>This is a <a href="https://github.com/Rovart/power-mailinabox" target="_blank" rel="noopener">Power
-						Mail-in-a-Box</a><span id="footer-version"></span>.</span>
-				<span>{{hostname}}</span>
+				<footer class="app-footer">
+					<span>This is a <a href="https://github.com/Rovart/power-mailinabox" target="_blank" rel="noopener">Power
+							Mail-in-a-Box</a><span id="footer-version"></span>.</span>
+					<span>{{hostname}}</span>
+				</footer>
 			</div>
-		</footer>
+		</div>
 
 		<div id="ajax_loading_indicator" aria-hidden="true">
 			<div class="loading-box card shadow-sm">
@@ -556,25 +258,19 @@
 		</div>
 		<div id="ajax_status" class="visually-hidden" role="status" aria-live="polite"></div>
 
-		<div id="global_modal" class="modal fade" tabindex="-1" aria-labelledby="global_modal_title" aria-modal="true"
-			role="dialog">
-			<div class="modal-dialog modal-lg modal-dialog-scrollable">
-				<div class="modal-content">
-					<div class="modal-header">
-						<h2 class="modal-title fs-5" id="global_modal_title"></h2>
-						<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-					</div>
-					<div class="modal-body text-break">
-					</div>
-					<div class="modal-footer">
-						<button type="button" class="btn btn-outline-secondary" id="global_modal_cancel"
-							data-bs-dismiss="modal">OK</button>
-						<button type="button" class="btn btn-danger" id="global_modal_ok"
-							data-bs-dismiss="modal">Yes</button>
-					</div>
-				</div>
+		<dialog id="global_modal" class="modal" aria-labelledby="global_modal_title">
+			<div class="modal-header">
+				<h2 class="modal-title" id="global_modal_title"></h2>
+				<button type="button" class="btn-close" data-dismiss="modal" aria-label="Close"></button>
 			</div>
-		</div>
+			<div class="modal-body text-break">
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-outline-secondary" id="global_modal_cancel"
+					data-dismiss="modal">OK</button>
+				<button type="button" class="btn btn-danger" id="global_modal_ok" data-dismiss="modal">Yes</button>
+			</div>
+		</dialog>
 
 		<script>
 			// The optional services that are turned on (see management/services.py).
@@ -596,10 +292,10 @@
 			function update_theme_menu() {
 				var pref = get_theme_preference();
 				var icons = { light: "fa-sun", dark: "fa-moon", auto: "fa-circle-half-stroke" };
-				$("#theme-icon").removeClass("fa-sun fa-moon fa-circle-half-stroke").addClass(icons[pref]);
+				$(".theme-icon").removeClass("fa-sun fa-moon fa-circle-half-stroke").addClass(icons[pref]);
 				$("[data-theme-value]").each(function () {
 					var active = $(this).attr("data-theme-value") === pref;
-					$(this).toggleClass("active", active).attr("aria-pressed", active ? "true" : "false");
+					$(this).toggleClass("active", active).attr("aria-checked", active ? "true" : "false");
 				});
 			}
 
@@ -639,10 +335,10 @@
 
 			var global_modal_state = null;
 			var global_modal_funcs = null;
-			var global_modal = new bootstrap.Modal(document.getElementById("global_modal"));
+			var global_modal = new PanelModal(document.getElementById("global_modal"));
 
 			$(function () {
-				$('#global_modal').on('shown.bs.modal', function () {
+				$('#global_modal').on('modal:shown', function () {
 					// Set focus to the first input in the modal's body, or else to the
 					// primary button.
 					var input = $('#global_modal .modal-body').find('input, select, textarea').filter(':visible');
@@ -660,7 +356,7 @@
 				$('#global_modal_cancel').on('click', function () {
 					global_modal_state = 1; // Cancel
 				});
-				$('#global_modal').on('hidden.bs.modal', function () {
+				$('#global_modal').on('modal:hidden', function () {
 					// Cancel if the user hit ESC or clicked outside of the modal.
 					if (global_modal_state == null) global_modal_state = 1;
 					var funcs = global_modal_funcs;
@@ -862,17 +558,19 @@
 					}
 				}
 
-				// Highlight where we are in the navigation bar.
-				$('.miab-navbar .nav-link, .miab-navbar .dropdown-item').removeClass('active').removeAttr('aria-current');
-				$('.miab-navbar a[href="#' + panelid + '"]').addClass('active').attr('aria-current', 'page');
-				$('.miab-navbar [data-panels]').each(function () {
-					$(this).toggleClass('active', $(this).attr('data-panels').split(' ').indexOf(panelid) >= 0);
-				});
-				bootstrap.Collapse.getInstance(document.getElementById('navbarContent'))?.hide();
+				// Highlight where we are in the sidebar.
+				$('.sidebar .nav-link').removeClass('active').removeAttr('aria-current');
+				$('.sidebar .nav-link[href="#' + panelid + '"]').addClass('active').attr('aria-current', 'page');
+				window.close_sidebar();
+				window.close_dropdowns();
 
 				// Use the panel's heading as the page title.
 				var heading = $('#panel_' + panelid + ' h2').first().text().trim();
-				document.title = (heading && panelid != 'welcome' ? heading + ' - ' : '') + {{ hostname|tojson }} + ' - Mail-in-a-Box Control Panel';
+				document.title = (heading && panelid != 'welcome' ? heading + ' · ' : '') + 'Power Mail-in-a-Box · ' + {{ hostname|tojson }};
+
+				// The sidebar section of the panel, shown above its title.
+				var section = $('.sidebar .nav-link[href="#' + panelid + '"]').first().closest('ul').prev('.nav-section').text();
+				$('#panel_' + panelid + ' .page-header').first().attr('data-section', section || null);
 
 				current_panel = panelid;
 				switch_back_to_panel = null;

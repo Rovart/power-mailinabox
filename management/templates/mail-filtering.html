@@ -178,7 +178,7 @@
 					phone is.</p>
 				<p class="small mb-2" id="logins-summary"></p>
 				<div class="table-responsive" style="max-height: 36rem;">
-					<table class="table table-hover align-middle mb-0" aria-labelledby="logins-title">
+					<table class="table table-hover align-middle mb-0 logins-table" aria-labelledby="logins-title">
 						<thead class="sticky-top">
 							<tr>
 								<th scope="col">Account</th>
@@ -302,11 +302,11 @@
 					try { if (countries && country) country = countries.of(country); } catch (e) { }
 					var place = [loc.city, country].filter(Boolean).join(", ");
 					rows.append($('<tr/>').append(
-						$('<td class="text-break"/>').text(login.user),
-						$('<td/>').append($('<code class="text-break"/>').text(login.address || login.network))
+						$('<td class="text-nowrap fw-medium"/>').text(login.user),
+						$('<td class="text-nowrap"/>').append($('<code/>').text(login.address || login.network))
 							.append($('<div class="small text-body-secondary"/>').text("block " + login.block)),
-						$('<td/>').text(place || (l.locate ? (login.location ? "Unknown" : "Pending") : "")),
-						$('<td class="small"/>').text(loc.provider || (loc.asn ? "AS" + loc.asn : "")),
+						$('<td class="text-nowrap"/>').text(place || (l.locate ? (login.location ? "Unknown" : "Pending") : "")),
+						$('<td class="small logins-provider"/>').text(loc.provider || (loc.asn ? "AS" + loc.asn : "")),
 						$('<td class="small text-nowrap"/>').text((login.services || []).join(", ")),
 						$('<td class="text-end"/>').text((login.count || 0).toLocaleString()),
 						$('<td class="text-nowrap small"/>').text(protection_date(login.first)),
