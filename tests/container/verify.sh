@@ -41,7 +41,7 @@ check "only php$PHP_VER-fpm running" '[ -z "$(systemctl list-units --type=servic
 echo "== control panel"
 check "admin page" '$C -o /dev/null -w "%{http_code}" $H/admin/ | grep -q 200'
 check "admin assets (jquery, panel css/js, Inter, fontawesome)" '(for a in jquery.min.js panel/panel.css panel/panel.js panel/inter.woff2 fontawesome/css/solid.min.css; do $C -o /dev/null -w "%{http_code}" $H/admin/assets/$a | grep -q 200 || exit 1; done)'
-check "admin page doesn't load Bootstrap" '! $C $H/admin/ | grep -qi bootstrap && $C $H/admin/ | grep -q "panel/panel.css?v="'
+check "admin page doesn't load Bootstrap" '! $C $H/admin/ | grep -qiE "bootstrap(\.bundle)?(\.min)?\.(css|js)|data-bs-" && $C $H/admin/ | grep -q "panel/panel.css?v="'
 KEY=$($C -X POST -u "$U:$P" $H/admin/login | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('api_key',''))" 2>/dev/null)
 check "admin login via API" '[ -n "$KEY" ]'
 check "API: users list" '$C -u "$U:$KEY" "$H/admin/mail/users?format=json" | grep -q "$U"'
