@@ -1,6 +1,16 @@
 CHANGELOG
 =========
 
+Power Mail-in-a-Box v61.13
+--------------------------
+
+* Logins from new places: the first and last times of each network are when the logins
+  happened, read from the mail log lines, not when the hourly job read them. Until now, every
+  network learned on the first run showed that moment as both times. On the first run of this
+  version the times of the networks already known are set again from all the mail logs,
+  including the rotated and compressed ones (the counts stay as they were). Both syslog times
+  (without a year) and ISO 8601 times are understood.
+
 Power Mail-in-a-Box v61.12
 --------------------------
 
