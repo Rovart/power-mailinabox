@@ -164,9 +164,10 @@
 			</div>
 			<div class="card-body">
 				<p class="text-body-secondary">The administrator gets an email when an account logs in (to send mail,
-					or to IMAP or POP) from a network it never used before: a stolen password shows up there. Networks
-					are /24 for IPv4 and /64 for IPv6. Logins from the webmail and the other apps on this box aren&rsquo;t
-					counted.</p>
+					or to IMAP or POP) through an internet provider&rsquo;s block of addresses it never used before
+					(another provider, or another country): a stolen password shows up there. Blocks are /16 for IPv4
+					and /32 for IPv6, so a phone that gets a new address every time it connects doesn&rsquo;t send an
+					email each time. Logins from the webmail and the other apps on this box aren&rsquo;t counted.</p>
 				<p class="small mb-2" id="logins-summary"></p>
 				<div class="table-responsive" style="max-height: 22rem;">
 					<table class="table table-sm align-middle mb-0" aria-labelledby="logins-title">

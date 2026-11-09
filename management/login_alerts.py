@@ -9,9 +9,15 @@
 # like the backup and status check reports, when an account logs in from somewhere it
 # never did before: a stolen password shows up there.
 #
-# * A "network" is the /24 of an IPv4 address or the /64 of an IPv6 address, so that
-#   a home connection whose address changes now and then doesn't send an email every
-#   time. Mobile connections can still change networks often.
+# * The email is about new operator blocks: the /16 of an IPv4 address or the /32 of an
+#   IPv6 address (the size of a typical allocation to an internet provider). Mobile
+#   connections get a new address, and a new IPv6 /64, nearly every time they connect,
+#   but they stay in the operator's blocks, so a phone moving around doesn't send an
+#   email every day, while a login through another provider or from another country
+#   does. A login from an operator the account already uses isn't reported, even if a
+#   stranger made it.
+# * What is remembered, and trusted, is the smaller network: the /24 of an IPv4 address
+#   or the /64 of an IPv6 address.
 # * Logins from the box itself (the webmail, Z-Push and Nextcloud log in to IMAP and
 #   SMTP from 127.0.0.1) are left out: those web apps have their own logs.
 # * The first run only learns the networks in the current logs, without an email.
@@ -61,6 +67,22 @@ def network_of(address):
 		ip = ip.ipv4_mapped
 	prefix = 24 if ip.version == 4 else 64
 	return ip, ipaddress.ip_network("%s/%d" % (ip, prefix), strict=False)
+
+
+def block_of(network):
+	# The operator block a network is in (see the top of this file).
+	network = ipaddress.ip_network(network)
+	return network.supernet(new_prefix=16 if network.version == 4 else 32)
+
+
+def known_blocks(networks):
+	blocks = set()
+	for network in networks:
+		try:
+			blocks.add(block_of(network))
+		except ValueError:
+			pass
+	return blocks
 
 
 def parse_line(line):
@@ -135,8 +157,10 @@ def is_local(ip, env):
 
 
 def record(state, lines, env):
-	# Adds the logins in the lines to the state. Returns the new (user, network) pairs.
+	# Adds the logins in the lines to the state. Returns the (user, network) pairs of the
+	# logins from operator blocks the user never used before.
 	new = {}
+	blocks = {user: known_blocks(networks) for user, networks in state["users"].items()}
 	stamp = now().isoformat(timespec="seconds")
 	for line in lines:
 		login = parse_line(line)
@@ -153,7 +177,10 @@ def record(state, lines, env):
 		known = networks.get(str(network))
 		if known is None:
 			known = networks[str(network)] = {"first": stamp, "count": 0, "services": []}
-			new[(user, str(network))] = known
+			user_blocks = blocks.setdefault(user, set())
+			if block_of(network) not in user_blocks:
+				user_blocks.add(block_of(network))
+				new[(user, str(network))] = known
 		known["last"] = stamp
 		known["address"] = str(ip)
 		known["count"] += 1
@@ -234,13 +261,14 @@ def reverse_dns(address):
 
 def report(new):
 	lines = [
-		"These accounts logged in from a network they hadn't used before:",
+		"These accounts logged in through an internet provider's block of addresses they",
+		"hadn't used before (another provider, or another country):",
 		"",
 	]
 	for (user, network), known in sorted(new.items()):
 		host = reverse_dns(known["address"])
-		lines.append("%s from %s (network %s)%s: %s, %d login%s" % (
-			user, known["address"], network, " " + host if host else "",
+		lines.append("%s from %s (block %s)%s: %s, %d login%s" % (
+			user, known["address"], block_of(network), " " + host if host else "",
 			", ".join(known["services"]), known["count"], "" if known["count"] == 1 else "s"))
 	lines += [
 		"",
