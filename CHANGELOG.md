@@ -1,6 +1,24 @@
 CHANGELOG
 =========
 
+Power Mail-in-a-Box v61.11
+--------------------------
+
+* The emails about logins from new places report new internet provider blocks (a /16 for IPv4,
+  a /32 for IPv6) instead of every new /24 or /64. Mobile operators give phones a new address,
+  and a new IPv6 /64, nearly every time they connect: on a real box, one phone on Movistar used
+  55 different /64s in 17 days, all in the same /32, and each would have sent an email. Replayed
+  on that box's last three weeks of logins, the emails go from 125 to 35, most of them in the
+  first week while the accounts' usual providers are learned, and 3 in the last week. A login
+  through a provider the account already uses is no longer reported, even if a stranger made it;
+  the fail2ban jail and the IP blocklists still trust only the exact /24 or /64 that logged in.
+* Where the logins come from: the emails and the table in Mail > Filtering (now full width, with
+  the services, number of logins and first and last time of each network) show the approximate
+  city, country and internet provider of each address. They are looked up once per network by
+  the hourly job on RIPEstat (stat.ripe.net, the RIPE NCC's public API with MaxMind's GeoLite
+  data); only the address is sent. It can be turned off in the panel ("Show locations") or with
+  `management/login_alerts.py locate off`.
+
 Power Mail-in-a-Box v61.10
 --------------------------
 

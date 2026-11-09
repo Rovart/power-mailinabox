@@ -103,7 +103,7 @@
 	block the addresses already known for these attacks and tell you when an account logs in from somewhere new.</p>
 
 <div class="row g-4 mb-4">
-	<div class="col-lg-7">
+	<div class="col-12">
 		<div class="card h-100">
 			<div class="card-header d-flex align-items-center gap-3">
 				<h4 class="h5 mb-0 flex-grow-1" id="blocklists-title"><span class="fa-solid fa-shield-halved me-2"
@@ -151,11 +151,16 @@
 		</div>
 	</div>
 
-	<div class="col-lg-5">
+	<div class="col-12">
 		<div class="card h-100">
-			<div class="card-header d-flex align-items-center gap-3">
+			<div class="card-header d-flex flex-wrap align-items-center gap-3">
 				<h4 class="h5 mb-0 flex-grow-1" id="logins-title"><span class="fa-solid fa-location-dot me-2"
 						aria-hidden="true"></span>Logins from new places</h4>
+				<div class="form-check form-switch mb-0">
+					<input class="form-check-input" type="checkbox" role="switch" id="login-locate-enabled"
+						onchange="protection_change({action: 'login_locate', enabled: this.checked ? 1 : 0})">
+					<label class="form-check-label" for="login-locate-enabled">Show locations</label>
+				</div>
 				<div class="form-check form-switch mb-0">
 					<input class="form-check-input" type="checkbox" role="switch" id="login-alerts-enabled"
 						onchange="protection_change({action: 'login_alerts', enabled: this.checked ? 1 : 0})">
@@ -164,16 +169,25 @@
 			</div>
 			<div class="card-body">
 				<p class="text-body-secondary">The administrator gets an email when an account logs in (to send mail,
-					or to IMAP or POP) from a network it never used before: a stolen password shows up there. Networks
-					are /24 for IPv4 and /64 for IPv6. Logins from the webmail and the other apps on this box aren&rsquo;t
-					counted.</p>
+					or to IMAP or POP) through an internet provider&rsquo;s block of addresses it never used before
+					(another provider, or another country): a stolen password shows up there. Blocks are /16 for IPv4
+					and /32 for IPv6, so a phone that gets a new address every time it connects doesn&rsquo;t send an
+					email each time. Logins from the webmail and the other apps on this box aren&rsquo;t counted.
+					Locations come from RIPEstat (only the address is sent) and are approximate: for mobile
+					connections they show where the operator&rsquo;s network meets the internet, not where the
+					phone is.</p>
 				<p class="small mb-2" id="logins-summary"></p>
-				<div class="table-responsive" style="max-height: 22rem;">
-					<table class="table table-sm align-middle mb-0" aria-labelledby="logins-title">
-						<thead>
+				<div class="table-responsive" style="max-height: 36rem;">
+					<table class="table table-hover align-middle mb-0" aria-labelledby="logins-title">
+						<thead class="sticky-top">
 							<tr>
 								<th scope="col">Account</th>
 								<th scope="col">Last address</th>
+								<th scope="col">Location</th>
+								<th scope="col">Provider</th>
+								<th scope="col">Services</th>
+								<th scope="col" class="text-end">Logins</th>
+								<th scope="col">First seen</th>
 								<th scope="col">Last login</th>
 							</tr>
 						</thead>
@@ -278,13 +292,24 @@
 
 				var l = r.login_alerts;
 				$('#login-alerts-enabled').prop('checked', l.enabled);
+				$('#login-locate-enabled').prop('checked', l.locate);
 				$('#logins-summary').text(l.recent.length + " account network" + (l.recent.length == 1 ? "" : "s")
 					+ " used in the last " + l.trust_days + " days.");
 				var rows = $('#logins-recent').empty();
+				var countries = (typeof Intl !== "undefined" && Intl.DisplayNames) ? new Intl.DisplayNames([navigator.language || "en"], { type: "region" }) : null;
 				l.recent.forEach(function (login) {
+					var loc = login.location || {}, country = loc.country || "";
+					try { if (countries && country) country = countries.of(country); } catch (e) { }
+					var place = [loc.city, country].filter(Boolean).join(", ");
 					rows.append($('<tr/>').append(
 						$('<td class="text-break"/>').text(login.user),
-						$('<td/>').append($('<code/>').text(login.address || login.network)),
+						$('<td/>').append($('<code class="text-break"/>').text(login.address || login.network))
+							.append($('<div class="small text-body-secondary"/>').text("block " + login.block)),
+						$('<td/>').text(place || (l.locate ? (login.location ? "Unknown" : "Pending") : "")),
+						$('<td class="small"/>').text(loc.provider || (loc.asn ? "AS" + loc.asn : "")),
+						$('<td class="small text-nowrap"/>').text((login.services || []).join(", ")),
+						$('<td class="text-end"/>').text((login.count || 0).toLocaleString()),
+						$('<td class="text-nowrap small"/>').text(protection_date(login.first)),
 						$('<td class="text-nowrap small"/>').text(protection_date(login.last))));
 				});
 			});

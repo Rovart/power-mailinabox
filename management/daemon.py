@@ -396,6 +396,8 @@ def mail_login_protection_set():
 			return ip_blocklists.update(env)
 		if action == "login_alerts":
 			return login_alerts.set_alerts_enabled(env, enabled)
+		if action == "login_locate":
+			return login_alerts.set_locate_enabled(env, enabled)
 		return ("Unknown action: %s" % action, 400)
 	except (ValueError, RuntimeError) as e:
 		return (str(e), 400)

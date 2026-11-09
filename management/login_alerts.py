@@ -9,9 +9,15 @@
 # like the backup and status check reports, when an account logs in from somewhere it
 # never did before: a stolen password shows up there.
 #
-# * A "network" is the /24 of an IPv4 address or the /64 of an IPv6 address, so that
-#   a home connection whose address changes now and then doesn't send an email every
-#   time. Mobile connections can still change networks often.
+# * The email is about new operator blocks: the /16 of an IPv4 address or the /32 of an
+#   IPv6 address (the size of a typical allocation to an internet provider). Mobile
+#   connections get a new address, and a new IPv6 /64, nearly every time they connect,
+#   but they stay in the operator's blocks, so a phone moving around doesn't send an
+#   email every day, while a login through another provider or from another country
+#   does. A login from an operator the account already uses isn't reported, even if a
+#   stranger made it.
+# * What is remembered, and trusted, is the smaller network: the /24 of an IPv4 address
+#   or the /64 of an IPv6 address.
 # * Logins from the box itself (the webmail, Z-Push and Nextcloud log in to IMAP and
 #   SMTP from 127.0.0.1) are left out: those web apps have their own logs.
 # * The first run only learns the networks in the current logs, without an email.
@@ -20,6 +26,15 @@
 # The networks used in the last 30 days are also trusted elsewhere: they are never
 # banned by the miab-postfix-slow fail2ban jail (added to its ignore list here) and
 # never blocked by the IP blocklists (see ip_blocklists.py).
+#
+# Where a network is: the city, country and internet provider (autonomous system) of
+# the last address seen in it, from RIPEstat (stat.ripe.net, the RIPE NCC's public
+# API, which serves MaxMind's GeoLite data). Only the address is sent, never the
+# account. Looked up once per network by the hourly run (at most LOOKUPS_PER_RUN at a
+# time) and kept with it, so the control panel never waits for it. A city is a guess:
+# for mobile connections it is where the operator's network meets the internet, not
+# where the phone is. Can be turned off in the control panel ("locate" in the
+# "login_alerts" key).
 #
 # The emails can be turned off in the control panel ("login_alerts" key of
 # $STORAGE_ROOT/settings.yaml); the networks are still learned.
@@ -41,6 +56,9 @@ STATE_FILE = STATE_DIR + "/known-logins.json"
 FORGET_DAYS = 180
 TRUST_DAYS = 30
 FAIL2BAN_JAIL = "miab-postfix-slow"
+RIPESTAT = "https://stat.ripe.net/data/%s/data.json?resource=%s&sourceapp=power-mailinabox"
+LOOKUPS_PER_RUN = 40
+LOOKUP_TIMEOUT = 8
 
 POSTFIX_RE = re.compile(
 	r"postfix/submission/smtpd\[\d+\]: \w+: client=[^\[\s]*\[([0-9A-Fa-f.:]+)\](?::\d+)?, sasl_method=\S+, sasl_username=(\S+)")
@@ -61,6 +79,22 @@ def network_of(address):
 		ip = ip.ipv4_mapped
 	prefix = 24 if ip.version == 4 else 64
 	return ip, ipaddress.ip_network("%s/%d" % (ip, prefix), strict=False)
+
+
+def block_of(network):
+	# The operator block a network is in (see the top of this file).
+	network = ipaddress.ip_network(network)
+	return network.supernet(new_prefix=16 if network.version == 4 else 32)
+
+
+def known_blocks(networks):
+	blocks = set()
+	for network in networks:
+		try:
+			blocks.add(block_of(network))
+		except ValueError:
+			pass
+	return blocks
 
 
 def parse_line(line):
@@ -135,8 +169,10 @@ def is_local(ip, env):
 
 
 def record(state, lines, env):
-	# Adds the logins in the lines to the state. Returns the new (user, network) pairs.
+	# Adds the logins in the lines to the state. Returns the (user, network) pairs of the
+	# logins from operator blocks the user never used before.
 	new = {}
+	blocks = {user: known_blocks(networks) for user, networks in state["users"].items()}
 	stamp = now().isoformat(timespec="seconds")
 	for line in lines:
 		login = parse_line(line)
@@ -153,7 +189,10 @@ def record(state, lines, env):
 		known = networks.get(str(network))
 		if known is None:
 			known = networks[str(network)] = {"first": stamp, "count": 0, "services": []}
-			new[(user, str(network))] = known
+			user_blocks = blocks.setdefault(user, set())
+			if block_of(network) not in user_blocks:
+				user_blocks.add(block_of(network))
+				new[(user, str(network))] = known
 		known["last"] = stamp
 		known["address"] = str(ip)
 		known["count"] += 1
@@ -208,16 +247,115 @@ def sync_fail2ban(networks):
 						stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30)
 
 
-def alerts_enabled(env):
+def get_config(env):
 	config = utils.load_settings(env).get("login_alerts")
-	return not (isinstance(config, dict) and config.get("enabled") is False)
+	config = config if isinstance(config, dict) else {}
+	return {
+		"enabled": config.get("enabled") is not False,
+		"locate": config.get("locate") is not False,
+	}
+
+
+def alerts_enabled(env):
+	return get_config(env)["enabled"]
+
+
+def set_config(env, **changes):
+	config = utils.load_settings(env)
+	current = get_config(env)
+	current.update({k: bool(v) for k, v in changes.items()})
+	config["login_alerts"] = current
+	utils.write_settings(config, env)
 
 
 def set_alerts_enabled(env, enabled):
-	config = utils.load_settings(env)
-	config["login_alerts"] = {"enabled": bool(enabled)}
-	utils.write_settings(config, env)
+	set_config(env, enabled=enabled)
 	return "Emails about logins from new places are %s.\n" % ("on" if enabled else "off")
+
+
+def set_locate_enabled(env, enabled):
+	set_config(env, locate=enabled)
+	return "Looking up where the addresses are is %s.\n" % ("on" if enabled else "off")
+
+
+def ripestat(call, resource):
+	import time
+	import urllib.request
+	request = urllib.request.Request(RIPESTAT % (call, resource),
+									headers={"User-Agent": "Power-Mail-in-a-Box-login-alerts/1.0"})
+	for attempt in range(2):
+		try:
+			with urllib.request.urlopen(request, timeout=LOOKUP_TIMEOUT) as response:
+				return json.load(response).get("data") or {}
+		except Exception:
+			if attempt:
+				raise
+			time.sleep(2)
+
+
+def provider_name(holder):
+	# "Telefonica_de_EspaNa TELEFONICA DE ESPANA S.A.U." -> "TELEFONICA DE ESPANA S.A.U.",
+	# "PACKETHUBSA-AS-AP - PacketHub S.A." -> "PacketHub S.A.": drop the AS handle.
+	holder = holder.strip()
+	if " - " in holder:
+		return holder.split(" - ", 1)[1].strip()
+	first, _, rest = holder.partition(" ")
+	if rest and (re.search(r"[-_]", first) or re.match(r"^AS\d+$", first) or first.isupper()):
+		return rest.strip()
+	return holder
+
+
+def lookup_location(address):
+	# {"city", "country", "asn", "provider"} of an address (values may be None), or None
+	# if RIPEstat can't be reached.
+	try:
+		geo = ripestat("maxmind-geo-lite", address)
+		info = ripestat("network-info", address)
+	except Exception:
+		return None
+	location = {"city": None, "country": None, "asn": None, "provider": None}
+	try:
+		found = geo["located_resources"][0]["locations"][0]
+		location["city"] = found.get("city") or None
+		location["country"] = found.get("country") or None
+	except (KeyError, IndexError, TypeError):
+		pass
+	asns = info.get("asns") or []
+	if asns:
+		location["asn"] = int(asns[0])
+		try:
+			holder = ripestat("as-overview", "AS%d" % location["asn"]).get("holder") or ""
+			location["provider"] = provider_name(holder)[:80] or None
+		except Exception:
+			pass
+	return location
+
+
+def locate_networks(state, env, only=None):
+	# Looks up the networks that don't have a location yet (the ones in only first).
+	if not get_config(env)["locate"]:
+		return
+	todo = []
+	for user, networks in state["users"].items():
+		for network, known in networks.items():
+			if "location" not in known and known.get("address"):
+				todo.append(((user, network) not in (only or {}), known))
+	todo.sort(key=lambda item: (item[0], item[1].get("last", "")), reverse=False)
+	cache = {}
+	for _, known in todo[:LOOKUPS_PER_RUN]:
+		address = known["address"]
+		if address not in cache:
+			cache[address] = lookup_location(address)
+		if cache[address] is not None:
+			known["location"] = cache[address]
+
+
+def describe_location(location):
+	if not location:
+		return ""
+	place = ", ".join(x for x in (location.get("city"), location.get("country")) if x)
+	provider = location.get("provider") or ("AS%d" % location["asn"] if location.get("asn") else "")
+	return " — ".join(x for x in (place, provider) if x)
 
 
 def reverse_dns(address):
@@ -234,14 +372,18 @@ def reverse_dns(address):
 
 def report(new):
 	lines = [
-		"These accounts logged in from a network they hadn't used before:",
+		"These accounts logged in through an internet provider's block of addresses they",
+		"hadn't used before (another provider, or another country):",
 		"",
 	]
 	for (user, network), known in sorted(new.items()):
 		host = reverse_dns(known["address"])
-		lines.append("%s from %s (network %s)%s: %s, %d login%s" % (
-			user, known["address"], network, " " + host if host else "",
+		where = describe_location(known.get("location"))
+		lines.append("%s from %s (block %s)%s: %s, %d login%s" % (
+			user, known["address"], block_of(network), " " + host if host else "",
 			", ".join(known["services"]), known["count"], "" if known["count"] == 1 else "s"))
+		if where:
+			lines.append("    %s (approximate)" % where)
 	lines += [
 		"",
 		"If you don't recognize one of them, change that account's password in the control",
@@ -266,6 +408,8 @@ def run(env):
 	new = record(state, lines, env)
 	forget_old(state)
 	state["log"] = position
+	save_state(state)
+	locate_networks(state, env, only=new)
 	save_state(state)
 
 	trusted = get_recent_networks(state=state)
@@ -297,10 +441,15 @@ def get_status(env):
 					"services": known.get("services", []),
 					"first": known.get("first"),
 					"last": known.get("last"),
+					"count": known.get("count", 0),
+					"block": str(block_of(network)),
+					"location": known.get("location"),
 				})
 	recent.sort(key=lambda r: r.get("last") or "", reverse=True)
+	config = get_config(env)
 	return {
-		"enabled": alerts_enabled(env),
+		"enabled": config["enabled"],
+		"locate": config["locate"],
 		"recent": recent[:200],
 		"trust_days": TRUST_DAYS,
 	}
@@ -314,8 +463,10 @@ if __name__ == "__main__":
 			print(output)
 	elif len(sys.argv) == 2 and sys.argv[1] in ("on", "off"):
 		print(set_alerts_enabled(env, sys.argv[1] == "on"), end="")
+	elif len(sys.argv) == 3 and sys.argv[1] == "locate" and sys.argv[2] in ("on", "off"):
+		print(set_locate_enabled(env, sys.argv[2] == "on"), end="")
 	elif len(sys.argv) == 2 and sys.argv[1] == "status":
 		print(json.dumps(get_status(env), indent=1))
 	else:
-		print("Usage: %s [on | off | status]" % sys.argv[0])
+		print("Usage: %s [on | off | locate on|off | status]" % sys.argv[0])
 		sys.exit(2)
