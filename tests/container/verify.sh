@@ -173,6 +173,13 @@ if [ -f /etc/systemd/system/mailinabox-ip-blocklists.service ]; then
 	check "API: removing a list and turning the blocklists off and on" '$C -u "$U:$KEY" -X POST -d "action=remove_source&url=http://127.0.0.1:8765/empty.txt" $H/admin/mail/login-protection | grep -q Blocking && $C -u "$U:$KEY" -X POST -d "action=blocklists&enabled=0" $H/admin/mail/login-protection | grep -q "off" && ! nft list table inet mailinabox_ip_blocklists >/dev/null 2>&1 && $C -u "$U:$KEY" -X POST -d "action=blocklists&enabled=1" $H/admin/mail/login-protection | grep -q Blocking && nft list table inet mailinabox_ip_blocklists >/dev/null 2>&1'
 fi
 
+echo "== security dashboard"
+check "security metrics: hourly sample" '/root/mailinabox/management/security_metrics.py collect && python3 -c "import json; s = json.load(open(\"/var/lib/mailinabox/security-metrics.json\")); assert \"samples\" in s"'
+echo "$(LC_ALL=C date "+%b %e %H:%M:%S") box postfix/submission/smtpd[1]: warning: unknown[198.51.100.77]: SASL LOGIN authentication failed: UGFzc3dvcmQ6" >> /var/log/mail.log
+check "API: security metrics count a failed login and its address" '$C -u "$U:$KEY" "$H/admin/system/security-metrics?range=24h" | python3 -c "import json, sys; d = json.load(sys.stdin); sys.exit(0 if len(d[\"buckets\"]) == 24 and d[\"totals\"][\"failed\"] >= 1 and any(t[\"address\"] == \"198.51.100.77\" for t in d[\"top\"]) else 1)"'
+check "API: security metrics for 7 and 30 days" '$C -u "$U:$KEY" "$H/admin/system/security-metrics?range=7d" | grep -q "\"bucket_seconds\": 86400" && $C -u "$U:$KEY" "$H/admin/system/security-metrics?range=30d" | python3 -c "import json, sys; sys.exit(0 if len(json.load(sys.stdin)[\"buckets\"]) == 30 else 1)"'
+check "dashboard loads the charts" '$C $H/admin/ | grep -q "panel/charts.js?v=" && $C -o /dev/null -w "%{http_code}" $H/admin/assets/panel/charts.js | grep -q 200'
+
 echo "== status checks"
 /root/mailinabox/management/status_checks.py > /tmp/status.txt 2>&1
 check "status checks run" 'grep -q "System" /tmp/status.txt && ! grep -q "Traceback" /tmp/status.txt'

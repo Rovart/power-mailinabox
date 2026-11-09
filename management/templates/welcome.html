@@ -42,6 +42,125 @@
 		</div>
 	</div>
 
+	<section class="security-panel if-logged-in-admin" id="security-panel" aria-labelledby="security-title">
+		<div class="section-head">
+			<div>
+				<h3 id="security-title">Security</h3>
+				<p>Attacks on the box&rsquo;s logins and web server, from its logs.</p>
+			</div>
+			<div class="segmented" role="radiogroup" aria-label="Period">
+				<button type="button" role="radio" aria-checked="true" data-range="24h">24 hours</button>
+				<button type="button" role="radio" aria-checked="false" data-range="7d">7 days</button>
+				<button type="button" role="radio" aria-checked="false" data-range="30d">30 days</button>
+			</div>
+		</div>
+
+		<div class="row g-3 mb-3">
+			<div class="col-sm-6 col-xl-3">
+				<div class="metric">
+					<span class="metric-label">Failed logins</span>
+					<div class="metric-row"><span class="metric-value" id="sec-failed">&ndash;</span><span
+							class="sec-spark" id="sec-failed-spark"></span></div>
+					<span class="metric-delta" id="sec-failed-delta"></span>
+				</div>
+			</div>
+			<div class="col-sm-6 col-xl-3">
+				<div class="metric">
+					<span class="metric-label">Attacking addresses</span>
+					<div class="metric-row"><span class="metric-value" id="sec-attackers">&ndash;</span></div>
+					<span class="metric-delta" id="sec-attackers-delta"></span>
+				</div>
+			</div>
+			<div class="col-sm-6 col-xl-3">
+				<div class="metric">
+					<span class="metric-label">Bans by fail2ban</span>
+					<div class="metric-row"><span class="metric-value" id="sec-bans">&ndash;</span><span class="sec-spark"
+							id="sec-bans-spark"></span></div>
+					<span class="metric-delta" id="sec-bans-delta"></span>
+				</div>
+			</div>
+			<div class="col-sm-6 col-xl-3">
+				<div class="metric">
+					<span class="metric-label">Blocked by the IP blocklists</span>
+					<div class="metric-row"><span class="metric-value" id="sec-dropped">&ndash;</span><span
+							class="sec-spark" id="sec-dropped-spark"></span></div>
+					<span class="metric-note" id="sec-dropped-note"></span>
+				</div>
+			</div>
+		</div>
+
+		<div class="row g-3 mb-3">
+			<div class="col-12">
+				<div class="card">
+					<div class="card-header">
+						<h4 class="h6">Failed logins</h4>
+					</div>
+					<div class="card-body">
+						<div id="sec-failed-chart"></div>
+					</div>
+				</div>
+			</div>
+			<div class="col-lg-6">
+				<div class="card h-100">
+					<div class="card-header">
+						<h4 class="h6">Bans by fail2ban</h4>
+					</div>
+					<div class="card-body">
+						<div id="sec-bans-chart"></div>
+					</div>
+				</div>
+			</div>
+			<div class="col-lg-6">
+				<div class="card h-100">
+					<div class="card-header">
+						<h4 class="h6">Connections blocked by the IP blocklists</h4>
+					</div>
+					<div class="card-body">
+						<div id="sec-dropped-chart"></div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="row g-3 mb-4">
+			<div class="col-xl-8">
+				<div class="card h-100">
+					<div class="card-header">
+						<h4 class="h6">Most active attackers</h4>
+					</div>
+					<div class="card-body">
+						<div class="table-responsive">
+							<table class="table table-hover align-middle mb-0 attackers-table" aria-label="Most active attackers">
+								<thead>
+									<tr>
+										<th scope="col">Address</th>
+										<th scope="col">Where</th>
+										<th scope="col" class="text-end">Failed logins</th>
+										<th scope="col" class="text-end">Bans</th>
+										<th scope="col">Status</th>
+										<th scope="col">Last seen</th>
+									</tr>
+								</thead>
+								<tbody id="sec-top"></tbody>
+							</table>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="col-xl-4">
+				<div class="card h-100">
+					<div class="card-header">
+						<h4 class="h6">Where the attacks come from</h4>
+					</div>
+					<div class="card-body">
+						<ul class="country-bars" id="sec-countries" aria-label="Attacks by country"></ul>
+						<p class="small text-body-secondary mt-2 mb-0" id="sec-countries-note"></p>
+					</div>
+				</div>
+			</div>
+		</div>
+	</section>
+
 	<h3>Manage your box</h3>
 	<div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3 mb-4">
 		<div class="col">
@@ -163,7 +282,165 @@
 </div>
 
 <script>
+	/* Security metrics (management/security_metrics.py) */
+
+	var security_range = "24h";
+	try {
+		var saved_range = localStorage.getItem("miab-security-range");
+		if (["24h", "7d", "30d"].indexOf(saved_range) >= 0) security_range = saved_range;
+	} catch (_) {
+	}
+
+	$(document).on("click", "#security-panel [data-range]", function () {
+		security_range = $(this).attr("data-range");
+		try {
+			localStorage.setItem("miab-security-range", security_range);
+		} catch (_) {
+		}
+		show_security();
+	});
+
+	function security_delta(el, now, before, label) {
+		el.removeClass("worse better").text("");
+		if (before === null || before === undefined) return;
+		if (!before && !now) { el.text("No change " + label); return; }
+		if (!before) { el.addClass("worse").text("New " + label); return; }
+		var pct = Math.round((now - before) / before * 100);
+		if (pct === 0) { el.text("No change " + label); return; }
+		// More attacks is worse.
+		el.addClass(pct > 0 ? "worse" : "better")
+			.text((pct > 0 ? "▲ " : "▼ ") + Math.abs(pct) + "% " + label);
+	}
+
+	function security_place(loc) {
+		if (!loc) return "";
+		var country = loc.country || "";
+		try {
+			if (country && window.Intl && Intl.DisplayNames)
+				country = new Intl.DisplayNames([navigator.language || "en"], { type: "region" }).of(country);
+		} catch (_) {
+		}
+		return [loc.city, country].filter(Boolean).join(", ");
+	}
+
+	function security_ago(iso) {
+		var seconds = (new Date(iso).getTime() - Date.now()) / 1000;
+		var units = [["day", 86400], ["hour", 3600], ["minute", 60]];
+		try {
+			var rtf = new Intl.RelativeTimeFormat([navigator.language || "en"], { numeric: "auto", style: "short" });
+			for (var i = 0; i < units.length; i++)
+				if (Math.abs(seconds) >= units[i][1] || i === units.length - 1)
+					return rtf.format(Math.round(seconds / units[i][1]), units[i][0]);
+		} catch (_) {
+		}
+		return new Date(iso).toLocaleString();
+	}
+
+	function sum(values) {
+		return values.reduce(function (a, v) { return a + (v || 0); }, 0);
+	}
+
+	function show_security() {
+		$("#security-panel [data-range]").each(function () {
+			$(this).attr("aria-checked", $(this).attr("data-range") === security_range ? "true" : "false");
+		});
+		$("#security-panel").addClass("loading");
+		api("/system/security-metrics", "GET", { range: security_range }, function (r) {
+			$("#security-panel").removeClass("loading");
+			var period = { "24h": "vs the previous 24 hours", "7d": "vs the previous 7 days", "30d": "vs the previous 30 days" }[r.range];
+			var C = PanelCharts;
+
+			var smtp = r.failed["SMTP"], imap = r.failed["IMAP/POP"];
+			var failed_total = smtp.map(function (v, i) { return v + imap[i]; });
+			$("#sec-failed").text(C.compact(r.totals.failed));
+			C.sparkline(document.getElementById("sec-failed-spark"), failed_total);
+			security_delta($("#sec-failed-delta"), r.totals.failed, r.previous.failed, period);
+
+			$("#sec-attackers").text(C.compact(r.totals.attackers));
+			security_delta($("#sec-attackers-delta"), r.totals.attackers, r.previous.attackers, period);
+
+			var ban_names = Object.keys(r.bans);
+			var ban_total = r.buckets.map(function (_, i) { return sum(ban_names.map(function (k) { return r.bans[k][i]; })); });
+			$("#sec-bans").text(C.compact(r.totals.bans));
+			C.sparkline(document.getElementById("sec-bans-spark"), ban_total);
+			security_delta($("#sec-bans-delta"), r.totals.bans, r.previous.bans, period);
+
+			$("#sec-dropped").text(r.totals.dropped === null ? "–" : C.compact(r.totals.dropped));
+			C.sparkline(document.getElementById("sec-dropped-spark"), r.dropped);
+			$("#sec-dropped-note").text(r.dropped_since
+				? "Counted since " + new Date(r.dropped_since).toLocaleString() + "."
+				: "Counted from the next hourly sample.");
+
+			C.columns(document.getElementById("sec-failed-chart"), {
+				title: "Failed logins",
+				buckets: r.buckets, bucket_seconds: r.bucket_seconds,
+				series: [
+					{ label: "Sending mail (SMTP)", values: smtp, color: "var(--viz-1)" },
+					{ label: "IMAP and POP", values: imap, color: "var(--viz-2)" },
+				],
+				empty: "No failed logins in this period."
+			});
+
+			var colors = ["var(--viz-1)", "var(--viz-2)", "var(--viz-3)", "var(--viz-4)"];
+			C.columns(document.getElementById("sec-bans-chart"), {
+				title: "Bans by fail2ban",
+				buckets: r.buckets, bucket_seconds: r.bucket_seconds,
+				series: ban_names.length ? ban_names.map(function (name, i) {
+					return { label: name, values: r.bans[name], color: colors[Math.min(i, 3)] };
+				}) : [{ label: "Bans", values: r.buckets.map(function () { return 0; }), color: colors[0] }],
+				empty: "No bans in this period."
+			});
+
+			C.columns(document.getElementById("sec-dropped-chart"), {
+				title: "Connections blocked",
+				buckets: r.buckets, bucket_seconds: r.bucket_seconds,
+				series: [{ label: "Connections blocked", values: r.dropped, color: "var(--viz-1)" }],
+				empty: r.dropped_since ? "No blocked connections in this period." : "Waiting for the first hourly sample."
+			});
+
+			var tbody = $("#sec-top").empty();
+			if (!r.top.length)
+				tbody.append($('<tr><td colspan="6" class="text-body-secondary"></td></tr>').find("td").text("No attacks in this period.").end());
+			r.top.forEach(function (a) {
+				var status = $("<td/>");
+				if (a.banned_now.length)
+					status.append($('<span class="badge text-bg-danger me-1"/>').text("Banned"));
+				if (a.on_blocklist)
+					status.append($('<span class="badge text-bg-secondary"/>').text("On blocklist"));
+				var loc = a.location || {};
+				tbody.append($("<tr/>").append(
+					$("<td/>").append($("<code/>").text(a.address)),
+					$('<td class="attacker-where"/>').append(
+						$("<div/>").text(security_place(a.location) || (r.located_from ? "Pending" : "")),
+						$('<div class="small text-body-secondary"/>').text(loc.provider || "")),
+					$('<td class="text-end"/>').text(a.failed.toLocaleString()),
+					$('<td class="text-end"/>').text(a.bans.toLocaleString()).attr("title", a.jails.join(", ")),
+					status,
+					$('<td class="text-nowrap small"/>').text(a.last ? security_ago(a.last) : "")
+						.attr("title", a.last ? new Date(a.last).toLocaleString() : "")));
+			});
+
+			var list = $("#sec-countries").empty();
+			var top = r.countries.length ? r.countries[0].count : 0;
+			r.countries.forEach(function (c) {
+				var name = security_place({ country: c.country });
+				var bar = $('<span class="country-bar"/>').css("width", Math.max(2, c.count / top * 100) + "%");
+				list.append($("<li/>").attr("title", name + ": " + c.count.toLocaleString()).append(
+					$('<span class="text-truncate"/>').text(name),
+					$("<span/>").append(bar),
+					$('<span class="count"/>').text(C.compact(c.count))));
+			});
+			$("#sec-countries-note").text(r.countries.length
+				? "Failed logins and bans of the attackers located so far (the most active ones, looked up every hour on RIPEstat)."
+				: (r.located_from ? "The most active attackers are located every hour." : "Locations are off (Mail > Filtering)."));
+		}, function () {
+			$("#security-panel").removeClass("loading");
+		});
+	}
+
 	function show_welcome() {
+		if (api_credentials && (api_credentials.privileges || []).indexOf("admin") >= 0)
+			show_security();
 		if (!api_credentials || (api_credentials.privileges || []).indexOf("admin") < 0)
 			return;
 

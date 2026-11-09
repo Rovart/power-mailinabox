@@ -532,24 +532,25 @@ def get_status(env):
 	recent = []
 	for user, networks in state["users"].items():
 		for network, known in networks.items():
-			if known.get("last", "") >= limit:
-				recent.append({
-					"user": user,
-					"network": network,
-					"address": known.get("address"),
-					"services": known.get("services", []),
-					"first": known.get("first"),
-					"last": known.get("last"),
-					"count": known.get("count", 0),
-					"block": str(block_of(network)),
-					"location": known.get("location"),
-				})
+			recent.append({
+				"user": user,
+				"network": network,
+				"address": known.get("address"),
+				"services": known.get("services", []),
+				"first": known.get("first"),
+				"last": known.get("last"),
+				"count": known.get("count", 0),
+				"block": str(block_of(network)),
+				"location": known.get("location"),
+				"trusted": known.get("last", "") >= limit,
+			})
 	recent.sort(key=lambda r: r.get("last") or "", reverse=True)
 	config = get_config(env)
 	return {
 		"enabled": config["enabled"],
 		"locate": config["locate"],
-		"recent": recent[:200],
+		"recent": recent[:2000],
+		"forget_days": FORGET_DAYS,
 		"trust_days": TRUST_DAYS,
 	}
 

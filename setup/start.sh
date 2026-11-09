@@ -176,6 +176,7 @@ restart_service fail2ban
 # can't be downloaded adds nothing, so this never blocks the setup.
 management/login_alerts.py > /dev/null || true
 management/ip_blocklists.py update > /dev/null || echo "Could not load the IP blocklists (see Mail > Filtering in the control panel)."
+management/security_metrics.py collect > /dev/null 2>&1 || true
 
 # If there aren't any mail users yet, create one.
 source setup/firstuser.sh

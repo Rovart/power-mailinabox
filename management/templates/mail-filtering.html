@@ -176,19 +176,36 @@
 					Locations come from RIPEstat (only the address is sent) and are approximate: for mobile
 					connections they show where the operator&rsquo;s network meets the internet, not where the
 					phone is.</p>
-				<p class="small mb-2" id="logins-summary"></p>
+				<div class="filter-row" role="search" aria-label="Filter the logins">
+					<label class="visually-hidden" for="logins-user">Account</label>
+					<select class="form-select" id="logins-user">
+						<option value="">All accounts</option>
+					</select>
+					<label class="visually-hidden" for="logins-period">Last login</label>
+					<select class="form-select" id="logins-period">
+						<option value="1">Last 24 hours</option>
+						<option value="7">Last 7 days</option>
+						<option value="30" selected>Last 30 days</option>
+						<option value="90">Last 90 days</option>
+						<option value="">All (180 days)</option>
+					</select>
+					<label class="visually-hidden" for="logins-search">Search</label>
+					<input type="search" class="form-control filter-search" id="logins-search"
+						placeholder="Search address, place or provider" autocomplete="off" spellcheck="false">
+				</div>
+				<p class="small mb-2 text-body-secondary" id="logins-summary" aria-live="polite"></p>
 				<div class="table-responsive" style="max-height: 36rem;">
 					<table class="table table-hover align-middle mb-0 logins-table" aria-labelledby="logins-title">
 						<thead class="sticky-top">
 							<tr>
-								<th scope="col">Account</th>
-								<th scope="col">Last address</th>
-								<th scope="col">Location</th>
-								<th scope="col">Provider</th>
+								<th scope="col" class="sortable" data-sort="user" tabindex="0">Account</th>
+								<th scope="col" class="sortable" data-sort="address" tabindex="0">Last address</th>
+								<th scope="col" class="sortable" data-sort="place" tabindex="0">Location</th>
+								<th scope="col" class="sortable" data-sort="provider" tabindex="0">Provider</th>
 								<th scope="col">Services</th>
-								<th scope="col" class="text-end">Logins</th>
-								<th scope="col">First seen</th>
-								<th scope="col">Last login</th>
+								<th scope="col" class="text-end sortable" data-sort="count" tabindex="0">Logins</th>
+								<th scope="col" class="sortable" data-sort="first" tabindex="0">First seen</th>
+								<th scope="col" class="sortable" data-sort="last" tabindex="0" aria-sort="descending">Last login</th>
 							</tr>
 						</thead>
 						<tbody id="logins-recent"></tbody>
@@ -293,27 +310,91 @@
 				var l = r.login_alerts;
 				$('#login-alerts-enabled').prop('checked', l.enabled);
 				$('#login-locate-enabled').prop('checked', l.locate);
-				$('#logins-summary').text(l.recent.length + " account network" + (l.recent.length == 1 ? "" : "s")
-					+ " used in the last " + l.trust_days + " days.");
-				var rows = $('#logins-recent').empty();
-				var countries = (typeof Intl !== "undefined" && Intl.DisplayNames) ? new Intl.DisplayNames([navigator.language || "en"], { type: "region" }) : null;
-				l.recent.forEach(function (login) {
-					var loc = login.location || {}, country = loc.country || "";
-					try { if (countries && country) country = countries.of(country); } catch (e) { }
-					var place = [loc.city, country].filter(Boolean).join(", ");
-					rows.append($('<tr/>').append(
-						$('<td class="text-nowrap fw-medium"/>').text(login.user),
-						$('<td class="text-nowrap"/>').append($('<code/>').text(login.address || login.network))
-							.append($('<div class="small text-body-secondary"/>').text("block " + login.block)),
-						$('<td class="text-nowrap"/>').text(place || (l.locate ? (login.location ? "Unknown" : "Pending") : "")),
-						$('<td class="small logins-provider"/>').text(loc.provider || (loc.asn ? "AS" + loc.asn : "")),
-						$('<td class="small text-nowrap"/>').text((login.services || []).join(", ")),
-						$('<td class="text-end"/>').text((login.count || 0).toLocaleString()),
-						$('<td class="text-nowrap small"/>').text(protection_date(login.first)),
-						$('<td class="text-nowrap small"/>').text(protection_date(login.last))));
-				});
+				logins_data = l;
+				var users = {};
+				l.recent.forEach(function (login) { users[login.user] = true; });
+				var select = $('#logins-user'), chosen = select.val();
+				select.find('option:not(:first)').remove();
+				Object.keys(users).sort().forEach(function (u) { select.append($('<option/>').val(u).text(u)); });
+				select.val(users[chosen] ? chosen : '');
+				render_logins();
 			});
 	}
+
+
+	var logins_data = null;
+	var logins_sort = { key: "last", dir: -1 };
+	var logins_countries = (typeof Intl !== "undefined" && Intl.DisplayNames) ? new Intl.DisplayNames([navigator.language || "en"], { type: "region" }) : null;
+
+	function login_place(login) {
+		var loc = login.location || {}, country = loc.country || "";
+		try { if (logins_countries && country) country = logins_countries.of(country); } catch (e) { }
+		return [loc.city, country].filter(Boolean).join(", ");
+	}
+
+	function render_logins() {
+		if (!logins_data) return;
+		var l = logins_data;
+		var user = $('#logins-user').val();
+		var days = parseInt($('#logins-period').val(), 10);
+		var since = days ? Date.now() - days * 86400000 : 0;
+		var q = ($('#logins-search').val() || "").trim().toLowerCase();
+		var shown = l.recent.filter(function (login) {
+			if (user && login.user !== user) return false;
+			if (since && !(new Date(login.last || 0).getTime() >= since)) return false;
+			if (q) {
+				var loc = login.location || {};
+				var text = [login.user, login.address, login.network, login.block, login_place(login), loc.provider, loc.asn ? "AS" + loc.asn : ""].join(" ").toLowerCase();
+				if (text.indexOf(q) < 0) return false;
+			}
+			return true;
+		});
+		var key = logins_sort.key, dir = logins_sort.dir;
+		function value(login) {
+			if (key === "place") return login_place(login).toLowerCase();
+			if (key === "provider") return ((login.location || {}).provider || "").toLowerCase();
+			if (key === "count") return login.count || 0;
+			return String(login[key] || "").toLowerCase();
+		}
+		shown.sort(function (a, b) {
+			var x = value(a), y = value(b);
+			return (x < y ? -1 : x > y ? 1 : 0) * dir;
+		});
+		$('#logins-recent').closest('table').find('th.sortable').each(function () {
+			var k = $(this).attr('data-sort');
+			if (k === key) $(this).attr('aria-sort', dir > 0 ? 'ascending' : 'descending');
+			else $(this).removeAttr('aria-sort');
+		});
+		$('#logins-summary').text(shown.length + " of " + l.recent.length + " account network" + (l.recent.length == 1 ? "" : "s")
+			+ ". Networks used in the last " + l.trust_days + " days are trusted by fail2ban and the blocklists.");
+		var rows = $('#logins-recent').empty();
+		if (!shown.length)
+			rows.append($('<tr><td colspan="8" class="text-body-secondary"></td></tr>').find('td').text("No logins match.").end());
+		shown.forEach(function (login) {
+			var loc = login.location || {};
+			var place = login_place(login);
+			rows.append($('<tr/>').append(
+				$('<td class="text-nowrap fw-medium"/>').text(login.user),
+				$('<td class="text-nowrap"/>').append($('<code/>').text(login.address || login.network))
+					.append($('<div class="small text-body-secondary"/>').text("block " + login.block)),
+				$('<td class="text-nowrap"/>').text(place || (l.locate ? (login.location ? "Unknown" : "Pending") : "")),
+				$('<td class="small logins-provider"/>').text(loc.provider || (loc.asn ? "AS" + loc.asn : "")),
+				$('<td class="small text-nowrap"/>').text((login.services || []).join(", ")),
+				$('<td class="text-end"/>').text((login.count || 0).toLocaleString()),
+				$('<td class="text-nowrap small"/>').text(protection_date(login.first)),
+				$('<td class="text-nowrap small"/>').text(protection_date(login.last))));
+		});
+	}
+
+	$(document).on('change input', '#logins-user, #logins-period, #logins-search', render_logins);
+	$(document).on('click keydown', 'th.sortable[data-sort]', function (e) {
+		if (e.type === 'keydown' && e.key !== 'Enter' && e.key !== ' ') return;
+		e.preventDefault();
+		var key = $(this).attr('data-sort');
+		if (!$(this).closest('table').find('#logins-recent').length) return;
+		logins_sort = { key: key, dir: logins_sort.key === key ? -logins_sort.dir : (key === 'last' || key === 'first' || key === 'count' ? -1 : 1) };
+		render_logins();
+	});
 
 	function protection_change(data, done) {
 		api(

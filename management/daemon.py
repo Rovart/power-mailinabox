@@ -378,6 +378,14 @@ def mail_filtering_set():
 		return (str(e), 400)
 
 
+@app.route('/system/security-metrics')
+@authorized_personnel_only()
+def system_security_metrics():
+	# Attacks on the box over time, for the dashboard (see security_metrics.py).
+	import security_metrics
+	return json_response(security_metrics.get_metrics(env, request.args.get('range', '24h')))
+
+
 @app.route('/mail/login-protection')
 @authorized_personnel_only()
 def mail_login_protection_get():
