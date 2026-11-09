@@ -340,7 +340,9 @@ def locate_networks(state, env, only=None):
 		for network, known in networks.items():
 			if "location" not in known and known.get("address"):
 				todo.append(((user, network) not in (only or {}), known))
-	todo.sort(key=lambda item: (item[0], item[1].get("last", "")), reverse=False)
+	# The new networks first, then the most recently used.
+	todo.sort(key=lambda item: item[1].get("last", ""), reverse=True)
+	todo.sort(key=lambda item: item[0])
 	cache = {}
 	for _, known in todo[:LOOKUPS_PER_RUN]:
 		address = known["address"]
