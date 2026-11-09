@@ -1,6 +1,27 @@
 CHANGELOG
 =========
 
+Power Mail-in-a-Box v61.12
+--------------------------
+
+* New control panel design. The panel no longer uses Bootstrap: its own stylesheet and a small
+  script (`conf/panel/panel.css` and `panel.js`, installed with the other assets) replace
+  Bootstrap's CSS and JavaScript, and setup no longer downloads Bootstrap.
+  * A sidebar with every section in view replaces the top bar and its menus; on narrow screens it
+    slides in from the left.
+  * The Inter typeface, served by the box (downloaded and checked by setup like the other
+    assets; SIL Open Font License), neutral buttons, cards without header bands, quieter tables,
+    and light and dark themes with the same tokens.
+  * The modal dialog is a native `<dialog>`, and the account and theme menus work with the
+    keyboard (arrow keys, Home, End, Escape).
+  * Each page shows its section above its title, and the panel is branded "Power Mail-in-a-Box by
+    Rovart", with the box's host name beside it.
+  * Short animations (under 250 ms, only opacity and transform), none for keyboard actions, and
+    no movement with "reduce motion".
+  * The panel's files get a version in their address, so browsers don't keep old copies after
+    an update.
+* Logins from new places: the locations of the most recent networks are looked up first.
+
 Power Mail-in-a-Box v61.11
 --------------------------
 
