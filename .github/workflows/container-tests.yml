@@ -52,6 +52,15 @@ jobs:
             sudo LOGDIR=/tmp/pmiab-tests tests/container/run-all.sh ${{ matrix.os }}
           fi
 
+      - name: Failed units in the container
+        if: failure()
+        run: |
+          name=pmiab-test-${{ matrix.os }}
+          sudo docker exec $name systemctl --failed --no-pager || true
+          for unit in $(sudo docker exec $name systemctl --failed --no-legend --plain | awk '{print $1}'); do
+            sudo docker exec $name journalctl -u "$unit" --no-pager -n 40 || true
+          done
+
       - name: Keep the logs
         if: always()
         uses: actions/upload-artifact@v4
