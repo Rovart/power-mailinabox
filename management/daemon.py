@@ -362,6 +362,45 @@ def mail_filtering_set():
 		return (str(e), 400)
 
 
+@app.route('/mail/login-protection')
+@authorized_personnel_only()
+def mail_login_protection_get():
+	import ip_blocklists, login_alerts
+	return json_response({
+		"blocklists": ip_blocklists.get_status(env),
+		"login_alerts": login_alerts.get_status(env),
+	})
+
+
+@app.route('/mail/login-protection', methods=['POST'])
+@authorized_personnel_only()
+def mail_login_protection_set():
+	# The public IP blocklists (see ip_blocklists.py) and the emails about logins from
+	# new places (see login_alerts.py).
+	import ip_blocklists, login_alerts
+	action = request.form.get('action', '')
+	url = request.form.get('url', '')
+	enabled = request.form.get('enabled', '') in ("1", "true", "yes", "on")
+	try:
+		if action == "blocklists":
+			return ip_blocklists.set_enabled(env, enabled)
+		if action == "add_source":
+			return ip_blocklists.add_source(env, url, request.form.get('description', ''))
+		if action == "remove_source":
+			return ip_blocklists.remove_source(env, url)
+		if action == "source_enabled":
+			return ip_blocklists.set_source_enabled(env, url, enabled)
+		if action == "reset_sources":
+			return ip_blocklists.reset_sources(env)
+		if action == "update":
+			return ip_blocklists.update(env)
+		if action == "login_alerts":
+			return login_alerts.set_alerts_enabled(env, enabled)
+		return ("Unknown action: %s" % action, 400)
+	except (ValueError, RuntimeError) as e:
+		return (str(e), 400)
+
+
 # DNS
 
 

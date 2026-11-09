@@ -170,6 +170,13 @@ tools/web_update
 # fail2ban was first configured, but they should exist now.
 restart_service fail2ban
 
+# Learn the networks the users log in from (they are never banned by the slow fail2ban
+# jail for the submission ports, whose ignore list fail2ban just forgot, nor blocked by
+# the blocklists), and download the public IP blocklists (Mail > Filtering). A list that
+# can't be downloaded adds nothing, so this never blocks the setup.
+management/login_alerts.py > /dev/null || true
+management/ip_blocklists.py update > /dev/null || echo "Could not load the IP blocklists (see Mail > Filtering in the control panel)."
+
 # If there aren't any mail users yet, create one.
 source setup/firstuser.sh
 
