@@ -139,6 +139,37 @@ echo "== backup"
 check "backup (duplicity) runs" '/root/mailinabox/management/backup.py > /tmp/backup.log 2>&1 && ls /home/user-data/backup/encrypted | grep -q "duplicity-full"' || cat /tmp/backup.log | tail -5
 check "backup status via API" '$C -u "$U:$KEY" $H/admin/system/backup/status | grep -q "\"full\": true\|\"full\":true"'
 
+echo "== login protection"
+check "port 25 doesn't offer AUTH, 587 does" '[ "$(postconf -h smtpd_sasl_auth_enable)" = no ] && python3 -c "
+import smtplib, ssl
+ctx = ssl._create_unverified_context()
+def auth(port):
+    s = smtplib.SMTP(\"127.0.0.1\", port, timeout=20); s.ehlo(); s.starttls(context=ctx); s.ehlo()
+    a = s.has_extn(\"auth\"); s.quit(); return a
+raise SystemExit(0 if not auth(25) and auth(587) else 1)"'
+check "AUTH rate and error limits on 465 and 587" '(for s in smtps submission; do postconf -P "$s/inet/smtpd_client_auth_rate_limit" | grep -q "= 10$" && postconf -P "$s/inet/smtpd_hard_error_limit" | grep -q "= 10$" || exit 1; done)'
+check "fail2ban: slow jail for the submission ports" 'fail2ban-client status miab-postfix-slow | grep -q "Currently banned" && [ "$(fail2ban-client get miab-postfix-slow findtime)" = 86400 ] && [ "$(fail2ban-client get miab-postfix-slow maxretry)" = 10 ]'
+F2B_SLOW_FILTER=/etc/fail2ban/filter.d/miab-postfix-submission-slow.conf
+F2B_LOG=$(mktemp)
+cat > $F2B_LOG <<-'EOF'
+	Nov  9 10:00:01 box postfix/submission/smtpd[1]: warning: unknown[203.0.113.7]: SASL LOGIN authentication failed: UGFzc3dvcmQ6
+	Nov  9 10:00:02 box postfix/submission/smtpd[1]: warning: unknown[203.0.113.8]: SASL PLAIN authentication failed: Connection lost to authentication server
+	Nov  9 10:00:03 box postfix/submission/smtpd[1]: warning: unknown[203.0.113.9]: SASL LOGIN authentication aborted
+	Nov  9 10:00:04 box postfix/smtpd[1]: warning: unknown[203.0.113.10]: SASL LOGIN authentication failed: UGFzc3dvcmQ6
+EOF
+check "fail2ban: slow filter counts real failures only" 'fail2ban-regex $F2B_LOG $F2B_SLOW_FILTER 2>/dev/null | grep -qE "^Lines: 4 lines, [0-9]+ ignored, 1 matched"'
+check "login alerts: new network reported, then trusted by fail2ban and the blocklists" 'echo "$(date "+%b %d %H:%M:%S") imap-login: Info: Login: user=<$U>, method=PLAIN, rip=198.51.100.23, lip=10.0.0.1, mpid=1, TLS, session=<x>" >> /var/log/mail.log && /root/mailinabox/management/login_alerts.py | grep -q "$U from 198.51.100.23 (network 198.51.100.0/24)" && [ -z "$(/root/mailinabox/management/login_alerts.py)" ] && fail2ban-client get miab-postfix-slow ignoreip | grep -q "198.51.100.0/24"'
+if [ -f /etc/systemd/system/mailinabox-ip-blocklists.service ]; then
+	check "IP blocklists loaded (on by default), with known logins exempt" 'systemctl is-enabled --quiet mailinabox-ip-blocklists && nft list set inet mailinabox_ip_blocklists block4 | grep -q "/" && nft list set inet mailinabox_ip_blocklists allow4 | grep -q "198.51.100.0/24" && nft list chain inet mailinabox_ip_blocklists input | grep -q "465, 587"'
+	check "API: login protection status" '$C -u "$U:$KEY" $H/admin/mail/login-protection | python3 -c "import json, sys; d = json.load(sys.stdin); b = d[\"blocklists\"]; sys.exit(0 if b[\"enabled\"] and b[\"networks4\"] > 0 and any(s.get(\"ok\") for s in b[\"sources\"]) and d[\"login_alerts\"][\"enabled\"] else 1)"'
+	BL=$(mktemp -d)
+	printf "# test list\n192.0.2.1\n" > $BL/empty.txt  # only a documentation address: no valid entries
+	(cd $BL && timeout 120 python3 -m http.server 8765 --bind 127.0.0.1 >/dev/null 2>&1 &)
+	sleep 1
+	check "API: a list without valid entries adds nothing and is reported" '$C -u "$U:$KEY" -X POST -d "action=add_source&url=http://127.0.0.1:8765/empty.txt" $H/admin/mail/login-protection | grep -q Blocking && $C -u "$U:$KEY" $H/admin/mail/login-protection | grep -q "no valid IP addresses" && nft list set inet mailinabox_ip_blocklists block4 | grep -q "/"'
+	check "API: removing a list and turning the blocklists off and on" '$C -u "$U:$KEY" -X POST -d "action=remove_source&url=http://127.0.0.1:8765/empty.txt" $H/admin/mail/login-protection | grep -q Blocking && $C -u "$U:$KEY" -X POST -d "action=blocklists&enabled=0" $H/admin/mail/login-protection | grep -q "off" && ! nft list table inet mailinabox_ip_blocklists >/dev/null 2>&1 && $C -u "$U:$KEY" -X POST -d "action=blocklists&enabled=1" $H/admin/mail/login-protection | grep -q Blocking && nft list table inet mailinabox_ip_blocklists >/dev/null 2>&1'
+fi
+
 echo "== status checks"
 /root/mailinabox/management/status_checks.py > /tmp/status.txt 2>&1
 check "status checks run" 'grep -q "System" /tmp/status.txt && ! grep -q "Traceback" /tmp/status.txt'

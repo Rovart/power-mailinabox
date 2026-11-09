@@ -1,10 +1,39 @@
 CHANGELOG
 =========
 
-Unreleased
-----------
+Power Mail-in-a-Box v61.10
+--------------------------
 
+Protection against password guessing on the logins (sending mail, IMAP, POP and Sieve). Botnets
+now try a few passwords from each of thousands of addresses, hours apart, which the existing
+fail2ban jails (20 failures in 30 seconds) never catch.
+
+* IP blocklists, a new section of Mail > Filtering in the control panel, on unless turned off
+  there: connections to the login ports (465, 587, 993, 995, 143, 110 and 4190) from the
+  addresses on public lists of attackers are dropped. The default lists are blocklist.de's mail
+  and IMAP lists and Spamhaus DROP (IPv4 and IPv6); like an ad blocker's filter lists, others can
+  be added, turned off or removed. The lists are downloaded every 6 hours and merged into one list
+  without duplicates or overlapping networks. A list that can't be downloaded or has no valid
+  entries adds nothing, and the panel shows why. Port 25 is never blocked, so mail from other
+  servers always arrives. Never blocked either: the box's own addresses, the addresses in
+  fail2ban's `ignoreip` and the networks the box's users logged in from in the last 30 days.
+  The rules are a separate nftables table (`inet mailinabox_ip_blocklists`) next to ufw's, loaded
+  at boot by the `mailinabox-ip-blocklists` service. Not installed with `DISABLE_FIREWALL=1`.
+  Also on the command line: `management/ip_blocklists.py update|on|off|status|add URL|remove URL`.
+* Logins from new places: every hour, the administrator gets an email (like the backup reports)
+  listing the accounts that logged in from a network (/24 for IPv4, /64 for IPv6) they never used
+  before. Logins from the webmail and the other apps on the box don't count. It can be turned off
+  in Mail > Filtering, which also lists the networks used in the last 30 days.
+* A new fail2ban jail, `miab-postfix-slow`: 10 failed logins in a day on ports 465 and 587 ban
+  the address from those ports for a day. Aborted logins and failures while Dovecot restarts
+  don't count, and networks with a successful login in the last 30 days are never banned.
+* Ports 465 and 587 allow at most 10 login attempts a minute per address
+  (`smtpd_client_auth_rate_limit`) and disconnect after 10 errors (`smtpd_hard_error_limit`).
+  The box's own apps (127.0.0.1) are exempt.
 * Nextcloud apps updated: Contacts 8.9.5 and Calendar 6.6.5.
+* munin-node listens only on 127.0.0.1, where munin connects. It listened on every address, which
+  failed on boxes without IPv6 (Debian 12 and 13, Ubuntu 24.04).
+* The container tests run on GitHub Actions for every pull request that changes the setup.
 
 Power Mail-in-a-Box v61.9
 -------------------------

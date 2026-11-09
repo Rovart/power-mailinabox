@@ -396,6 +396,40 @@ EOF
 	if ! systemctl restart mailinabox-tcp-ipoptions &> /dev/null; then
 		echo "Could not load the nftables rule that drops TCP packets with IPv4 options (does this kernel support nftables?)."
 	fi
+
+	# Public IP blocklists (Mail > Filtering in the control panel, on unless turned off there):
+	# connections to the login ports from the addresses on them are dropped. The rules are
+	# written by management/ip_blocklists.py (run at the end of the setup and every 6 hours)
+	# to their own nftables table, and this service loads the last ones at boot, before the
+	# network is up, like the rule above.
+	cat > /etc/systemd/system/mailinabox-ip-blocklists.service <<EOF;
+[Unit]
+Description=Mail-in-a-Box: drop connections to the login ports from addresses on public blocklists
+DefaultDependencies=no
+Wants=network-pre.target
+After=local-fs.target
+Before=network-pre.target shutdown.target
+Conflicts=shutdown.target
+ConditionPathExists=/etc/mailinabox-ip-blocklists.nft
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f /etc/mailinabox-ip-blocklists.nft
+ExecStop=-/usr/sbin/nft delete table inet mailinabox_ip_blocklists
+
+[Install]
+WantedBy=multi-user.target
+EOF
+	hide_output systemctl daemon-reload
+	hide_output systemctl enable mailinabox-ip-blocklists
+else
+	# Without the firewall there are no blocklists either.
+	if [ -f /etc/systemd/system/mailinabox-ip-blocklists.service ]; then
+		systemctl disable --now mailinabox-ip-blocklists &> /dev/null || true
+		rm -f /etc/systemd/system/mailinabox-ip-blocklists.service /etc/mailinabox-ip-blocklists.nft
+		hide_output systemctl daemon-reload
+	fi
 fi #NODOC
 
 # ### Local DNS Service

@@ -93,18 +93,29 @@ management/editconf.py /etc/postfix/main.cf \
 #   that filters out privacy-sensitive headers on mail being sent out by
 #   authenticated users.  By default Postfix also applies this to attached
 #   emails but we turn this off by setting nested_header_checks empty.
+# * Slow down password guessing: a client may try to log in at most 10 times a minute
+#   (smtpd_client_auth_rate_limit, counted by Postfix's anvil service over
+#   anvil_rate_time_unit, 60s), and is disconnected after 10 errors in one connection
+#   (smtpd_hard_error_limit, 20 by default). Local clients (the webmail, Z-Push and
+#   Nextcloud connect from 127.0.0.1) are exempt, as is everything in $mynetworks
+#   (smtpd_client_event_limit_exceptions). A mail client logs in once per connection,
+#   so this doesn't affect normal use. See also the fail2ban jails in conf/fail2ban/jails.conf.
 management/editconf.py /etc/postfix/master.cf -s -w \
 	"smtps=inet n       -       -       -       -       smtpd
 	  -o smtpd_tls_wrappermode=yes
 	  -o smtpd_sasl_auth_enable=yes
 	  -o syslog_name=postfix/submission
 	  -o smtpd_milters=inet:127.0.0.1:8891
+	  -o smtpd_client_auth_rate_limit=10
+	  -o smtpd_hard_error_limit=10
 	  -o cleanup_service_name=authclean" \
 	"submission=inet n       -       -       -       -       smtpd
 	  -o smtpd_sasl_auth_enable=yes
 	  -o syslog_name=postfix/submission
 	  -o smtpd_milters=inet:127.0.0.1:8891
 	  -o smtpd_tls_security_level=encrypt
+	  -o smtpd_client_auth_rate_limit=10
+	  -o smtpd_hard_error_limit=10
 	  -o cleanup_service_name=authclean" \
 	"authclean=unix  n       -       -       -       0       cleanup
 	  -o header_checks=pcre:/etc/postfix/outgoing_mail_header_filters

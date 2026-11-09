@@ -1,0 +1,72 @@
+# Runs the container tests (tests/container, see its README) on every supported
+# operating system: a fresh install, and an upgrade from the latest release tag.
+# Each combination runs in its own job, since each needs about 5 GB of disk.
+# Runs on pull requests that change the setup or the management daemon, and by hand
+# (Actions > Container tests > Run workflow).
+name: Container tests
+
+on:
+  pull_request:
+    paths:
+      - "setup/**"
+      - "management/**"
+      - "conf/**"
+      - "tools/**"
+      - "tests/container/**"
+      - ".github/workflows/container-tests.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: container-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [debian-12, debian-13, ubuntu-22.04, ubuntu-24.04]
+        mode: [fresh, upgrade]
+    name: ${{ matrix.os }} (${{ matrix.mode }})
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Static checks
+        run: tests/static-checks.sh
+
+      - name: Install and test
+        run: |
+          set -euo pipefail
+          if [ "${{ matrix.mode }}" = upgrade ]; then
+            base=$(git tag --list 'v*' --sort=-version:refname --merged HEAD | head -n 1)
+            echo "Upgrading from $base"
+            sudo LOGDIR=/tmp/pmiab-tests tests/container/run-all.sh -u "$base" ${{ matrix.os }}
+          else
+            sudo LOGDIR=/tmp/pmiab-tests tests/container/run-all.sh ${{ matrix.os }}
+          fi
+
+      - name: Failed units in the container
+        if: failure()
+        run: |
+          name=pmiab-test-${{ matrix.os }}
+          sudo docker exec $name systemctl --failed --no-pager || true
+          for unit in $(sudo docker exec $name systemctl --failed --no-legend --plain | awk '{print $1}'); do
+            sudo docker exec $name journalctl -u "$unit" --no-pager -n 40 || true
+          done
+          sudo docker exec $name journalctl -u munin-node --no-pager -n 60 || true
+          sudo docker exec $name cat /var/log/munin/munin-node.log 2>/dev/null | tail -30 || true
+
+      - name: Keep the logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-${{ matrix.os }}-${{ matrix.mode }}
+          path: /tmp/pmiab-tests
+          if-no-files-found: ignore

@@ -97,6 +97,110 @@
 <p class="text-body-secondary small">You can also edit the lists on the box with
 	<code>sudo management/cli.py mail filtering allow|block add|remove ENTRY</code>.</p>
 
+<h3 class="h4 mt-5" id="protection-title">Login protection</h3>
+<p class="text-body-secondary">Password guessing against the box&rsquo;s logins comes from thousands of addresses
+	that each try a few times. Besides fail2ban, which bans addresses after repeated failed logins, the box can
+	block the addresses already known for these attacks and tell you when an account logs in from somewhere new.</p>
+
+<div class="row g-4 mb-4">
+	<div class="col-lg-7">
+		<div class="card h-100">
+			<div class="card-header d-flex align-items-center gap-3">
+				<h4 class="h5 mb-0 flex-grow-1" id="blocklists-title"><span class="fa-solid fa-shield-halved me-2"
+						aria-hidden="true"></span>IP blocklists</h4>
+				<div class="form-check form-switch mb-0">
+					<input class="form-check-input" type="checkbox" role="switch" id="blocklists-enabled"
+						onchange="protection_change({action: 'blocklists', enabled: this.checked ? 1 : 0})">
+					<label class="form-check-label" for="blocklists-enabled">On</label>
+				</div>
+			</div>
+			<div class="card-body">
+				<div class="alert alert-warning d-none" id="blocklists-unavailable" role="status">The blocklists
+					aren&rsquo;t available because the firewall was disabled when the box was set up
+					(<code>DISABLE_FIREWALL</code>).</div>
+				<p class="text-body-secondary">Connections from the addresses on these lists to the login ports
+					(<span id="blocklists-ports"></span>) are dropped. Port 25 is never blocked, so mail from other
+					servers still arrives. The lists are downloaded every 6 hours and merged without duplicates. A list
+					that fails or has no valid entries adds nothing. The box&rsquo;s own addresses, fail2ban&rsquo;s
+					ignored addresses and the networks your users logged in from in the last 30 days are never
+					blocked.</p>
+				<p id="blocklists-summary" aria-live="polite"></p>
+				<ul class="list-group mb-3" id="blocklists-sources" aria-labelledby="blocklists-title"
+					aria-live="polite"></ul>
+				<form class="mb-2" onsubmit="protection_add_source(); return false;">
+					<label for="blocklists-url" class="form-label">Add a list</label>
+					<div class="input-group">
+						<input type="url" class="form-control font-monospace" id="blocklists-url" autocomplete="off"
+							autocapitalize="off" spellcheck="false" placeholder="https://example.com/blocklist.txt"
+							aria-describedby="blocklists-url-help" required>
+						<button type="submit" class="btn btn-primary"><span class="fa-solid fa-plus me-1"
+								aria-hidden="true"></span>Add</button>
+					</div>
+					<div id="blocklists-url-help" class="form-text">A text file with one IP address, network
+						(<code>192.0.2.0/24</code>) or range per line; comments after <code>#</code> are ignored.
+						JSON lines with a <code>cidr</code> key (like Spamhaus DROP) work too.</div>
+				</form>
+				<div class="d-flex flex-wrap gap-2">
+					<button type="button" class="btn btn-sm btn-outline-primary"
+						onclick="protection_change({action: 'update'})"><span class="fa-solid fa-rotate me-1"
+							aria-hidden="true"></span>Download the lists now</button>
+					<button type="button" class="btn btn-sm btn-outline-secondary" onclick="protection_reset()">Restore
+						the default lists</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="col-lg-5">
+		<div class="card h-100">
+			<div class="card-header d-flex align-items-center gap-3">
+				<h4 class="h5 mb-0 flex-grow-1" id="logins-title"><span class="fa-solid fa-location-dot me-2"
+						aria-hidden="true"></span>Logins from new places</h4>
+				<div class="form-check form-switch mb-0">
+					<input class="form-check-input" type="checkbox" role="switch" id="login-alerts-enabled"
+						onchange="protection_change({action: 'login_alerts', enabled: this.checked ? 1 : 0})">
+					<label class="form-check-label" for="login-alerts-enabled">Email me</label>
+				</div>
+			</div>
+			<div class="card-body">
+				<p class="text-body-secondary">The administrator gets an email when an account logs in (to send mail,
+					or to IMAP or POP) from a network it never used before: a stolen password shows up there. Networks
+					are /24 for IPv4 and /64 for IPv6. Logins from the webmail and the other apps on this box aren&rsquo;t
+					counted.</p>
+				<p class="small mb-2" id="logins-summary"></p>
+				<div class="table-responsive" style="max-height: 22rem;">
+					<table class="table table-sm align-middle mb-0" aria-labelledby="logins-title">
+						<thead>
+							<tr>
+								<th scope="col">Account</th>
+								<th scope="col">Last address</th>
+								<th scope="col">Last login</th>
+							</tr>
+						</thead>
+						<tbody id="logins-recent"></tbody>
+					</table>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<template id="blocklists-source-template">
+	<li class="list-group-item">
+		<div class="d-flex align-items-center gap-2">
+			<div class="form-check form-switch mb-0">
+				<input class="form-check-input blocklists-source-enabled" type="checkbox" role="switch">
+			</div>
+			<code class="flex-grow-1 text-break blocklists-source-url"></code>
+			<button type="button" class="btn btn-sm btn-outline-secondary blocklists-source-remove"><span
+					class="fa-solid fa-xmark" aria-hidden="true"></span><span
+					class="visually-hidden blocklists-source-remove-label"></span></button>
+		</div>
+		<div class="small text-body-secondary blocklists-source-description"></div>
+		<div class="small blocklists-source-state"></div>
+	</li>
+</template>
+
 <template id="filtering-entry-template">
 	<li class="list-group-item d-flex align-items-center gap-2">
 		<code class="flex-grow-1 text-break filtering-entry"></code>
@@ -122,7 +226,97 @@
 		return hours + " h" + (minutes ? " " + minutes + " min" : "");
 	}
 
+	function protection_date(iso) {
+		return iso ? new Date(iso).toLocaleString() : "never";
+	}
+
+	function show_login_protection() {
+		api(
+			"/mail/login-protection",
+			"GET",
+			{},
+			function (r) {
+				var b = r.blocklists;
+				$('#blocklists-enabled').prop('checked', b.enabled).prop('disabled', !b.available);
+				$('#blocklists-unavailable').toggleClass('d-none', b.available);
+				$('#blocklists-ports').text(b.ports.join(", "));
+				$('#blocklists-summary').text(!b.enabled ? "The blocklists are off." :
+					"Blocking " + b.networks4.toLocaleString() + " IPv4 networks (" + b.addresses4.toLocaleString()
+					+ " addresses) and " + b.networks6.toLocaleString() + " IPv6 networks. Last download: "
+					+ protection_date(b.updated) + "."
+					+ (b.dropped !== null ? " Connections dropped since the rules were last loaded: " + b.dropped.toLocaleString() + "." : ""));
+
+				var list = $('#blocklists-sources').empty();
+				if (!b.sources.length)
+					list.append($('<li class="list-group-item text-body-secondary"/>').text("There are no lists."));
+				b.sources.forEach(function (source) {
+					var li = $($('#blocklists-source-template').html());
+					li.find('.blocklists-source-url').text(source.url);
+					li.find('.blocklists-source-description').text(source.description || "");
+					li.find('.blocklists-source-enabled').prop('checked', source.enabled)
+						.attr('aria-label', "Use " + source.url)
+						.on('change', function () {
+							protection_change({ action: 'source_enabled', url: source.url, enabled: this.checked ? 1 : 0 });
+						});
+					li.find('.blocklists-source-remove-label').text("Remove " + source.url);
+					li.find('.blocklists-source-remove').attr('title', "Remove").on('click', function () {
+						show_modal_confirm("IP blocklists", "Remove the list " + source.url + "?", "Remove",
+							function () { protection_change({ action: 'remove_source', url: source.url }); });
+					});
+					var state = li.find('.blocklists-source-state');
+					if (!source.enabled)
+						state.addClass('text-body-secondary').text("Not used.");
+					else if (source.ok === true)
+						state.addClass('text-success').text(source.entries.toLocaleString() + " entries, downloaded "
+							+ protection_date(source.checked) + ".");
+					else if (source.ok === false)
+						state.addClass('text-danger').text(source.error + " (" + protection_date(source.checked) + ")");
+					else
+						state.addClass('text-body-secondary').text("Not downloaded yet.");
+					list.append(li);
+				});
+
+				var l = r.login_alerts;
+				$('#login-alerts-enabled').prop('checked', l.enabled);
+				$('#logins-summary').text(l.recent.length + " account network" + (l.recent.length == 1 ? "" : "s")
+					+ " used in the last " + l.trust_days + " days.");
+				var rows = $('#logins-recent').empty();
+				l.recent.forEach(function (login) {
+					rows.append($('<tr/>').append(
+						$('<td class="text-break"/>').text(login.user),
+						$('<td/>').append($('<code/>').text(login.address || login.network)),
+						$('<td class="text-nowrap small"/>').text(protection_date(login.last))));
+				});
+			});
+	}
+
+	function protection_change(data, done) {
+		api(
+			"/mail/login-protection",
+			"POST",
+			data,
+			function () {
+				if (done) done();
+				show_login_protection();
+			},
+			function (r) {
+				show_modal_error("Login protection", r || "Something went wrong, sorry.");
+				show_login_protection();
+			});
+	}
+
+	function protection_add_source() {
+		var input = $('#blocklists-url');
+		protection_change({ action: 'add_source', url: input.val() }, function () { input.val(''); });
+	}
+
+	function protection_reset() {
+		show_modal_confirm("IP blocklists", "Replace the lists with the default ones?", "Restore",
+			function () { protection_change({ action: 'reset_sources' }); });
+	}
+
 	function show_mail_filtering() {
+		show_login_protection();
 		api(
 			"/mail/filtering",
 			"GET",
