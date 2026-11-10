@@ -1,6 +1,27 @@
 CHANGELOG
 =========
 
+Power Mail-in-a-Box v61.16
+--------------------------
+
+* Roundcube updated to 1.7.6, a security release with 17 fixes, among them IMAP command
+  injection through CRLF in `_uid` (with `messages_cache`), Sieve script injection through a
+  rule operator, SSRF in the CSS proxy, a CSRF bypass for file-only POST requests, an open
+  redirect and attachment content passed to ImageMagick
+  (https://github.com/roundcube/roundcubemail/releases/tag/1.7.6).
+* The download of the blocked addresses is no longer only for Cloudflare: "Download for a CDN or
+  WAF" in Mail > Filtering gives a file for the IP list (IP set, ACL, network list) of any CDN or
+  WAF, as text with one address or network per line, or as CSV with a note for each entry, up to
+  the number of entries you choose (10,000 by default), with IPv6 addresses and networks, only
+  single IPv6 addresses, or none. Networks broader than an IPv4 /8 or an IPv6 /16 are left out.
+  The API is `/admin/mail/login-protection/blocked-addresses?format=txt|csv&limit=N&ipv6=all|single|none`
+  and replaces `/admin/mail/login-protection/cloudflare.csv`.
+* The duplicity virtualenv is rebuilt when it still carries PyDrive2 from an older install.
+  PyDrive2 (a Google Drive backend the box doesn't offer) pinned `cryptography<44` and
+  `pyOpenSSL<=24.2.1`, so the eager upgrade kept cryptography 43.0.3 (GHSA-jwv3-5hgf-82ww) and
+  pyOpenSSL 24.2.1 (GHSA-5pwr-322w-8jr4). The management daemon's venv keeps dnspython 2.8.0
+  on Python 3.10: 2.9.0 needs Python 3.11.
+
 Power Mail-in-a-Box v61.15
 --------------------------
 

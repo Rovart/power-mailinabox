@@ -397,13 +397,27 @@ def mail_login_protection_get():
 	})
 
 
-@app.route('/mail/login-protection/cloudflare.csv')
+@app.route('/mail/login-protection/blocked-addresses')
 @authorized_personnel_only()
-def mail_login_protection_cloudflare_csv():
-	# The blocked addresses in the format of a Cloudflare IP list (see ip_blocklists.py).
+def mail_login_protection_blocked_addresses():
+	# The blocked addresses as a file for the IP list of a CDN or WAF (see ip_blocklists.py).
+	# ?format=txt|csv&limit=N&ipv6=all|single|none
 	import ip_blocklists
-	return Response(ip_blocklists.cloudflare_csv(env), status=200, mimetype='text/csv',
-		headers={'Content-Disposition': 'attachment; filename="cloudflare-blocklist.csv"'})
+	fmt = request.args.get("format", "txt")
+	ipv6 = request.args.get("ipv6", "all")
+	if fmt not in ip_blocklists.EXPORT_FORMATS:
+		return ("Unknown format: %s" % fmt, 400)
+	if ipv6 not in ip_blocklists.EXPORT_IPV6:
+		return ("Unknown IPv6 option: %s" % ipv6, 400)
+	try:
+		limit = int(request.args.get("limit", ip_blocklists.EXPORT_DEFAULT_LIMIT))
+	except ValueError:
+		return ("The number of entries must be a whole number.", 400)
+	if not 1 <= limit <= ip_blocklists.EXPORT_MAX_LIMIT:
+		return ("The number of entries must be between 1 and %d." % ip_blocklists.EXPORT_MAX_LIMIT, 400)
+	return Response(ip_blocklists.export_blocked(env, fmt, limit, ipv6), status=200,
+		mimetype='text/csv' if fmt == "csv" else 'text/plain',
+		headers={'Content-Disposition': 'attachment; filename="blocked-addresses.%s"' % fmt})
 
 
 @app.route('/mail/login-protection', methods=['POST'])

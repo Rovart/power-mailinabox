@@ -680,27 +680,32 @@ def get_status(env):
 	}
 
 
-# Cloudflare: sites behind its proxy only see Cloudflare's addresses, so the firewall
-# can't block their attackers. The control panel offers this list as a CSV file to
-# upload to a Cloudflare IP list (Manage Account > Configurations > Lists), used by a
-# WAF custom rule "ip.src in $list_name" with the action Block.
+# CDNs and reverse proxies: sites behind one only see its addresses, so the firewall
+# can't block their attackers. The control panel offers the blocked addresses as a file
+# to upload to the IP list (or IP set, ACL, network list) of any CDN or WAF, used by a
+# rule that blocks the requests coming from it. Lists differ in what they accept, so the
+# format, the number of entries and the IPv6 entries can be chosen.
 
-CLOUDFLARE_MAX_ITEMS = 10000  # the Free plan's limit for all custom lists together
+EXPORT_FORMATS = ("txt", "csv")
+EXPORT_IPV6 = ("all", "single", "none")
+EXPORT_DEFAULT_LIMIT = 10000
+EXPORT_MAX_LIMIT = 1000000
 WEB_JAIL_WORDS = ("web", "nginx", "http", "apache", "roundcube", "owncloud", "nextcloud", "munin", "management", "php")
 
 
-def cloudflare_items(env):
-	# [(address, description)] in Cloudflare's format (IPv4 addresses and /8-/32 networks,
-	# single IPv6 addresses), most useful first: your own list, the addresses fail2ban
+def export_items(env, limit=EXPORT_DEFAULT_LIMIT, ipv6="all"):
+	# [(address, description)], most useful first: your own list, the addresses fail2ban
 	# bans now in its web jails, the lists that block every port, then the others.
+	# ipv6: "all" (addresses and networks), "single" (only single addresses) or "none".
+	# Networks broader than an IPv4 /8 or an IPv6 /16 are left out: no list should hold them.
 	items, seen = [], set()
 
 	def add(network, description):
-		if len(items) >= CLOUDFLARE_MAX_ITEMS:
+		if len(items) >= limit:
 			return
-		if network.version == 6 and network.num_addresses != 1:
-			return  # only single IPv6 addresses are accepted
-		if network.version == 4 and network.prefixlen < 8:
+		if network.version == 6 and (ipv6 == "none" or (ipv6 == "single" and network.num_addresses != 1)):
+			return
+		if network.prefixlen < (8 if network.version == 4 else 16):
 			return
 		key = canonical(network)
 		if key in seen:
@@ -729,12 +734,17 @@ def cloudflare_items(env):
 	return items
 
 
-def cloudflare_csv(env):
+def export_blocked(env, fmt="txt", limit=EXPORT_DEFAULT_LIMIT, ipv6="all"):
+	# "txt": one address or network per line, the format almost every list accepts.
+	# "csv": address,description, for lists that keep a note with each entry.
+	items = export_items(env, limit, ipv6)
+	if fmt == "txt":
+		return "".join(address + "\n" for address, _ in items)
 	import csv
 	import io
 	out = io.StringIO()
 	writer = csv.writer(out, lineterminator="\n")
-	for address, description in cloudflare_items(env):
+	for address, description in items:
 		writer.writerow([address, description])
 	return out.getvalue()
 
