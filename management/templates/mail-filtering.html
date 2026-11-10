@@ -118,12 +118,13 @@
 				<div class="alert alert-warning d-none" id="blocklists-unavailable" role="status">The blocklists
 					aren&rsquo;t available because the firewall was disabled when the box was set up
 					(<code>DISABLE_FIREWALL</code>).</div>
-				<p class="text-body-secondary">Connections from the addresses on these lists to the login ports
-					(<span id="blocklists-ports"></span>) are dropped. Port 25 is never blocked, so mail from other
-					servers still arrives. The lists are downloaded every 6 hours and merged without duplicates. A list
-					that fails or has no valid entries adds nothing. The box&rsquo;s own addresses, fail2ban&rsquo;s
-					ignored addresses and the networks your users logged in from in the last 30 days are never
-					blocked.</p>
+				<p class="text-body-secondary">Each list blocks either the <b>login ports</b>
+					(<span id="blocklists-ports"></span>, keeping port 25 open so mail from other servers always
+					arrives, and the web) or <b>every port</b> except DNS (53), for lists of networks that never have a
+					reason to connect. The lists are downloaded every 6 hours and merged without duplicates. A list that
+					fails or has no valid entries adds nothing. The box&rsquo;s own addresses, fail2ban&rsquo;s ignored
+					addresses and the networks your users logged in from in the last 30 days are never blocked. Sites
+					behind Cloudflare only see Cloudflare&rsquo;s addresses, so these lists don&rsquo;t protect them.</p>
 				<p id="blocklists-summary" aria-live="polite"></p>
 				<ul class="list-group mb-3" id="blocklists-sources" aria-labelledby="blocklists-title"
 					aria-live="polite"></ul>
@@ -140,12 +141,59 @@
 						(<code>192.0.2.0/24</code>) or range per line; comments after <code>#</code> are ignored.
 						JSON lines with a <code>cidr</code> key (like Spamhaus DROP) work too.</div>
 				</form>
+				<div id="blocklists-suggested-box" class="mb-3 d-none">
+					<div class="form-label mt-3">Suggested lists</div>
+					<ul class="list-group" id="blocklists-suggested" aria-label="Suggested lists"></ul>
+				</div>
 				<div class="d-flex flex-wrap gap-2">
 					<button type="button" class="btn btn-sm btn-outline-primary"
 						onclick="protection_change({action: 'update'})"><span class="fa-solid fa-rotate me-1"
 							aria-hidden="true"></span>Download the lists now</button>
 					<button type="button" class="btn btn-sm btn-outline-secondary" onclick="protection_reset()">Restore
 						the default lists</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="col-12">
+		<div class="card h-100" id="manual-block-card">
+			<div class="card-header">
+				<h4 class="h5 mb-0" id="manual-title"><span class="fa-solid fa-hand me-2" aria-hidden="true"></span>Your
+					blocked addresses</h4>
+			</div>
+			<div class="card-body">
+				<p class="text-body-secondary">Addresses and networks you block yourself, also from the
+					<b>Block</b> buttons of the dashboard&rsquo;s attackers. They are dropped on every port except DNS
+					(53), even when the public lists above are off. The same addresses as above are never blocked.</p>
+				<form class="row g-2 mb-3" onsubmit="manual_block(); return false;">
+					<div class="col-sm-4">
+						<label for="manual-entry" class="form-label">Address or network</label>
+						<input type="text" class="form-control font-monospace" id="manual-entry" autocomplete="off"
+							autocapitalize="off" spellcheck="false" placeholder="198.51.100.7 or 198.51.100.0/24" required>
+					</div>
+					<div class="col-sm-6">
+						<label for="manual-note" class="form-label">Note <span class="text-body-secondary fw-normal">(optional)</span></label>
+						<input type="text" class="form-control" id="manual-note" maxlength="200" autocomplete="off"
+							placeholder="Why it is blocked">
+					</div>
+					<div class="col-sm-2 d-flex align-items-end">
+						<button type="submit" class="btn btn-danger w-100"><span class="fa-solid fa-ban me-1"
+								aria-hidden="true"></span>Block</button>
+					</div>
+				</form>
+				<div class="table-responsive">
+					<table class="table align-middle mb-0" aria-labelledby="manual-title">
+						<thead>
+							<tr>
+								<th scope="col">Address</th>
+								<th scope="col">Note</th>
+								<th scope="col">Blocked</th>
+								<th scope="col"><span class="visually-hidden">Actions</span></th>
+							</tr>
+						</thead>
+						<tbody id="manual-list"></tbody>
+					</table>
 				</div>
 			</div>
 		</div>
@@ -223,6 +271,10 @@
 				<input class="form-check-input blocklists-source-enabled" type="checkbox" role="switch">
 			</div>
 			<code class="flex-grow-1 text-break blocklists-source-url"></code>
+			<select class="form-select form-select-sm w-auto blocklists-source-scope">
+				<option value="logins">Login ports</option>
+				<option value="all">Every port</option>
+			</select>
 			<button type="button" class="btn btn-sm btn-outline-secondary blocklists-source-remove"><span
 					class="fa-solid fa-xmark" aria-hidden="true"></span><span
 					class="visually-hidden blocklists-source-remove-label"></span></button>
@@ -271,9 +323,9 @@
 				$('#blocklists-enabled').prop('checked', b.enabled).prop('disabled', !b.available);
 				$('#blocklists-unavailable').toggleClass('d-none', b.available);
 				$('#blocklists-ports').text(b.ports.join(", "));
-				$('#blocklists-summary').text(!b.enabled ? "The blocklists are off." :
-					"Blocking " + b.networks4.toLocaleString() + " IPv4 networks (" + b.addresses4.toLocaleString()
-					+ " addresses) and " + b.networks6.toLocaleString() + " IPv6 networks. Last download: "
+				$('#blocklists-summary').text(!b.enabled ? "The public lists are off." :
+					"Blocking " + (b.networks4 + b.networks6).toLocaleString() + " networks on the login ports and "
+					+ (b.networks_all || 0).toLocaleString() + " on every port. Last download: "
 					+ protection_date(b.updated) + "."
 					+ (b.dropped !== null ? " Connections dropped since the rules were last loaded: " + b.dropped.toLocaleString() + "." : ""));
 
@@ -288,6 +340,11 @@
 						.attr('aria-label', "Use " + source.url)
 						.on('change', function () {
 							protection_change({ action: 'source_enabled', url: source.url, enabled: this.checked ? 1 : 0 });
+						});
+					li.find('.blocklists-source-scope').val(source.scope || 'logins')
+						.attr('aria-label', "What " + source.url + " blocks")
+						.on('change', function () {
+							protection_change({ action: 'source_scope', url: source.url, scope: this.value });
 						});
 					li.find('.blocklists-source-remove-label').text("Remove " + source.url);
 					li.find('.blocklists-source-remove').attr('title', "Remove").on('click', function () {
@@ -305,6 +362,36 @@
 					else
 						state.addClass('text-body-secondary').text("Not downloaded yet.");
 					list.append(li);
+				});
+
+				var suggested = $('#blocklists-suggested').empty();
+				$('#blocklists-suggested-box').toggleClass('d-none', !(b.suggested || []).length);
+				(b.suggested || []).forEach(function (sg) {
+					suggested.append($('<li class="list-group-item d-flex align-items-center gap-2"/>').append(
+						$('<div class="flex-grow-1"/>').append(
+							$('<div class="small"/>').text(sg.description),
+							$('<code class="small text-break"/>').text(sg.url)),
+						$('<span class="badge"/>').text(sg.scope == 'all' ? "Every port" : "Login ports"),
+						$('<button type="button" class="btn btn-sm btn-outline-secondary"/>').text("Add")
+							.attr('aria-label', "Add " + sg.description)
+							.on('click', function () { protection_change({ action: 'add_source', url: sg.url }); })));
+				});
+
+				var manual = $('#manual-list').empty();
+				if (!(b.manual || []).length)
+					manual.append($('<tr><td colspan="4" class="text-body-secondary"></td></tr>').find('td')
+						.text("You haven't blocked any address.").end());
+				(b.manual || []).forEach(function (m) {
+					manual.append($('<tr/>').append(
+						$('<td class="text-nowrap"/>').append($('<code class="text-nowrap"/>').text(m.entry)),
+						$('<td class="small"/>').text(m.note || ""),
+						$('<td class="small text-nowrap"/>').text(protection_date(m.added)),
+						$('<td class="text-end"/>').append(
+							$('<button type="button" class="btn btn-sm btn-outline-secondary"/>').text("Unblock")
+								.attr('aria-label', "Unblock " + m.entry)
+								.on('click', function () {
+									protection_change({ action: 'unblock', entry: m.entry });
+								}))));
 				});
 
 				var l = r.login_alerts;
@@ -414,6 +501,14 @@
 	function protection_add_source() {
 		var input = $('#blocklists-url');
 		protection_change({ action: 'add_source', url: input.val() }, function () { input.val(''); });
+	}
+
+	function manual_block() {
+		var entry = $('#manual-entry'), note = $('#manual-note');
+		protection_change({ action: 'block', entry: entry.val(), note: note.val() }, function () {
+			entry.val('');
+			note.val('');
+		});
 	}
 
 	function protection_reset() {

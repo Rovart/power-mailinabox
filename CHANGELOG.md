@@ -1,6 +1,25 @@
 CHANGELOG
 =========
 
+Power Mail-in-a-Box v61.15
+--------------------------
+
+* Your own blocklist: addresses and networks you block yourself, with a note, from the new Block
+  buttons of the dashboard's most active attackers or in Mail > Filtering ("Your blocked
+  addresses"). They are dropped on every port except DNS (53), also when the public lists are
+  turned off. Private addresses, and addresses that are never blocked (the box's own, fail2ban's
+  ignoreip, networks your users logged in from in the last 30 days), are refused with the reason.
+  Also on the command line: `management/ip_blocklists.py block ADDRESS [NOTE]` and `unblock`.
+* Each IP blocklist has a scope: the login ports (as before) or every port except DNS. Spamhaus
+  DROP (networks hijacked or run by criminals) now blocks every port; blocklist.de's lists stay on
+  the login ports. Replies to connections the box opened itself are never dropped.
+* Suggested lists, added with one click in Mail > Filtering: FireHOL level 1, DShield, IPsum
+  level 3, GreenSnow, CINS Army, blocklist.de "all" and Emerging Threats compromised hosts.
+* A list that is too big (over 64 MB or 500,000 entries) is refused with an explanation: the
+  kernel keeps every entry in memory, and millions of entries would need more than a small box
+  can spare.
+* The dashboard's attackers show "Blocked by you".
+
 Power Mail-in-a-Box v61.14
 --------------------------
 

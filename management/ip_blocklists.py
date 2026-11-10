@@ -6,10 +6,20 @@
 # that each try a few times, hours apart, which fail2ban can't catch. Most of those
 # addresses are already on public lists of attackers. This downloads the lists the
 # administrator chose (like an ad blocker's filter lists) and drops connections from
-# the addresses on them to the login ports: 465 and 587 (sending mail), 993, 995, 143
-# and 110 (IMAP and POP) and 4190 (Sieve). Port 25 is never blocked, so mail from other
-# servers always arrives (it has its own checks: Spamhaus, greylisting, SPF...), and
-# neither are the web ports.
+# the addresses on them. Each list has a scope:
+#
+# * "logins" (the default): only the login ports, 465 and 587 (sending mail), 993, 995,
+#   143 and 110 (IMAP and POP) and 4190 (Sieve). Port 25 stays open, so mail from other
+#   servers always arrives (it has its own checks: Spamhaus, greylisting, SPF...), and
+#   so do the web ports. Right for lists of reported addresses, which may be reassigned.
+# * "all": every port except DNS (53), so the box's domains always resolve, even for a
+#   resolver that ends up on a list. Right for lists of networks that never have a
+#   legitimate reason to connect, like Spamhaus DROP.
+#
+# Besides the public lists, the administrator keeps a list of their own (the "manual"
+# key, e.g. from the Block buttons of the dashboard), always blocked on every port but
+# DNS, also when the public lists are turned off. Replies to connections the box itself
+# opened are never dropped.
 #
 # * The entries of all the lists are merged into one list of networks without
 #   duplicates or overlaps: an address that is on several lists, or inside a network
@@ -60,11 +70,40 @@ DEFAULT_SOURCES = [
 	"Spamhaus DROP (IPv6): networks hijacked or run by criminals"),
 ]
 
+# The scope of the default lists that differ from "logins".
+DEFAULT_SCOPES = {
+	"https://www.spamhaus.org/drop/drop_v4.json": "all",
+	"https://www.spamhaus.org/drop/drop_v6.json": "all",
+}
+
+# Lists the control panel suggests: (address, description, scope). Sizes in late 2026.
+SUGGESTED_SOURCES = [
+	("https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level1.netset",
+	"FireHOL level 1: networks that should never connect (Spamhaus DROP, DShield, Feodo...), about 4,600 entries", "all"),
+	("https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/dshield.netset",
+	"DShield: the 20 networks (/24) attacking the most right now", "all"),
+	("https://raw.githubusercontent.com/stamparm/ipsum/master/levels/3.txt",
+	"IPsum level 3: addresses on 3 or more blacklists, updated daily, about 17,000 entries", "logins"),
+	("https://blocklist.greensnow.co/greensnow.txt",
+	"GreenSnow: brute force attacks (SSH, FTP, mail) seen by its sensors, about 3,300 entries", "logins"),
+	("https://cinsscore.com/list/ci-badguys.txt",
+	"CINS Army: addresses with a poor score on its sensor network, 15,000 entries", "logins"),
+	("https://lists.blocklist.de/lists/all.txt",
+	"blocklist.de, all services (SSH, web, mail...), about 24,000 entries", "logins"),
+	("https://rules.emergingthreats.net/blockrules/compromised-ips.txt",
+	"Emerging Threats: known compromised hosts, about 500 entries", "all"),
+]
+
+SCOPES = ("logins", "all")
+DNS_PORT = 53
+MAX_MANUAL = 5000
+
 PORTS = (110, 143, 465, 587, 993, 995, 4190)
 
 STATE_DIR = "/var/lib/mailinabox/ip-blocklists"
 STATUS_FILE = STATE_DIR + "/status.json"
-MERGED_FILE = STATE_DIR + "/merged.txt"
+MERGED_FILE = STATE_DIR + "/merged.txt"  # scope "logins"
+MERGED_ALL_FILE = STATE_DIR + "/merged-all.txt"  # scope "all"
 NFT_FILE = "/etc/mailinabox-ip-blocklists.nft"
 SERVICE_FILE = "/etc/systemd/system/mailinabox-ip-blocklists.service"
 TABLE = "mailinabox_ip_blocklists"
@@ -108,17 +147,49 @@ def get_settings(env):
 				continue  # edited by hand
 			if any(s["url"] == url for s in sources):
 				continue
+			scope = source.get("scope")
 			sources.append({
 				"url": url,
 				"enabled": source.get("enabled", True) is not False,
 				"description": str(source.get("description") or descriptions.get(url, "")),
+				"scope": scope if scope in SCOPES else default_scope(url),
 			})
 	else:
-		sources = [{"url": url, "enabled": True, "description": d} for url, d in DEFAULT_SOURCES]
+		sources = default_sources()
+	manual = []
+	for item in config.get("manual") or []:
+		if not isinstance(item, dict):
+			continue
+		found = parse_network(str(item.get("entry", "")))
+		if len(found) != 1:
+			continue  # edited by hand
+		entry = canonical(found[0])
+		if any(m["entry"] == entry for m in manual):
+			continue
+		manual.append({
+			"entry": entry,
+			"note": str(item.get("note") or "")[:200],
+			"added": str(item.get("added") or ""),
+		})
 	return {
 		"enabled": config.get("enabled", True) is not False,
 		"sources": sources,
+		"manual": manual,
 	}
+
+
+def default_scope(url):
+	if url in DEFAULT_SCOPES:
+		return DEFAULT_SCOPES[url]
+	for suggested, _, scope in SUGGESTED_SOURCES:
+		if suggested == url:
+			return scope
+	return "logins"
+
+
+def default_sources():
+	return [{"url": url, "enabled": True, "description": d, "scope": default_scope(url)}
+			for url, d in DEFAULT_SOURCES]
 
 
 def save_settings(env, settings):
@@ -129,7 +200,9 @@ def save_settings(env, settings):
 			"url": s["url"],
 			"enabled": bool(s["enabled"]),
 			"description": s["description"],
+			"scope": s["scope"],
 		} for s in settings["sources"]],
+		"manual": settings.get("manual", []),
 	}
 	utils.write_settings(config, env)
 
@@ -150,7 +223,10 @@ def add_source(env, url, description=""):
 		raise ValueError("%s is already in the list." % url)
 	if len(settings["sources"]) >= MAX_SOURCES:
 		raise ValueError("There can be at most %d lists." % MAX_SOURCES)
-	settings["sources"].append({"url": url, "enabled": True, "description": (description or "").strip()[:200]})
+	if not description:
+		description = dict((u, d) for u, d, _ in SUGGESTED_SOURCES).get(url, "")
+	settings["sources"].append({"url": url, "enabled": True, "description": (description or "").strip()[:200],
+								"scope": default_scope(url)})
 	save_settings(env, settings)
 	return update(env)
 
@@ -178,11 +254,82 @@ def set_source_enabled(env, url, enabled):
 	return update(env)
 
 
-def reset_sources(env):
+def set_source_scope(env, url, scope):
+	if scope not in SCOPES:
+		raise ValueError("Unknown scope: %s" % scope)
 	settings = get_settings(env)
-	settings["sources"] = [{"url": url, "enabled": True, "description": d} for url, d in DEFAULT_SOURCES]
+	url = (url or "").strip()
+	for source in settings["sources"]:
+		if source["url"] == url:
+			source["scope"] = scope
+			break
+	else:
+		raise ValueError("%s is not in the list." % url)
 	save_settings(env, settings)
 	return update(env)
+
+
+def reset_sources(env):
+	settings = get_settings(env)
+	settings["sources"] = default_sources()
+	save_settings(env, settings)
+	return update(env)
+
+
+# The administrator's own list.
+
+def canonical(network):
+	# "45.139.104.172" for a single address, "45.139.104.0/24" for a network.
+	return str(network.network_address) if network.num_addresses == 1 else str(network)
+
+def add_manual(env, entry, note=""):
+	# Blocks an address or network on every port but DNS. Returns a description.
+	found = parse_network((entry or "").strip()) if "-" not in (entry or "") else []
+	if len(found) != 1:
+		raise ValueError("%s is not an IP address or network." % ((entry or "").strip() or "The entry"))
+	network = found[0]
+	if not network.is_global or network.is_multicast:
+		raise ValueError("%s is not a public address: it can't come from the internet." % canonical(network))
+	if network.prefixlen < MIN_PREFIX[network.version]:
+		raise ValueError("%s is too large a network." % canonical(network))
+	for exempt in get_exempt_networks(env)[network.version]:
+		if network.overlaps(exempt):
+			raise ValueError(
+				"%s can't be blocked: it overlaps %s, which is never blocked (the box's own address, "
+				"an address in fail2ban's ignoreip, or a network your users logged in from in the last %d days)."
+				% (canonical(network), exempt, KNOWN_LOGIN_DAYS))
+	settings = get_settings(env)
+	if any(m["entry"] == canonical(network) for m in settings["manual"]):
+		raise ValueError("%s is already blocked." % canonical(network))
+	if len(settings["manual"]) >= MAX_MANUAL:
+		raise ValueError("Your list can have at most %d entries." % MAX_MANUAL)
+	settings["manual"].append({
+		"entry": canonical(network),
+		"note": (note or "").strip()[:200],
+		"added": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
+	})
+	save_settings(env, settings)
+	apply(env)
+	return "%s is blocked on every port but DNS.\n" % canonical(network)
+
+
+def remove_manual(env, entry):
+	settings = get_settings(env)
+	found = parse_network((entry or "").strip())
+	key = canonical(found[0]) if len(found) == 1 else (entry or "").strip()
+	if not any(m["entry"] == key for m in settings["manual"]):
+		raise ValueError("%s is not in your list." % key)
+	settings["manual"] = [m for m in settings["manual"] if m["entry"] != key]
+	save_settings(env, settings)
+	apply(env)
+	return "%s is no longer blocked.\n" % key
+
+
+def manual_networks(settings):
+	networks = []
+	for item in settings.get("manual", []):
+		networks.extend(parse_network(item["entry"]))
+	return merge(networks)
 
 
 # Parsing.
@@ -242,7 +389,9 @@ def download(url):
 	with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
 		data = response.read(MAX_BYTES + 1)
 	if len(data) > MAX_BYTES:
-		raise ValueError("the list is larger than %d MB" % (MAX_BYTES // 1024 // 1024))
+		raise ValueError("the list is larger than %d MB. Lists that big have millions of entries, which would "
+						"take more memory than the box can spare (the kernel keeps every entry in memory); "
+						"use a smaller, curated list instead (see the suggested lists)" % (MAX_BYTES // 1024 // 1024))
 	return data.decode("utf-8", errors="replace")
 
 
@@ -257,7 +406,7 @@ def fetch_source(url):
 	if not networks:
 		return [], {"ok": False, "error": "It has no valid IP addresses or networks, so it isn't used.", "checked": now}
 	if len(networks) > MAX_ENTRIES_PER_LIST:
-		return [], {"ok": False, "error": "It has more than %d entries, so it isn't used." % MAX_ENTRIES_PER_LIST, "checked": now}
+		return [], {"ok": False, "error": "It has more than %d entries, which would take more memory than the box can spare, so it isn't used. Use a smaller, curated list instead." % MAX_ENTRIES_PER_LIST, "checked": now}
 	return networks, {"ok": True, "entries": len(networks), "skipped": skipped, "checked": now}
 
 
@@ -316,7 +465,9 @@ def nft_set(name, version, networks):
 	return lines
 
 
-def nft_rules(block, allow):
+def nft_rules(block, allow, block_all=None):
+	# block: networks blocked on the login ports; block_all: on every port but DNS.
+	block_all = block_all or {4: [], 6: []}
 	lines = [
 		"# Written by Mail-in-a-Box (management/ip_blocklists.py). Changes made here are lost:",
 		"# use the control panel (Mail > Filtering) instead.",
@@ -326,16 +477,23 @@ def nft_rules(block, allow):
 	]
 	lines += nft_set("allow4", 4, allow[4]) + nft_set("allow6", 6, allow[6])
 	lines += nft_set("block4", 4, block[4]) + nft_set("block6", 6, block[6])
+	lines += nft_set("all4", 4, block_all[4]) + nft_set("all6", 6, block_all[6])
 	lines += [
 		"\tchain logins {",
-		"\t\tip saddr @allow4 return",
-		"\t\tip6 saddr @allow6 return",
 		"\t\tip saddr @block4 counter drop",
 		"\t\tip6 saddr @block6 counter drop",
 		"\t}",
 		"\tchain input {",
 		"\t\ttype filter hook input priority -10; policy accept;",
 		"\t\tiifname \"lo\" return",
+		# Replies to connections the box opened (e.g. delivering mail) are never dropped.
+		"\t\tct state established,related return",
+		"\t\tip saddr @allow4 return",
+		"\t\tip6 saddr @allow6 return",
+		"\t\ttcp dport %d return" % DNS_PORT,
+		"\t\tudp dport %d return" % DNS_PORT,
+		"\t\tip saddr @all4 counter drop",
+		"\t\tip6 saddr @all6 counter drop",
 		"\t\ttcp dport { %s } jump logins" % ", ".join(str(p) for p in PORTS),
 		"\t}",
 		"}",
@@ -350,12 +508,12 @@ def remove_table():
 		os.unlink(NFT_FILE)
 
 
-def load_rules(block, allow):
+def load_rules(block, allow, block_all=None):
 	# Checks the rules before loading them, so a bad file never replaces the rules in use.
 	# Loading the file is a single transaction: the old table is replaced atomically.
 	tmp = NFT_FILE + ".tmp"
 	with open(tmp, "w") as f:
-		f.write(nft_rules(block, allow))
+		f.write(nft_rules(block, allow, block_all))
 	os.chmod(tmp, 0o600)
 	check = subprocess.run(["/usr/sbin/nft", "-c", "-f", tmp], capture_output=True, text=True)
 	if check.returncode != 0:
@@ -383,15 +541,28 @@ def write_status(status):
 	os.replace(STATUS_FILE + ".tmp", STATUS_FILE)
 
 
-def read_merged():
+def read_merged_file(fn):
 	networks = []
 	try:
-		with open(MERGED_FILE) as f:
+		with open(fn) as f:
 			for line in f:
 				networks.extend(parse_network(line))
 	except OSError:
 		pass
 	return merge(networks)
+
+
+def read_merged():
+	# Every network on the public lists, whatever its scope.
+	logins, every = read_merged_file(MERGED_FILE), read_merged_file(MERGED_ALL_FILE)
+	return merge(logins[4] + logins[6] + every[4] + every[6])
+
+
+def write_merged(fn, networks):
+	with open(fn + ".tmp", "w") as f:
+		for version in (4, 6):
+			f.writelines("%s\n" % n for n in networks[version])
+	os.replace(fn + ".tmp", fn)
 
 
 def update(env):
@@ -400,51 +571,80 @@ def update(env):
 	if not settings["enabled"] or not is_available():
 		return apply(env)
 	sources = [s for s in settings["sources"] if s["enabled"]]
+	scopes = {s["url"]: s["scope"] for s in sources}
 	results = {}
 	with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
 		futures = {pool.submit(fetch_source, s["url"]): s["url"] for s in sources}
 		for future in concurrent.futures.as_completed(futures):
 			results[futures[future]] = future.result()
-	networks = []
-	for networks_of_source, _ in results.values():
-		networks.extend(networks_of_source)
-	block = merge(networks)
+	networks = {"logins": [], "all": []}
+	for url, (networks_of_source, _) in results.items():
+		networks[scopes.get(url, "logins")].extend(networks_of_source)
+	block_all = merge(networks["all"])
+	# What is blocked on every port doesn't need to be in the login ports' list too.
+	block = merge(networks["logins"])
+	block = subtract(block, block_all)
 	os.makedirs(STATE_DIR, exist_ok=True)
-	with open(MERGED_FILE + ".tmp", "w") as f:
-		for version in (4, 6):
-			f.writelines("%s\n" % n for n in block[version])
-	os.replace(MERGED_FILE + ".tmp", MERGED_FILE)
+	write_merged(MERGED_FILE, block)
+	write_merged(MERGED_ALL_FILE, block_all)
 	status = {
 		"updated": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
 		"sources": {url: s for url, (_, s) in results.items()},
 	}
 	write_status(status)
-	return apply(env, block)
+	return apply(env, block, block_all)
 
 
-def apply(env, block=None):
+def subtract(networks, minus):
+	# The networks without the parts that are in minus (both merged).
+	result = {}
+	for version in (4, 6):
+		remaining = list(networks[version])
+		for m in minus[version]:
+			kept = []
+			for n in remaining:
+				if not n.overlaps(m):
+					kept.append(n)
+				elif n.subnet_of(m):
+					continue
+				else:
+					kept.extend(n.address_exclude(m))
+			remaining = kept
+		result[version] = list(ipaddress.collapse_addresses(remaining))
+	return result
+
+
+def apply(env, block=None, block_all=None):
 	# Loads the rules from the last merged lists (without downloading them), e.g. after
-	# the networks of known logins changed, or removes them if the blocklists are off.
+	# the networks of known logins or the administrator's own list changed, or removes
+	# them if the blocklists are off and the administrator's list is empty.
 	settings = get_settings(env)
 	if not is_available():
 		return "The blocklists are not available because the firewall was disabled at setup.\n"
+	manual = manual_networks(settings)
 	if not settings["enabled"]:
-		remove_table()
-		return "The blocklists are off.\n"
-	if block is None:
-		block = read_merged()
+		block, block_all = {4: [], 6: []}, {4: [], 6: []}
+		if not manual[4] and not manual[6]:
+			remove_table()
+			return "The blocklists are off.\n"
+	else:
+		if block is None:
+			block = read_merged_file(MERGED_FILE)
+		if block_all is None:
+			block_all = read_merged_file(MERGED_ALL_FILE)
+	every = merge(block_all[4] + block_all[6] + manual[4] + manual[6])
 	allow = get_exempt_networks(env)
-	load_rules(block, allow)
-	failed = [url for url, s in read_status().get("sources", {}).items() if not s.get("ok")]
-	return "Blocking %d IPv4 and %d IPv6 networks on the login ports%s.\n" % (
-		len(block[4]), len(block[6]),
+	load_rules(block, allow, every)
+	failed = [url for url, s in read_status().get("sources", {}).items() if not s.get("ok")] if settings["enabled"] else []
+	return "Blocking %d networks on the login ports and %d on every port (%d of them yours)%s.\n" % (
+		len(block[4]) + len(block[6]), len(every[4]) + len(every[6]), len(settings["manual"]),
 		" (%d of the lists failed and add nothing: %s)" % (len(failed), ", ".join(failed)) if failed else "")
 
 
 def get_dropped():
 	# Packets dropped since the rules were last loaded.
 	try:
-		out = subprocess.run(["/usr/sbin/nft", "list", "chain", "inet", TABLE, "logins"],
+		out = subprocess.run(["/usr/sbin/nft", "list", "table", "inet", TABLE],
 							capture_output=True, text=True, timeout=10).stdout
 	except (OSError, subprocess.SubprocessError):
 		return None
@@ -461,18 +661,39 @@ def get_status(env):
 		item = dict(source)
 		item.update(state.get("sources", {}).get(source["url"], {}) if source["enabled"] else {})
 		sources.append(item)
+	every = read_merged_file(MERGED_ALL_FILE) if settings["enabled"] else {4: [], 6: []}
+	added = {s["url"] for s in settings["sources"]}
 	return {
 		"available": is_available(),
 		"enabled": settings["enabled"],
 		"updated": state.get("updated"),
 		"networks4": len(block[4]),
 		"networks6": len(block[6]),
+		"networks_all": len(every[4]) + len(every[6]),
 		"addresses4": sum(n.num_addresses for n in block[4]),
-		"dropped": get_dropped() if settings["enabled"] and is_available() else None,
+		"dropped": get_dropped() if is_available() else None,
 		"ports": list(PORTS),
 		"sources": sources,
 		"defaults": [url for url, _ in DEFAULT_SOURCES],
+		"suggested": [{"url": u, "description": d, "scope": sc} for u, d, sc in SUGGESTED_SOURCES if u not in added],
+		"manual": sorted(settings["manual"], key=lambda m: m.get("added", ""), reverse=True),
 	}
+
+
+def manual_matcher(env):
+	# A function telling whether an address is on the administrator's own list.
+	networks = manual_networks(get_settings(env))
+
+	def matches(address):
+		try:
+			ip = ipaddress.ip_address(address)
+		except ValueError:
+			return None
+		for n in networks[ip.version]:
+			if ip in n:
+				return str(n)
+		return None
+	return matches
 
 
 if __name__ == "__main__":
@@ -491,6 +712,15 @@ if __name__ == "__main__":
 			sys.exit(1)
 	elif len(sys.argv) == 2 and sys.argv[1] == "status":
 		print(json.dumps(get_status(env), indent=1))
+	elif len(sys.argv) >= 3 and sys.argv[1] in ("block", "unblock"):
+		try:
+			if sys.argv[1] == "block":
+				print(add_manual(env, sys.argv[2], " ".join(sys.argv[3:])), end="")
+			else:
+				print(remove_manual(env, sys.argv[2]), end="")
+		except (RuntimeError, ValueError) as e:
+			print(e, file=sys.stderr)
+			sys.exit(1)
 	elif len(sys.argv) == 3 and sys.argv[1] in ("add", "remove"):
 		try:
 			print((add_source if sys.argv[1] == "add" else remove_source)(env, sys.argv[2]), end="")
@@ -498,5 +728,5 @@ if __name__ == "__main__":
 			print(e, file=sys.stderr)
 			sys.exit(1)
 	else:
-		print("Usage: %s update | apply | on | off | status | add URL | remove URL" % sys.argv[0])
+		print("Usage: %s update | apply | on | off | status | add URL | remove URL | block ADDRESS [NOTE] | unblock ADDRESS" % sys.argv[0])
 		sys.exit(2)

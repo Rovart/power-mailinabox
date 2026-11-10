@@ -1007,6 +1007,13 @@ textarea.form-control {
 	cursor: pointer;
 }
 
+.form-select-sm {
+	min-height: 30px;
+	padding: .2rem 1.9rem .2rem .55rem;
+	font-size: .8rem;
+	background-position: right .5rem center;
+}
+
 .form-control.is-invalid {
 	border-color: var(--danger);
 }
@@ -1187,6 +1194,7 @@ textarea.form-control {
 /* Tables */
 
 .table-responsive {
+	position: relative; /* keeps visually hidden headers inside the scrolling box */
 	overflow-x: auto;
 	-webkit-overflow-scrolling: touch;
 	border: 0;
@@ -1746,6 +1754,7 @@ dialog.modal.closing::backdrop {
 
 @media (min-width: 576px) {
 	.col-sm-auto { flex: 0 0 auto; width: auto; }
+	.col-sm-2 { flex: 0 0 auto; width: 16.666667%; }
 	.col-sm-4 { flex: 0 0 auto; width: 33.333333%; }
 	.col-sm-6 { flex: 0 0 auto; width: 50%; }
 	.col-sm-8 { flex: 0 0 auto; width: 66.666667%; }
@@ -2261,7 +2270,18 @@ dialog.modal.closing::backdrop {
 }
 
 .attackers-table {
-	min-width: 680px;
+	min-width: 720px;
+}
+
+.attacker-status {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: .3rem;
+}
+
+.attacker-status .btn {
+	margin-left: auto;
 }
 
 .attacker-where {
@@ -2288,7 +2308,12 @@ dialog.modal.closing::backdrop {
 	font-size: .85rem;
 }
 
+.country-bars li > span:nth-child(2) {
+	display: block;
+}
+
 .country-bar {
+	display: block;
 	height: 8px;
 	border-radius: 4px;
 	background: var(--viz-1);

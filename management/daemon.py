@@ -383,7 +383,8 @@ def mail_filtering_set():
 def system_security_metrics():
 	# Attacks on the box over time, for the dashboard (see security_metrics.py).
 	import security_metrics
-	return json_response(security_metrics.get_metrics(env, request.args.get('range', '24h')))
+	return json_response(security_metrics.get_metrics(env, request.args.get('range', '24h'),
+		fresh=request.args.get('fresh') == '1'))
 
 
 @app.route('/mail/login-protection')
@@ -416,6 +417,12 @@ def mail_login_protection_set():
 			return ip_blocklists.set_source_enabled(env, url, enabled)
 		if action == "reset_sources":
 			return ip_blocklists.reset_sources(env)
+		if action == "source_scope":
+			return ip_blocklists.set_source_scope(env, url, request.form.get('scope', ''))
+		if action == "block":
+			return ip_blocklists.add_manual(env, request.form.get('entry', ''), request.form.get('note', ''))
+		if action == "unblock":
+			return ip_blocklists.remove_manual(env, request.form.get('entry', ''))
 		if action == "update":
 			return ip_blocklists.update(env)
 		if action == "login_alerts":
