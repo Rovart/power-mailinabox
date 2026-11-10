@@ -18,7 +18,7 @@ Power Mail-in-a-Box v61.16
   list just added; all of them are still downloaded every 6 hours and with "Download the lists
   now".
 * Dashboard, "Where the attacks come from": a world map, each country shaded in four steps of
-  one hue (on a log scale, with a legend), with its name and number on hover or with the
+  one hue (on a log scale, with a legend), in the Equal Earth projection, centered, with its name and number on hover or with the
   keyboard, next to the list of the top countries. The map is drawn by the panel from Natural
   Earth's 1:110m countries (public domain, `conf/panel/world.js`, made with
   `tools/make_world_map.py`), with no libraries and nothing loaded from elsewhere. The API's

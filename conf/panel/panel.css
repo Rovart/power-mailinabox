@@ -1994,6 +1994,11 @@ dialog.modal.closing::backdrop {
 
 /* World map (PanelCharts.map) */
 
+.viz-map {
+	max-width: 640px;
+	margin-inline: auto;
+}
+
 .viz-map svg {
 	display: block;
 	width: 100%;
@@ -2024,6 +2029,7 @@ dialog.modal.closing::backdrop {
 .viz-map-legend {
 	display: flex;
 	flex-wrap: wrap;
+	justify-content: center;
 	gap: .35rem .9rem;
 	margin-top: .6rem;
 	font-size: .75rem;
