@@ -44,6 +44,8 @@ check "admin assets (jquery, panel css/js, Inter, fontawesome)" '(for a in jquer
 check "admin page doesn't load Bootstrap" '! $C $H/admin/ | grep -qiE "bootstrap(\.bundle)?(\.min)?\.(css|js)|data-bs-" && $C $H/admin/ | grep -q "panel/panel.css?v="'
 KEY=$($C -X POST -u "$U:$P" $H/admin/login | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('api_key',''))" 2>/dev/null)
 check "admin login via API" '[ -n "$KEY" ]'
+check "admin login via API rejects a wrong password" '[ -z "$($C -X POST -u "$U:not-$P" $H/admin/login | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get(\"api_key\",\"\"))" 2>/dev/null)" ]'
+check "admin logins don't write the password hash or doveadm output to the journal" '! journalctl -u mailinabox --no-pager -o cat | grep -qE "SHA512-CRYPT|\(verified\)|password verification check failed"'
 check "API: users list" '$C -u "$U:$KEY" "$H/admin/mail/users?format=json" | grep -q "$U"'
 check "API: system status" '$C -u "$U:$KEY" -X POST $H/admin/system/status | grep -q "\"type\""'
 check "API: dns zonefile" '$C -u "$U:$KEY" $H/admin/dns/zonefile/example.com | grep -q "SOA"'

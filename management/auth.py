@@ -122,15 +122,19 @@ class AuthService:
 
 			# Use 'doveadm pw' to check credentials. doveadm will return
 			# a non-zero exit status if the credentials are no good,
-			# and check_call will raise an exception in that case.
-			utils.shell('check_call', [
+			# and check_output will raise an exception in that case.
+			# Its output is captured and discarded: on success doveadm
+			# prints the password hash ("{SHA512-CRYPT}$6$... (verified)")
+			# and on failure a mismatch message, which would otherwise end
+			# up in the daemon's journal.
+			utils.shell('check_output', [
 				"/usr/bin/doveadm",
 				"pw",
 				"-p",
 				pw,
 				"-t",
 				pw_hash,
-			])
+			], capture_stderr=True)
 		except:
 			# Login failed.
 			raise ValueError("Incorrect email address or password.")
