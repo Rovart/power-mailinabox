@@ -138,6 +138,7 @@ check "quota (maildirsize) via API" '$C -u "$U:$KEY" -X POST -d "email=$U&quota=
 
 echo "== backup"
 check "backup (duplicity) runs" '/root/mailinabox/management/backup.py > /tmp/backup.log 2>&1 && ls /home/user-data/backup/encrypted | grep -q "duplicity-full"' || cat /tmp/backup.log | tail -5
+check "duplicity's venv without PyDrive2, with cryptography 46 or later" '! /usr/local/lib/mailinabox/duplicity/bin/pip show -q PyDrive2 >/dev/null 2>&1 && /usr/local/lib/mailinabox/duplicity/bin/python -c "import sys, cryptography; sys.exit(0 if int(cryptography.__version__.split(\".\")[0]) >= 46 else 1)"'
 check "backup status via API" '$C -u "$U:$KEY" $H/admin/system/backup/status | grep -q "\"full\": true\|\"full\":true"'
 
 echo "== login protection"

@@ -348,12 +348,14 @@
 		return values.reduce(function (a, v) { return a + (v || 0); }, 0);
 	}
 
-	function security_block(action, address, attacker) {
+	function security_block(action, address, attacker, done) {
+		// done(): called once the box has blocked or unblocked it, to update only that row
+		// (recomputing the whole dashboard from the logs takes seconds).
 		function go() {
 			var note = attacker ? ("From the dashboard: " + attacker.failed + " failed logins, " + attacker.bans + " bans"
 				+ (attacker.jails.length ? " (" + attacker.jails.join(", ") + ")" : "")) : "";
 			api("/mail/login-protection", "POST", { action: action, entry: address, note: note }, function () {
-				show_security(true);
+				if (done) done(); else show_security(true);
 			}, function (r) {
 				show_modal_error("Block", r || "Something went wrong, sorry.");
 			});
@@ -431,7 +433,7 @@
 				return $('<span class="badge status-badge"/>').addClass(cls).attr("title", title || null).append(
 					$('<span class="fa-solid" aria-hidden="true"/>').addClass(icon), document.createTextNode(text));
 			}
-			r.top.forEach(function (a) {
+			function attacker_row(a) {
 				var status = $('<div class="attacker-status"/>');
 				if (a.banned_now.length)
 					status.append(badge("text-bg-danger", "fa-gavel", "Banned", "fail2ban: " + a.banned_now.join(", ")));
@@ -442,20 +444,30 @@
 						typeof a.on_blocklist == "string" ? a.on_blocklist : null));
 				if (!status.children().length)
 					status.append($('<span class="small text-body-secondary"/>').text("Not blocked"));
+				var row = $("<tr/>");
+				function replace_row() {
+					var updated = attacker_row(a);
+					row.replaceWith(updated);
+					updated.find(".attacker-action .btn").trigger("focus");
+				}
 				// Nothing to block when a blocklist already drops it; your own blocks can be undone.
 				var action = null;
 				if (a.blocked_by_you)
 					action = $('<button type="button" class="btn btn-sm btn-outline-secondary"/>')
 						.append($('<span class="fa-solid fa-rotate-left me-1" aria-hidden="true"/>'), "Unblock")
 						.attr('aria-label', "Unblock " + a.address)
-						.on('click', function () { security_block("unblock", a.blocked_by_you); });
+						.on('click', function () {
+							security_block("unblock", a.blocked_by_you, a, function () { a.blocked_by_you = null; replace_row(); });
+						});
 				else if (!a.on_blocklist)
 					action = $('<button type="button" class="btn btn-sm btn-outline-danger"/>')
 						.append($('<span class="fa-solid fa-ban me-1" aria-hidden="true"/>'), "Block")
 						.attr('aria-label', "Block " + a.address)
-						.on('click', function () { security_block("block", a.address, a); });
+						.on('click', function () {
+							security_block("block", a.address, a, function () { a.blocked_by_you = a.address; replace_row(); });
+						});
 				var loc = a.location || {};
-				tbody.append($("<tr/>").append(
+				return row.append(
 					$("<td/>").append($("<code/>").text(a.address)),
 					$('<td class="attacker-where"/>').append(
 						$("<div/>").text(security_place(a.location) || (r.located_from ? "Pending" : "")),
@@ -465,8 +477,9 @@
 					$("<td/>").append(status),
 					$('<td class="text-nowrap small"/>').text(a.last ? security_ago(a.last) : "")
 						.attr("title", a.last ? new Date(a.last).toLocaleString() : ""),
-					$('<td class="text-end attacker-action"/>').append(action)));
-			});
+					$('<td class="text-end attacker-action"/>').append(action));
+			}
+			r.top.forEach(function (a) { tbody.append(attacker_row(a)); });
 
 			var map_values = {};
 			r.countries.forEach(function (c) { map_values[c.country] = c.count; });

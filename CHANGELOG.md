@@ -1,6 +1,25 @@
 CHANGELOG
 =========
 
+Unreleased
+----------
+
+* Blocking or unblocking an address answers in about a second instead of four or five: the
+  merged lists are read as they are written (already merged) instead of being parsed and merged
+  again, the rules are loaded with one pass of nftables instead of a check and then a load (a
+  refused file still changes nothing, and only rules that loaded are kept for the next boot),
+  and the dashboard updates only that attacker's row instead of recomputing everything from the
+  logs.
+* "Download for a CDN or WAF..." in Mail > Filtering opens a dialog with the format, the number of
+  entries, the IPv6 option and how to use the file, instead of downloading right away with
+  options further down the page.
+* The confirmation dialog no longer flashes as a row with stretched buttons while it closes:
+  it keeps its layout and stays transparent during its exit transition.
+* duplicity's venv: v61.16 rebuilt it to drop PyDrive2, but duplicity itself requires PyDrive2,
+  so it came back with cryptography 43.0.3 and pyOpenSSL 24.2.1. Setup now removes PyDrive2 after
+  installing duplicity (it's the Google Drive backend, which the box doesn't offer) and upgrades
+  cryptography and pyOpenSSL; the local, rsync, S3, B2 and SFTP backends work as before.
+
 Power Mail-in-a-Box v61.16
 --------------------------
 

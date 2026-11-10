@@ -151,54 +151,12 @@
 							aria-hidden="true"></span>Download the lists now</button>
 					<button type="button" class="btn btn-sm btn-outline-secondary" onclick="protection_reset()">Restore
 						the default lists</button>
-					<button type="button" class="btn btn-sm btn-outline-secondary" onclick="blocked_download()"><span
-							class="fa-solid fa-download me-1" aria-hidden="true"></span>Download for a CDN or WAF</button>
+					<button type="button" class="btn btn-sm btn-outline-secondary" onclick="blocked_download_open()"
+						aria-haspopup="dialog"><span class="fa-solid fa-download me-1" aria-hidden="true"></span>Download for a
+						CDN or WAF&hellip;</button>
 				</div>
-				<details class="mt-3 small">
-					<summary class="text-body-secondary">Block these addresses on your CDN or WAF too</summary>
-					<div class="mt-2 text-body-secondary">
-						<p class="mb-2">Sites behind a CDN or reverse proxy only see its addresses, so the box can&rsquo;t
-							block their attackers. The download has your own list first, then the addresses fail2ban bans
-							now in its web jails, then the public lists, so that a list with a size limit keeps the most
-							useful entries.</p>
-						<form class="row g-2 mb-2" onsubmit="blocked_download(); return false;"
-							aria-label="Download options">
-							<div class="col-sm-4">
-								<label for="blocked-format" class="form-label mb-1">Format</label>
-								<select class="form-select form-select-sm" id="blocked-format">
-									<option value="txt" selected>Text, one address per line</option>
-									<option value="csv">CSV: address, note</option>
-								</select>
-							</div>
-							<div class="col-sm-4">
-								<label for="blocked-limit" class="form-label mb-1">Up to</label>
-								<div class="input-group input-group-sm">
-									<input type="number" class="form-control" id="blocked-limit" min="1" max="1000000"
-										value="10000" required aria-describedby="blocked-limit-help">
-									<span class="input-group-text">entries</span>
-								</div>
-							</div>
-							<div class="col-sm-4">
-								<label for="blocked-ipv6" class="form-label mb-1">IPv6</label>
-								<select class="form-select form-select-sm" id="blocked-ipv6">
-									<option value="all" selected>Addresses and networks</option>
-									<option value="single">Single addresses only</option>
-									<option value="none">None</option>
-								</select>
-							</div>
-							<div id="blocked-limit-help" class="form-text mt-1">Use your plan&rsquo;s limit for IP lists,
-								and the IPv6 option your list accepts.</div>
-						</form>
-						<ol class="mb-0">
-							<li>In your CDN or WAF, create an IP list (it may be called an IP set, an access control
-								list or a network list).</li>
-							<li>Upload the file to it, or paste its contents. Most lists add to their entries rather than
-								replace them: to start over, empty the list first.</li>
-							<li>Add a rule that blocks the requests whose client address is on that list, and apply it to
-								each site behind the CDN.</li>
-						</ol>
-					</div>
-				</details>
+				<p class="small text-body-secondary mt-2 mb-0">Sites behind a CDN or reverse proxy only see its addresses:
+					to block their attackers there too, download the blocked addresses for your CDN&rsquo;s IP list.</p>
 			</div>
 		</div>
 	</div>
@@ -340,6 +298,64 @@
 				class="visually-hidden filtering-remove-label"></span></button>
 	</li>
 </template>
+
+<dialog id="blocked-download-modal" class="modal" aria-labelledby="blocked-download-title">
+	<form id="blocked-download-form" onsubmit="blocked_download(); return false;">
+		<div class="modal-header">
+			<h2 class="modal-title" id="blocked-download-title">Download for a CDN or WAF</h2>
+			<button type="button" class="btn-close" data-dismiss="modal" aria-label="Close"></button>
+		</div>
+		<div class="modal-body">
+			<p>Sites behind a CDN or reverse proxy only see its addresses, so the box can&rsquo;t block their
+				attackers. Upload this file to your CDN&rsquo;s or WAF&rsquo;s IP list. It has your own list first, then
+				the addresses fail2ban bans now in its web jails, then the public lists, so that a list with a size
+				limit keeps the most useful entries.</p>
+			<div class="mb-3">
+				<label for="blocked-format" class="form-label">Format</label>
+				<select class="form-select" id="blocked-format">
+					<option value="txt" selected>Text, one address or network per line</option>
+					<option value="csv">CSV: address, note</option>
+				</select>
+			</div>
+			<div class="row g-3 mb-1">
+				<div class="col-sm-6">
+					<label for="blocked-limit" class="form-label">Up to</label>
+					<div class="input-group">
+						<input type="number" class="form-control" id="blocked-limit" min="1" max="1000000" value="10000"
+							required aria-describedby="blocked-limit-help">
+						<span class="input-group-text">entries</span>
+					</div>
+					<div id="blocked-limit-help" class="form-text">Your plan&rsquo;s limit for IP lists.</div>
+				</div>
+				<div class="col-sm-6">
+					<label for="blocked-ipv6" class="form-label">IPv6</label>
+					<select class="form-select" id="blocked-ipv6" aria-describedby="blocked-ipv6-help">
+						<option value="all" selected>Addresses and networks</option>
+						<option value="single">Single addresses only</option>
+						<option value="none">None</option>
+					</select>
+					<div id="blocked-ipv6-help" class="form-text">What your IP list accepts.</div>
+				</div>
+			</div>
+			<details class="small mt-3">
+				<summary>How to use it</summary>
+				<ol class="mt-2 mb-0">
+					<li>In your CDN or WAF, create an IP list (it may be called an IP set, an access control list or a
+						network list).</li>
+					<li>Upload the file to it, or paste its contents. Most lists add to their entries rather than
+						replace them: to start over, empty the list first.</li>
+					<li>Add a rule that blocks the requests whose client address is on that list, and apply it to each
+						site behind the CDN.</li>
+				</ol>
+			</details>
+		</div>
+		<div class="modal-footer">
+			<button type="button" class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
+			<button type="submit" class="btn btn-primary"><span class="fa-solid fa-download me-1"
+					aria-hidden="true"></span>Download</button>
+		</div>
+	</form>
+</dialog>
 
 <script>
 	const filtering_kinds = {
@@ -550,15 +566,20 @@
 		protection_change({ action: 'add_source', url: input.val() }, function () { input.val(''); });
 	}
 
-	function blocked_download() {
-		// The blocked addresses for the IP list of a CDN or WAF, with the options of the form
-		// under "Block these addresses on your CDN or WAF too".
-		var limit = $('#blocked-limit');
-		if (!limit[0].checkValidity()) {
-			limit[0].closest('details').open = true;
-			limit[0].reportValidity();
-			return;
+	var blocked_download_modal = null;
+	function blocked_download_open() {
+		// The options (format, number of entries, IPv6) are in their own dialog.
+		if (!blocked_download_modal) {
+			blocked_download_modal = new PanelModal(document.getElementById("blocked-download-modal"));
+			$('#blocked-download-modal').on('modal:shown', function () { $('#blocked-format').trigger('focus'); });
 		}
+		blocked_download_modal.show();
+	}
+
+	function blocked_download() {
+		// The blocked addresses for the IP list of a CDN or WAF, with the dialog's options
+		// (the form checks the number of entries before this runs).
+		var limit = $('#blocked-limit');
 		var fmt = $('#blocked-format').val();
 		api("/mail/login-protection/blocked-addresses", "GET",
 			{ format: fmt, limit: limit.val(), ipv6: $('#blocked-ipv6').val() }, function (text) {
@@ -570,6 +591,7 @@
 			a.click();
 			a.remove();
 			setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+			blocked_download_modal.hide();
 		}, function (text) {
 			show_modal_error("Download for a CDN or WAF", $('<p class="mb-0"/>').text(text));
 		});

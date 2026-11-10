@@ -515,20 +515,19 @@ def remove_table():
 
 
 def load_rules(block, allow, block_all=None):
-	# Checks the rules before loading them, so a bad file never replaces the rules in use.
-	# Loading the file is a single transaction: the old table is replaced atomically.
+	# Loading the file is a single transaction: the old table is replaced atomically, and a
+	# file nftables refuses changes nothing. Only rules that loaded become the file loaded
+	# at boot, so a bad file never replaces the rules in use. (One pass of nftables instead
+	# of a check and then a load: the file has every network of the lists.)
 	tmp = NFT_FILE + ".tmp"
 	with open(tmp, "w") as f:
 		f.write(nft_rules(block, allow, block_all))
 	os.chmod(tmp, 0o600)
-	check = subprocess.run(["/usr/sbin/nft", "-c", "-f", tmp], capture_output=True, text=True)
-	if check.returncode != 0:
-		os.unlink(tmp)
-		raise RuntimeError("nftables refused the rules: " + check.stderr.strip()[:500])
-	os.replace(tmp, NFT_FILE)
-	result = subprocess.run(["/usr/sbin/nft", "-f", NFT_FILE], capture_output=True, text=True)
+	result = subprocess.run(["/usr/sbin/nft", "-f", tmp], capture_output=True, text=True)
 	if result.returncode != 0:
-		raise RuntimeError("Could not load the rules: " + result.stderr.strip()[:500])
+		os.unlink(tmp)
+		raise RuntimeError("nftables refused the rules: " + result.stderr.strip()[:500])
+	os.replace(tmp, NFT_FILE)
 
 
 def read_status():
@@ -548,14 +547,25 @@ def write_status(status):
 
 
 def read_merged_file(fn):
-	networks = []
+	# The merged files are written by write_merged(): one network per line, already merged
+	# and sorted, so they are read as they are. (Parsing every line as a range and merging
+	# again took about a second on a small box, on every change in the control panel.)
+	networks = {4: [], 6: []}
 	try:
 		with open(fn) as f:
 			for line in f:
-				networks.extend(parse_network(line))
+				line = line.strip()
+				if not line:
+					continue
+				try:
+					found = [ipaddress.ip_network(line)]
+				except ValueError:
+					found = parse_network(line)
+				for n in found:
+					networks[n.version].append(n)
 	except OSError:
 		pass
-	return merge(networks)
+	return networks
 
 
 def read_merged():
