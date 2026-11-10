@@ -45,9 +45,11 @@
 # $STORAGE_ROOT/settings.yaml; the blocklists are on unless turned off.
 ########################################################################
 
+import bisect
 import concurrent.futures
 import datetime
 import glob
+import hashlib
 import ipaddress
 import json
 import os
@@ -104,6 +106,10 @@ STATE_DIR = "/var/lib/mailinabox/ip-blocklists"
 STATUS_FILE = STATE_DIR + "/status.json"
 MERGED_FILE = STATE_DIR + "/merged.txt"  # scope "logins"
 MERGED_ALL_FILE = STATE_DIR + "/merged-all.txt"  # scope "all"
+# The last good download of each list, so that adding, removing or changing one list
+# doesn't download all the others again (they are every 6 hours, or with "Download the
+# lists now").
+CACHE_DIR = STATE_DIR + "/lists"
 NFT_FILE = "/etc/mailinabox-ip-blocklists.nft"
 SERVICE_FILE = "/etc/systemd/system/mailinabox-ip-blocklists.service"
 TABLE = "mailinabox_ip_blocklists"
@@ -228,7 +234,7 @@ def add_source(env, url, description=""):
 	settings["sources"].append({"url": url, "enabled": True, "description": (description or "").strip()[:200],
 								"scope": default_scope(url)})
 	save_settings(env, settings)
-	return update(env)
+	return update(env, download=False)
 
 
 def remove_source(env, url):
@@ -238,7 +244,7 @@ def remove_source(env, url):
 		raise ValueError("%s is not in the list." % url)
 	settings["sources"] = [s for s in settings["sources"] if s["url"] != url]
 	save_settings(env, settings)
-	return update(env)
+	return update(env, download=False)
 
 
 def set_source_enabled(env, url, enabled):
@@ -251,7 +257,7 @@ def set_source_enabled(env, url, enabled):
 	else:
 		raise ValueError("%s is not in the list." % url)
 	save_settings(env, settings)
-	return update(env)
+	return update(env, download=False)
 
 
 def set_source_scope(env, url, scope):
@@ -266,14 +272,14 @@ def set_source_scope(env, url, scope):
 	else:
 		raise ValueError("%s is not in the list." % url)
 	save_settings(env, settings)
-	return update(env)
+	return update(env, download=False)
 
 
 def reset_sources(env):
 	settings = get_settings(env)
 	settings["sources"] = default_sources()
 	save_settings(env, settings)
-	return update(env)
+	return update(env, download=False)
 
 
 # The administrator's own list.
@@ -565,18 +571,77 @@ def write_merged(fn, networks):
 	os.replace(fn + ".tmp", fn)
 
 
-def update(env):
-	# Downloads the enabled lists, merges them and loads the rules. Returns a description.
+def cache_file(url):
+	return os.path.join(CACHE_DIR, hashlib.sha256(url.encode()).hexdigest()[:32] + ".txt")
+
+
+def write_cache(url, networks):
+	os.makedirs(CACHE_DIR, exist_ok=True)
+	fn = cache_file(url)
+	with open(fn + ".tmp", "w") as f:
+		f.writelines("%s\n" % n for n in networks)
+	os.replace(fn + ".tmp", fn)
+
+
+def read_cache(url):
+	# The networks of the list's last good download, or None.
+	networks = []
+	try:
+		with open(cache_file(url)) as f:
+			for line in f:
+				try:
+					networks.append(ipaddress.ip_network(line.strip()))
+				except ValueError:
+					pass
+	except OSError:
+		return None
+	return networks
+
+
+def prune_cache(urls):
+	# Removes the downloads of the lists that are no longer in the settings.
+	keep = {os.path.basename(cache_file(u)) for u in urls}
+	for fn in glob.glob(os.path.join(CACHE_DIR, "*.txt")):
+		if os.path.basename(fn) not in keep:
+			try:
+				os.unlink(fn)
+			except OSError:
+				pass
+
+
+def fetch_and_cache(url):
+	networks, status = fetch_source(url)
+	if status.get("ok"):
+		write_cache(url, networks)
+	return networks, status
+
+
+def update(env, download=True):
+	# Merges the enabled lists and loads the rules. Returns a description.
+	# download=True downloads every list again (every 6 hours, "Download the lists now",
+	# turning the lists on); download=False only downloads the lists without a good
+	# download yet (e.g. one just added) and takes the others from their last download,
+	# so that a change in the control panel answers in seconds.
 	settings = get_settings(env)
 	if not settings["enabled"] or not is_available():
 		return apply(env)
 	sources = [s for s in settings["sources"] if s["enabled"]]
 	scopes = {s["url"]: s["scope"] for s in sources}
 	results = {}
-	with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
-		futures = {pool.submit(fetch_source, s["url"]): s["url"] for s in sources}
-		for future in concurrent.futures.as_completed(futures):
-			results[futures[future]] = future.result()
+	to_fetch = []
+	previous = read_status().get("sources", {})
+	for s in sources:
+		cached = None if download else read_cache(s["url"])
+		if cached is not None and previous.get(s["url"], {}).get("ok"):
+			results[s["url"]] = (cached, previous[s["url"]])
+		else:
+			to_fetch.append(s["url"])
+	if to_fetch:
+		with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+			futures = {pool.submit(fetch_and_cache, url): url for url in to_fetch}
+			for future in concurrent.futures.as_completed(futures):
+				results[futures[future]] = future.result()
+	prune_cache([s["url"] for s in settings["sources"]])
 	networks = {"logins": [], "all": []}
 	for url, (networks_of_source, _) in results.items():
 		networks[scopes.get(url, "logins")].extend(networks_of_source)
@@ -596,20 +661,43 @@ def update(env):
 
 
 def subtract(networks, minus):
-	# The networks without the parts that are in minus (both merged).
+	# The networks without the parts that are in minus (both merged). minus becomes
+	# sorted, non-overlapping intervals of integers, and each network only looks at the
+	# intervals that can overlap it (a binary search), so this takes a fraction of a
+	# second for tens of thousands of networks. (Comparing every network with every
+	# network of minus took minutes on a small box, longer than the control panel waits.)
 	result = {}
 	for version in (4, 6):
-		remaining = list(networks[version])
-		for m in minus[version]:
-			kept = []
-			for n in remaining:
-				if not n.overlaps(m):
-					kept.append(n)
-				elif n.subnet_of(m):
+		address = ipaddress.IPv4Address if version == 4 else ipaddress.IPv6Address
+		cuts = []
+		for m in sorted(minus[version]):
+			start, end = int(m.network_address), int(m.broadcast_address)
+			if cuts and start <= cuts[-1][1] + 1:
+				cuts[-1][1] = max(cuts[-1][1], end)
+			else:
+				cuts.append([start, end])
+		starts = [c[0] for c in cuts]
+		remaining = []
+		for n in networks[version]:
+			start, end = int(n.network_address), int(n.broadcast_address)
+			first = max(bisect.bisect_right(starts, start) - 1, 0)
+			last = bisect.bisect_right(starts, end)
+			pieces, position = [], start
+			for cut_start, cut_end in cuts[first:last]:
+				if cut_end < position:
 					continue
-				else:
-					kept.extend(n.address_exclude(m))
-			remaining = kept
+				if cut_start > position:
+					pieces.append((position, cut_start - 1))
+				position = cut_end + 1
+				if position > end:
+					break
+			if position <= end:
+				pieces.append((position, end))
+			if pieces == [(start, end)]:
+				remaining.append(n)
+			else:
+				for piece_start, piece_end in pieces:
+					remaining.extend(ipaddress.summarize_address_range(address(piece_start), address(piece_end)))
 		result[version] = list(ipaddress.collapse_addresses(remaining))
 	return result
 

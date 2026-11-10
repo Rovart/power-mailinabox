@@ -9,6 +9,14 @@ Power Mail-in-a-Box v61.16
   rule operator, SSRF in the CSS proxy, a CSRF bypass for file-only POST requests, an open
   redirect and attachment content passed to ImageMagick
   (https://github.com/roundcube/roundcubemail/releases/tag/1.7.6).
+* IP blocklists: adding, removing, turning on or off or changing the scope of a list in Mail >
+  Filtering answers in seconds instead of minutes, and no longer ends in "504 Gateway Time-out".
+  Taking out of the login ports' list what is already blocked on every port compared every
+  network with every other one: with about 20,000 networks it took 3.5 minutes on a 1-CPU box.
+  It now uses sorted intervals and a binary search (0.2 seconds). And each list's last good
+  download is kept (`/var/lib/mailinabox/ip-blocklists/lists/`), so a change only downloads the
+  list just added; all of them are still downloaded every 6 hours and with "Download the lists
+  now".
 * The download of the blocked addresses is no longer only for Cloudflare: "Download for a CDN or
   WAF" in Mail > Filtering gives a file for the IP list (IP set, ACL, network list) of any CDN or
   WAF, as text with one address or network per line, or as CSV with a note for each entry, up to

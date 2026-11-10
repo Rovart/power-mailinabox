@@ -19,6 +19,7 @@ Boxes installed from the original repository can switch to this fork with the us
 ## What's new in v61.16
 
 - **Security update**: Roundcube 1.7.6, with 17 security fixes (IMAP command injection, Sieve script injection, SSRF, a CSRF bypass and more).
+- **Adding or changing an IP blocklist is fast again** (seconds, not minutes or a 504 error).
 - The blocked addresses can be downloaded **for any CDN or WAF** (one per line or CSV, with the number of entries and the IPv6 entries your list accepts), instead of only for Cloudflare.
 - The backup tool's environment is rebuilt without the leftover Google Drive library that held back `cryptography` and `pyOpenSSL`.
 
