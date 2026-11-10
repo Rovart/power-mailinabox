@@ -1580,7 +1580,22 @@ dialog.modal {
 
 dialog.modal[open] {
 	display: flex;
+}
+
+/* While it closes, the dialog stays on screen for its exit transition (display and overlay
+   are transitioned) after it lost [open]: it keeps its column layout and stays transparent,
+   instead of showing for a moment as a row with stretched buttons. */
+dialog.modal {
 	flex-direction: column;
+}
+
+dialog.modal:not([open]) {
+	opacity: 0;
+	transform: scale(.98);
+}
+
+dialog.modal:not([open])::backdrop {
+	opacity: 0;
 }
 
 @starting-style {

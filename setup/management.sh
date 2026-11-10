@@ -39,12 +39,6 @@ fi
 inst_dir=/usr/local/lib/mailinabox
 mkdir -p $inst_dir
 duplicity_venv=$inst_dir/duplicity
-# Venvs from older versions also carry PyDrive2 (a Google Drive backend the box doesn't offer),
-# which pins cryptography<44 and pyOpenSSL<=24.2.1 (GHSA-jwv3-5hgf-82ww, GHSA-5pwr-322w-8jr4)
-# and so blocks their upgrades: rebuild such a venv with only what we install below.
-if compgen -G "$duplicity_venv/lib/python3*/site-packages/[Pp]y[Dd]rive2*" > /dev/null; then
-	rm -rf $duplicity_venv
-fi
 if [ ! -f $duplicity_venv/.oscode ] || [ "$(cat $duplicity_venv/.oscode)" != $(get_os_code) ]; then
 	rm -rf $duplicity_venv
 	hide_output python3 -m venv $duplicity_venv
@@ -53,6 +47,12 @@ hide_output $duplicity_venv/bin/pip install --upgrade pip
 # Eager upgrades and an explicit setuptools: the venv was created with the old setuptools 59
 # (path traversal in PackageIndex.download, GHSA-5rjg-fvgr-3xxf) and only-if-needed keeps it.
 hide_output $duplicity_venv/bin/pip install --upgrade --upgrade-strategy eager "setuptools>=78.1.1" duplicity b2sdk boto3
+# duplicity requires PyDrive2 (its Google Drive backend, which the box doesn't offer), and
+# PyDrive2 pins cryptography<44 and pyOpenSSL<=24.2.1 (GHSA-jwv3-5hgf-82ww, GHSA-5pwr-322w-8jr4).
+# Remove it and upgrade those two: the backends the box uses (local, rsync, S3, B2, SFTP)
+# don't need it. The eager upgrade above puts it back every time, so this runs every time.
+hide_output $duplicity_venv/bin/pip uninstall -y PyDrive2
+hide_output $duplicity_venv/bin/pip install --upgrade "cryptography>=46" "pyOpenSSL>=26"
 echo $(get_os_code) > $duplicity_venv/.oscode
 ln -sf $duplicity_venv/bin/duplicity /usr/local/bin/duplicity
 
