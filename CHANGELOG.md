@@ -1,8 +1,8 @@
 CHANGELOG
 =========
 
-Unreleased
-----------
+Power Mail-in-a-Box v61.18
+--------------------------
 
 * Logging in to the control panel no longer writes the user's password hash to the system log.
   The daemon checks the password with `doveadm pw -t`, which prints the hash on success and a
