@@ -1,8 +1,8 @@
 CHANGELOG
 =========
 
-Unreleased
-----------
+Power Mail-in-a-Box v61.17
+--------------------------
 
 * Blocking or unblocking an address answers in about a second instead of four or five: the
   merged lists are read as they are written (already merged) instead of being parsed and merged
