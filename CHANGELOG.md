@@ -10,6 +10,9 @@ Unreleased
   refused file still changes nothing, and only rules that loaded are kept for the next boot),
   and the dashboard updates only that attacker's row instead of recomputing everything from the
   logs.
+* "Download for a CDN or WAF..." in Mail > Filtering opens a dialog with the format, the number of
+  entries, the IPv6 option and how to use the file, instead of downloading right away with
+  options further down the page.
 * The confirmation dialog no longer flashes as a row with stretched buttons while it closes:
   it keeps its layout and stays transparent during its exit transition.
 * duplicity's venv: v61.16 rebuilt it to drop PyDrive2, but duplicity itself requires PyDrive2,

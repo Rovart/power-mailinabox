@@ -1628,6 +1628,12 @@ dialog.modal.closing::backdrop {
 	opacity: 0;
 }
 
+/* A form around the header, body and footer (e.g. to submit with Enter) doesn't take part
+   in the layout, so the body still scrolls and the footer stays in view. */
+dialog.modal > form {
+	display: contents;
+}
+
 .modal-header {
 	display: flex;
 	align-items: center;
