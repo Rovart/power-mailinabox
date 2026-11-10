@@ -249,11 +249,11 @@ def dropped_series(state, starts, size):
 	return values, first
 
 
-def get_metrics(env, range_name="24h"):
+def get_metrics(env, range_name="24h", fresh=False):
 	if range_name not in RANGES:
 		range_name = "24h"
 	cached = _cache.get(range_name)
-	if cached and time.time() - cached[0] < 120:
+	if cached and time.time() - cached[0] < 120 and not fresh:
 		return cached[1]
 
 	starts, size = bucket_starts(range_name)
@@ -308,6 +308,11 @@ def get_metrics(env, range_name="24h"):
 
 	now_banned = banned_now()
 	on_blocklist = blocklist_matcher()
+	try:
+		import ip_blocklists
+		blocked_by_you = ip_blocklists.manual_matcher(env)
+	except Exception:
+		blocked_by_you = lambda address: None
 	ranked = sorted(attackers.items(), key=lambda kv: (-kv[1], -len(attacker_services[kv[0]]), kv[0]))
 	ban_counts = collections.Counter(address for stamp, _, address in ban_events if stamp >= since_iso)
 	top = []
@@ -321,6 +326,7 @@ def get_metrics(env, range_name="24h"):
 			"last": last_seen.get(address),
 			"banned_now": now_banned.get(address, []),
 			"on_blocklist": on_blocklist(address),
+			"blocked_by_you": blocked_by_you(address),
 			"location": state["locations"].get(address),
 		})
 

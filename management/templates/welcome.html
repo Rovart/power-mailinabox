@@ -340,12 +340,30 @@
 		return values.reduce(function (a, v) { return a + (v || 0); }, 0);
 	}
 
-	function show_security() {
+	function security_block(action, address, attacker) {
+		function go() {
+			var note = attacker ? ("From the dashboard: " + attacker.failed + " failed logins, " + attacker.bans + " bans"
+				+ (attacker.jails.length ? " (" + attacker.jails.join(", ") + ")" : "")) : "";
+			api("/mail/login-protection", "POST", { action: action, entry: address, note: note }, function () {
+				show_security(true);
+			}, function (r) {
+				show_modal_error("Block", r || "Something went wrong, sorry.");
+			});
+		}
+		if (action == "block")
+			show_modal_confirm("Block " + address,
+				"Drop every connection from " + address + " (all ports except DNS)? You can unblock it later here or in Mail > Filtering.",
+				"Block", go);
+		else
+			go();
+	}
+
+	function show_security(fresh) {
 		$("#security-panel [data-range]").each(function () {
 			$(this).attr("aria-checked", $(this).attr("data-range") === security_range ? "true" : "false");
 		});
 		$("#security-panel").addClass("loading");
-		api("/system/security-metrics", "GET", { range: security_range }, function (r) {
+		api("/system/security-metrics", "GET", fresh ? { range: security_range, fresh: 1 } : { range: security_range }, function (r) {
 			$("#security-panel").removeClass("loading");
 			var period = { "24h": "vs the previous 24 hours", "7d": "vs the previous 7 days", "30d": "vs the previous 30 days" }[r.range];
 			var C = PanelCharts;
@@ -402,11 +420,20 @@
 			if (!r.top.length)
 				tbody.append($('<tr><td colspan="6" class="text-body-secondary"></td></tr>').find("td").text("No attacks in this period.").end());
 			r.top.forEach(function (a) {
-				var status = $("<td/>");
+				var status = $('<div class="attacker-status"/>');
 				if (a.banned_now.length)
-					status.append($('<span class="badge text-bg-danger me-1"/>').text("Banned"));
+					status.append($('<span class="badge text-bg-danger"/>').text("Banned"));
+				if (a.blocked_by_you)
+					status.append($('<span class="badge text-bg-danger"/>').text("Blocked by you"));
 				if (a.on_blocklist)
 					status.append($('<span class="badge text-bg-secondary"/>').text("On blocklist"));
+				var action = a.blocked_by_you
+					? $('<button type="button" class="btn btn-sm btn-outline-secondary"/>').text("Unblock")
+						.attr('aria-label', "Unblock " + a.address)
+						.on('click', function () { security_block("unblock", a.blocked_by_you); })
+					: $('<button type="button" class="btn btn-sm btn-outline-danger"/>').text("Block")
+						.attr('aria-label', "Block " + a.address)
+						.on('click', function () { security_block("block", a.address, a); });
 				var loc = a.location || {};
 				tbody.append($("<tr/>").append(
 					$("<td/>").append($("<code/>").text(a.address)),
@@ -415,7 +442,7 @@
 						$('<div class="small text-body-secondary"/>').text(loc.provider || "")),
 					$('<td class="text-end"/>').text(a.failed.toLocaleString()),
 					$('<td class="text-end"/>').text(a.bans.toLocaleString()).attr("title", a.jails.join(", ")),
-					status,
+					$("<td/>").append(status.append(action)),
 					$('<td class="text-nowrap small"/>').text(a.last ? security_ago(a.last) : "")
 						.attr("title", a.last ? new Date(a.last).toLocaleString() : "")));
 			});
