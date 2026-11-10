@@ -123,7 +123,25 @@
 		</div>
 
 		<div class="row g-3 mb-4">
-			<div class="col-xl-8">
+			<div class="col-12">
+				<div class="card h-100">
+					<div class="card-header">
+						<h4 class="h6">Where the attacks come from</h4>
+					</div>
+					<div class="card-body">
+						<div class="row g-4 align-items-center">
+							<div class="col-lg-8">
+								<div id="sec-map"></div>
+							</div>
+							<div class="col-lg-4">
+								<ul class="country-bars" id="sec-countries" aria-label="Attacks by country"></ul>
+							</div>
+						</div>
+						<p class="small text-body-secondary mt-3 mb-0" id="sec-countries-note"></p>
+					</div>
+				</div>
+			</div>
+			<div class="col-12">
 				<div class="card h-100">
 					<div class="card-header">
 						<h4 class="h6">Most active attackers</h4>
@@ -139,22 +157,12 @@
 										<th scope="col" class="text-end">Bans</th>
 										<th scope="col">Status</th>
 										<th scope="col">Last seen</th>
+										<th scope="col" class="text-end"><span class="visually-hidden">Action</span></th>
 									</tr>
 								</thead>
 								<tbody id="sec-top"></tbody>
 							</table>
 						</div>
-					</div>
-				</div>
-			</div>
-			<div class="col-xl-4">
-				<div class="card h-100">
-					<div class="card-header">
-						<h4 class="h6">Where the attacks come from</h4>
-					</div>
-					<div class="card-body">
-						<ul class="country-bars" id="sec-countries" aria-label="Attacks by country"></ul>
-						<p class="small text-body-secondary mt-2 mb-0" id="sec-countries-note"></p>
 					</div>
 				</div>
 			</div>
@@ -418,20 +426,32 @@
 
 			var tbody = $("#sec-top").empty();
 			if (!r.top.length)
-				tbody.append($('<tr><td colspan="6" class="text-body-secondary"></td></tr>').find("td").text("No attacks in this period.").end());
+				tbody.append($('<tr><td colspan="7" class="text-body-secondary"></td></tr>').find("td").text("No attacks in this period.").end());
+			function badge(cls, icon, text, title) {
+				return $('<span class="badge status-badge"/>').addClass(cls).attr("title", title || null).append(
+					$('<span class="fa-solid" aria-hidden="true"/>').addClass(icon), document.createTextNode(text));
+			}
 			r.top.forEach(function (a) {
 				var status = $('<div class="attacker-status"/>');
 				if (a.banned_now.length)
-					status.append($('<span class="badge text-bg-danger"/>').text("Banned"));
+					status.append(badge("text-bg-danger", "fa-gavel", "Banned", "fail2ban: " + a.banned_now.join(", ")));
 				if (a.blocked_by_you)
-					status.append($('<span class="badge text-bg-danger"/>').text("Blocked by you"));
+					status.append(badge("text-bg-danger", "fa-ban", "Blocked by you", a.blocked_by_you));
 				if (a.on_blocklist)
-					status.append($('<span class="badge text-bg-secondary"/>').text("On blocklist"));
-				var action = a.blocked_by_you
-					? $('<button type="button" class="btn btn-sm btn-outline-secondary"/>').text("Unblock")
+					status.append(badge("text-bg-primary", "fa-shield-halved", "On blocklist",
+						typeof a.on_blocklist == "string" ? a.on_blocklist : null));
+				if (!status.children().length)
+					status.append($('<span class="small text-body-secondary"/>').text("Not blocked"));
+				// Nothing to block when a blocklist already drops it; your own blocks can be undone.
+				var action = null;
+				if (a.blocked_by_you)
+					action = $('<button type="button" class="btn btn-sm btn-outline-secondary"/>')
+						.append($('<span class="fa-solid fa-rotate-left me-1" aria-hidden="true"/>'), "Unblock")
 						.attr('aria-label', "Unblock " + a.address)
-						.on('click', function () { security_block("unblock", a.blocked_by_you); })
-					: $('<button type="button" class="btn btn-sm btn-outline-danger"/>').text("Block")
+						.on('click', function () { security_block("unblock", a.blocked_by_you); });
+				else if (!a.on_blocklist)
+					action = $('<button type="button" class="btn btn-sm btn-outline-danger"/>')
+						.append($('<span class="fa-solid fa-ban me-1" aria-hidden="true"/>'), "Block")
 						.attr('aria-label', "Block " + a.address)
 						.on('click', function () { security_block("block", a.address, a); });
 				var loc = a.location || {};
@@ -442,14 +462,24 @@
 						$('<div class="small text-body-secondary"/>').text(loc.provider || "")),
 					$('<td class="text-end"/>').text(a.failed.toLocaleString()),
 					$('<td class="text-end"/>').text(a.bans.toLocaleString()).attr("title", a.jails.join(", ")),
-					$("<td/>").append(status.append(action)),
+					$("<td/>").append(status),
 					$('<td class="text-nowrap small"/>').text(a.last ? security_ago(a.last) : "")
-						.attr("title", a.last ? new Date(a.last).toLocaleString() : "")));
+						.attr("title", a.last ? new Date(a.last).toLocaleString() : ""),
+					$('<td class="text-end attacker-action"/>').append(action)));
+			});
+
+			var map_values = {};
+			r.countries.forEach(function (c) { map_values[c.country] = c.count; });
+			C.map(document.getElementById("sec-map"), {
+				values: map_values,
+				name: function (code) { return security_place({ country: code }); },
+				unit: "failed logins and bans",
+				title: "Map of the countries the attacks come from; the list next to it has the numbers."
 			});
 
 			var list = $("#sec-countries").empty();
 			var top = r.countries.length ? r.countries[0].count : 0;
-			r.countries.forEach(function (c) {
+			r.countries.slice(0, 8).forEach(function (c) {
 				var name = security_place({ country: c.country });
 				var bar = $('<span class="country-bar"/>').css("width", Math.max(2, c.count / top * 100) + "%");
 				list.append($("<li/>").attr("title", name + ": " + c.count.toLocaleString()).append(

@@ -17,6 +17,16 @@ Power Mail-in-a-Box v61.16
   download is kept (`/var/lib/mailinabox/ip-blocklists/lists/`), so a change only downloads the
   list just added; all of them are still downloaded every 6 hours and with "Download the lists
   now".
+* Dashboard, "Where the attacks come from": a world map, each country shaded in four steps of
+  one hue (on a log scale, with a legend), with its name and number on hover or with the
+  keyboard, next to the list of the top countries. The map is drawn by the panel from Natural
+  Earth's 1:110m countries (public domain, `conf/panel/world.js`, made with
+  `tools/make_world_map.py`), with no libraries and nothing loaded from elsewhere. The API's
+  `countries` now has every located country, not only the top 8.
+* Dashboard, "Most active attackers": the statuses are badges with an icon (Banned, Blocked by
+  you, On blocklist) that read well in both themes, and the Block or Unblock button has a column
+  of its own instead of wrapping under them. An address that a blocklist already drops has no
+  Block button.
 * The download of the blocked addresses is no longer only for Cloudflare: "Download for a CDN or
   WAF" in Mail > Filtering gives a file for the IP list (IP set, ACL, network list) of any CDN or
   WAF, as text with one address or network per line, or as CSV with a note for each entry, up to
