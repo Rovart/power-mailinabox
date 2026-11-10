@@ -124,7 +124,7 @@
 					reason to connect. The lists are downloaded every 6 hours and merged without duplicates. A list that
 					fails or has no valid entries adds nothing. The box&rsquo;s own addresses, fail2ban&rsquo;s ignored
 					addresses and the networks your users logged in from in the last 30 days are never blocked. Sites
-					behind Cloudflare only see Cloudflare&rsquo;s addresses, so these lists don&rsquo;t protect them.</p>
+					behind a CDN or reverse proxy only see its addresses, so these lists don&rsquo;t protect them.</p>
 				<p id="blocklists-summary" aria-live="polite"></p>
 				<ul class="list-group mb-3" id="blocklists-sources" aria-labelledby="blocklists-title"
 					aria-live="polite"></ul>
@@ -151,23 +151,51 @@
 							aria-hidden="true"></span>Download the lists now</button>
 					<button type="button" class="btn btn-sm btn-outline-secondary" onclick="protection_reset()">Restore
 						the default lists</button>
-					<button type="button" class="btn btn-sm btn-outline-secondary" onclick="cloudflare_download()"><span
-							class="fa-solid fa-download me-1" aria-hidden="true"></span>Download for Cloudflare (CSV)</button>
+					<button type="button" class="btn btn-sm btn-outline-secondary" onclick="blocked_download()"><span
+							class="fa-solid fa-download me-1" aria-hidden="true"></span>Download for a CDN or WAF</button>
 				</div>
 				<details class="mt-3 small">
-					<summary class="text-body-secondary">Block these addresses on Cloudflare too</summary>
+					<summary class="text-body-secondary">Block these addresses on your CDN or WAF too</summary>
 					<div class="mt-2 text-body-secondary">
-						<p class="mb-2">Sites behind Cloudflare&rsquo;s proxy only see Cloudflare&rsquo;s addresses, so the
-							box can&rsquo;t block their attackers. The CSV file has your own list first, then the addresses
-							fail2ban bans now in its web jails, then the public lists, up to 10,000 entries (the limit of
-							Cloudflare&rsquo;s Free plan).</p>
+						<p class="mb-2">Sites behind a CDN or reverse proxy only see its addresses, so the box can&rsquo;t
+							block their attackers. The download has your own list first, then the addresses fail2ban bans
+							now in its web jails, then the public lists, so that a list with a size limit keeps the most
+							useful entries.</p>
+						<form class="row g-2 mb-2" onsubmit="blocked_download(); return false;"
+							aria-label="Download options">
+							<div class="col-sm-4">
+								<label for="blocked-format" class="form-label mb-1">Format</label>
+								<select class="form-select form-select-sm" id="blocked-format">
+									<option value="txt" selected>Text, one address per line</option>
+									<option value="csv">CSV: address, note</option>
+								</select>
+							</div>
+							<div class="col-sm-4">
+								<label for="blocked-limit" class="form-label mb-1">Up to</label>
+								<div class="input-group input-group-sm">
+									<input type="number" class="form-control" id="blocked-limit" min="1" max="1000000"
+										value="10000" required aria-describedby="blocked-limit-help">
+									<span class="input-group-text">entries</span>
+								</div>
+							</div>
+							<div class="col-sm-4">
+								<label for="blocked-ipv6" class="form-label mb-1">IPv6</label>
+								<select class="form-select form-select-sm" id="blocked-ipv6">
+									<option value="all" selected>Addresses and networks</option>
+									<option value="single">Single addresses only</option>
+									<option value="none">None</option>
+								</select>
+							</div>
+							<div id="blocked-limit-help" class="form-text mt-1">Use your plan&rsquo;s limit for IP lists,
+								and the IPv6 option your list accepts.</div>
+						</form>
 						<ol class="mb-0">
-							<li>In Cloudflare, go to <b>Manage Account &rsaquo; Configurations &rsaquo; Lists</b> and create an
-								<b>IP</b> list, e.g. <code>pmiab_blocklist</code>.</li>
-							<li>Add items to it by uploading the CSV file. Uploading adds and updates entries but
-								doesn&rsquo;t remove old ones: to start over, delete the list&rsquo;s items first.</li>
-							<li>In each site, go to <b>Security &rsaquo; WAF &rsaquo; Custom rules</b>, create a rule with the
-								expression <code>(ip.src in $pmiab_blocklist)</code> and the action <b>Block</b>.</li>
+							<li>In your CDN or WAF, create an IP list (it may be called an IP set, an access control
+								list or a network list).</li>
+							<li>Upload the file to it, or paste its contents. Most lists add to their entries rather than
+								replace them: to start over, empty the list first.</li>
+							<li>Add a rule that blocks the requests whose client address is on that list, and apply it to
+								each site behind the CDN.</li>
 						</ol>
 					</div>
 				</details>
@@ -522,16 +550,28 @@
 		protection_change({ action: 'add_source', url: input.val() }, function () { input.val(''); });
 	}
 
-	function cloudflare_download() {
-		api("/mail/login-protection/cloudflare.csv", "GET", {}, function (csv) {
-			var url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+	function blocked_download() {
+		// The blocked addresses for the IP list of a CDN or WAF, with the options of the form
+		// under "Block these addresses on your CDN or WAF too".
+		var limit = $('#blocked-limit');
+		if (!limit[0].checkValidity()) {
+			limit[0].closest('details').open = true;
+			limit[0].reportValidity();
+			return;
+		}
+		var fmt = $('#blocked-format').val();
+		api("/mail/login-protection/blocked-addresses", "GET",
+			{ format: fmt, limit: limit.val(), ipv6: $('#blocked-ipv6').val() }, function (text) {
+			var url = URL.createObjectURL(new Blob([text], { type: fmt == "csv" ? "text/csv" : "text/plain" }));
 			var a = document.createElement("a");
 			a.href = url;
-			a.download = "cloudflare-blocklist.csv";
+			a.download = "blocked-addresses." + fmt;
 			document.body.appendChild(a);
 			a.click();
 			a.remove();
 			setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+		}, function (text) {
+			show_modal_error("Download for a CDN or WAF", $('<p class="mb-0"/>').text(text));
 		});
 	}
 

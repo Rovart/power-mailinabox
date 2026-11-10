@@ -1014,6 +1014,13 @@ textarea.form-control {
 	background-position: right .5rem center;
 }
 
+.input-group-sm > .form-control,
+.input-group-sm > .input-group-text {
+	min-height: 30px;
+	padding: .2rem .55rem;
+	font-size: .8rem;
+}
+
 .form-control.is-invalid {
 	border-color: var(--danger);
 }
@@ -1770,6 +1777,7 @@ dialog.modal.closing::backdrop {
 
 @media (min-width: 992px) {
 	.col-lg-3 { flex: 0 0 auto; width: 25%; }
+	.col-lg-4 { flex: 0 0 auto; width: 33.333333%; }
 	.col-lg-5 { flex: 0 0 auto; width: 41.666667%; }
 	.col-lg-6 { flex: 0 0 auto; width: 50%; }
 	.col-lg-7 { flex: 0 0 auto; width: 58.333333%; }
@@ -1961,6 +1969,13 @@ dialog.modal.closing::backdrop {
 	--viz-4: #8f8f9a;
 	--viz-grid: #ececee;
 	--viz-axis: #d4d4d8;
+	/* The map's sequential steps: one hue, fewer to more (ordinal checks pass against
+	   the surface in each theme). */
+	--map-1: #86b6ef;
+	--map-2: #5598e7;
+	--map-3: #256abf;
+	--map-4: #104281;
+	--map-none: #e6e6e9;
 }
 
 [data-theme="dark"] {
@@ -1970,7 +1985,75 @@ dialog.modal.closing::backdrop {
 	--viz-4: #6f6f7c;
 	--viz-grid: #232328;
 	--viz-axis: #34343c;
+	--map-1: #2b5c9c;
+	--map-2: #3a7bd0;
+	--map-3: #6aa5ec;
+	--map-4: #a9cdf7;
+	--map-none: #26262c;
 }
+
+/* World map (PanelCharts.map) */
+
+.viz-map {
+	max-width: 640px;
+	margin-inline: auto;
+}
+
+.viz-map svg {
+	display: block;
+	width: 100%;
+	height: auto;
+}
+
+.viz-country {
+	fill: var(--map-none);
+	stroke: var(--surface);
+	stroke-width: .6;
+	stroke-linejoin: round;
+}
+
+.viz-country.viz-map-1 { fill: var(--map-1); }
+.viz-country.viz-map-2 { fill: var(--map-2); }
+.viz-country.viz-map-3 { fill: var(--map-3); }
+.viz-country.viz-map-4 { fill: var(--map-4); }
+
+.viz-country[class*="viz-map-"] {
+	cursor: default;
+}
+
+.viz-country.active {
+	stroke: var(--text);
+	stroke-width: 1.4;
+}
+
+.viz-map-legend {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: .35rem .9rem;
+	margin-top: .6rem;
+	font-size: .75rem;
+	color: var(--text-muted);
+	font-variant-numeric: tabular-nums;
+}
+
+.viz-map-key {
+	display: inline-flex;
+	align-items: center;
+	gap: .35rem;
+}
+
+.viz-map-swatch {
+	width: 12px;
+	height: 12px;
+	border-radius: 3px;
+	background: var(--map-none);
+}
+
+.viz-map-swatch.viz-map-1 { background: var(--map-1); }
+.viz-map-swatch.viz-map-2 { background: var(--map-2); }
+.viz-map-swatch.viz-map-3 { background: var(--map-3); }
+.viz-map-swatch.viz-map-4 { background: var(--map-4); }
 
 .viz {
 	position: relative;
@@ -2278,10 +2361,37 @@ dialog.modal.closing::backdrop {
 	flex-wrap: wrap;
 	align-items: center;
 	gap: .3rem;
+	min-width: 9rem;
 }
 
-.attacker-status .btn {
-	margin-left: auto;
+/* A status: icon and label in the status colors, with a ring of the same hue so it
+   stands out on both themes. */
+.status-badge {
+	gap: .3rem;
+	padding: .18rem .55rem;
+	font-size: .74rem;
+}
+
+.status-badge .fa-solid {
+	font-size: .7rem;
+}
+
+.status-badge.text-bg-danger {
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--danger) 35%, transparent);
+}
+
+.status-badge.text-bg-primary {
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.attacker-action {
+	width: 1%;
+	white-space: nowrap;
+}
+
+.attacker-action .btn {
+	display: inline-flex;
+	align-items: center;
 }
 
 .attacker-where {

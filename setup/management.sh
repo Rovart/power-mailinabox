@@ -39,6 +39,12 @@ fi
 inst_dir=/usr/local/lib/mailinabox
 mkdir -p $inst_dir
 duplicity_venv=$inst_dir/duplicity
+# Venvs from older versions also carry PyDrive2 (a Google Drive backend the box doesn't offer),
+# which pins cryptography<44 and pyOpenSSL<=24.2.1 (GHSA-jwv3-5hgf-82ww, GHSA-5pwr-322w-8jr4)
+# and so blocks their upgrades: rebuild such a venv with only what we install below.
+if compgen -G "$duplicity_venv/lib/python3*/site-packages/[Pp]y[Dd]rive2*" > /dev/null; then
+	rm -rf $duplicity_venv
+fi
 if [ ! -f $duplicity_venv/.oscode ] || [ "$(cat $duplicity_venv/.oscode)" != $(get_os_code) ]; then
 	rm -rf $duplicity_venv
 	hide_output python3 -m venv $duplicity_venv

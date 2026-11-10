@@ -1,6 +1,45 @@
 CHANGELOG
 =========
 
+Power Mail-in-a-Box v61.16
+--------------------------
+
+* Roundcube updated to 1.7.6, a security release with 17 fixes, among them IMAP command
+  injection through CRLF in `_uid` (with `messages_cache`), Sieve script injection through a
+  rule operator, SSRF in the CSS proxy, a CSRF bypass for file-only POST requests, an open
+  redirect and attachment content passed to ImageMagick
+  (https://github.com/roundcube/roundcubemail/releases/tag/1.7.6).
+* IP blocklists: adding, removing, turning on or off or changing the scope of a list in Mail >
+  Filtering answers in seconds instead of minutes, and no longer ends in "504 Gateway Time-out".
+  Taking out of the login ports' list what is already blocked on every port compared every
+  network with every other one: with about 20,000 networks it took 3.5 minutes on a 1-CPU box.
+  It now uses sorted intervals and a binary search (0.2 seconds). And each list's last good
+  download is kept (`/var/lib/mailinabox/ip-blocklists/lists/`), so a change only downloads the
+  list just added; all of them are still downloaded every 6 hours and with "Download the lists
+  now".
+* Dashboard, "Where the attacks come from": a world map, each country shaded in four steps of
+  one hue (on a log scale, with a legend), in the Equal Earth projection, centered, with its name and number on hover or with the
+  keyboard, next to the list of the top countries. The map is drawn by the panel from Natural
+  Earth's 1:110m countries (public domain, `conf/panel/world.js`, made with
+  `tools/make_world_map.py`), with no libraries and nothing loaded from elsewhere. The API's
+  `countries` now has every located country, not only the top 8.
+* Dashboard, "Most active attackers": the statuses are badges with an icon (Banned, Blocked by
+  you, On blocklist) that read well in both themes, and the Block or Unblock button has a column
+  of its own instead of wrapping under them. An address that a blocklist already drops has no
+  Block button.
+* The download of the blocked addresses is no longer only for Cloudflare: "Download for a CDN or
+  WAF" in Mail > Filtering gives a file for the IP list (IP set, ACL, network list) of any CDN or
+  WAF, as text with one address or network per line, or as CSV with a note for each entry, up to
+  the number of entries you choose (10,000 by default), with IPv6 addresses and networks, only
+  single IPv6 addresses, or none. Networks broader than an IPv4 /8 or an IPv6 /16 are left out.
+  The API is `/admin/mail/login-protection/blocked-addresses?format=txt|csv&limit=N&ipv6=all|single|none`
+  and replaces `/admin/mail/login-protection/cloudflare.csv`.
+* The duplicity virtualenv is rebuilt when it still carries PyDrive2 from an older install.
+  PyDrive2 (a Google Drive backend the box doesn't offer) pinned `cryptography<44` and
+  `pyOpenSSL<=24.2.1`, so the eager upgrade kept cryptography 43.0.3 (GHSA-jwv3-5hgf-82ww) and
+  pyOpenSSL 24.2.1 (GHSA-5pwr-322w-8jr4). The management daemon's venv keeps dnspython 2.8.0
+  on Python 3.10: 2.9.0 needs Python 3.11.
+
 Power Mail-in-a-Box v61.15
 --------------------------
 

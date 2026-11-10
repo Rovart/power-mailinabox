@@ -357,7 +357,7 @@ def get_metrics(env, range_name="24h", fresh=False):
 			"attackers": len(previous["attackers"]),
 		},
 		"top": top,
-		"countries": [{"country": c, "count": n} for c, n in countries.most_common(8)],
+		"countries": [{"country": c, "count": n} for c, n in countries.most_common()],
 		"located_from": "RIPEstat" if login_alerts.get_config(env)["locate"] else None,
 	}
 	_cache[range_name] = (time.time(), result)

@@ -268,5 +268,114 @@
 		el("circle", { cx: last * step, cy: h - 3 - (pts[last] / max) * (h - 6), r: 3, class: "viz-spark-dot" }, svg);
 	}
 
-	window.PanelCharts = { columns: columns, sparkline: sparkline, compact: compact };
+	// A world map with each country shaded by its value: four steps of one hue (--map-1
+	// to --map-4, validated per theme), on a log scale since a few countries usually
+	// have most of the attacks. Countries without data stay neutral. Hovering or focusing
+	// a shaded country shows its name and value; the arrow keys move between them from
+	// the largest. The country list next to it is the accessible alternative.
+	// options = {values: {"NL": 120, ...}, name: function (code) -> "Netherlands",
+	//            unit: "attacks", title: "..."}
+	function map(container, options) {
+		container.innerHTML = "";
+		var world = window.PanelWorld;
+		if (!world) return;
+		container.classList.add("viz", "viz-map");
+		var values = options.values || {};
+		var codes = Object.keys(values).filter(function (c) { return values[c] > 0; })
+			.sort(function (a, b) { return values[b] - values[a]; });
+		var max = codes.length ? values[codes[0]] : 0;
+		function step(v) {
+			if (!v) return 0;
+			if (max <= 1) return 4;
+			return Math.max(1, Math.min(4, Math.ceil(4 * Math.log(1 + v) / Math.log(1 + max))));
+		}
+
+		var plot = html("div", "viz-plot");
+		container.appendChild(plot);
+		var tooltip = html("div", "viz-tooltip");
+		tooltip.setAttribute("role", "status");
+		var svg = el("svg", {
+			viewBox: "0 0 " + world.width + " " + world.height, role: "img", tabindex: codes.length ? "0" : "-1",
+			"aria-label": options.title || "Map", preserveAspectRatio: "xMidYMid meet"
+		});
+		plot.appendChild(svg);
+		plot.appendChild(tooltip);
+		var shapes = {};
+		Object.keys(world.countries).forEach(function (code) {
+			var s = step(values[code]);
+			var path = el("path", { d: world.countries[code], class: "viz-country" + (s ? " viz-map-" + s : "") }, svg);
+			path.dataset.code = code;
+			shapes[code] = path;
+		});
+		// Shaded countries on top, so their outline isn't hidden by a neighbor's.
+		codes.slice().reverse().forEach(function (code) { if (shapes[code]) svg.appendChild(shapes[code]); });
+
+		function show(code, x, y) {
+			svg.querySelectorAll(".viz-country.active").forEach(function (p) { p.classList.remove("active"); });
+			if (shapes[code]) {
+				shapes[code].classList.add("active");
+				svg.appendChild(shapes[code]);
+			}
+			tooltip.textContent = "";
+			tooltip.appendChild(html("div", "viz-tooltip-title", options.name ? options.name(code) : code));
+			var row = html("div", "viz-tooltip-row");
+			row.appendChild(html("strong", null, (values[code] || 0).toLocaleString()));
+			row.appendChild(html("span", null, options.unit || ""));
+			tooltip.appendChild(row);
+			tooltip.classList.add("show");
+			if (x === undefined && shapes[code]) {
+				var box = shapes[code].getBBox(), scale = plot.clientWidth / world.width;
+				x = (box.x + box.width / 2) * scale;
+				y = (box.y + box.height / 2) * scale;
+			}
+			var tw = tooltip.offsetWidth, th = tooltip.offsetHeight;
+			var left = Math.min(Math.max((x || 0) - tw / 2, 0), plot.clientWidth - tw);
+			var top = (y || 0) - th - 12;
+			if (top < 0) top = (y || 0) + 16;
+			tooltip.style.transform = "translate(" + left + "px," + top + "px)";
+		}
+		function hide() {
+			svg.querySelectorAll(".viz-country.active").forEach(function (p) { p.classList.remove("active"); });
+			tooltip.classList.remove("show");
+		}
+		svg.addEventListener("pointermove", function (e) {
+			var code = e.target.dataset && e.target.dataset.code;
+			if (code && values[code] > 0) {
+				var r = plot.getBoundingClientRect();
+				show(code, e.clientX - r.left, e.clientY - r.top);
+			} else {
+				hide();
+			}
+		});
+		svg.addEventListener("pointerleave", hide);
+		var focused = 0;
+		svg.addEventListener("focus", function () { if (codes.length) show(codes[focused]); });
+		svg.addEventListener("blur", hide);
+		svg.addEventListener("keydown", function (e) {
+			if (!codes.length || ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].indexOf(e.key) < 0) return;
+			e.preventDefault();
+			var forward = e.key === "ArrowRight" || e.key === "ArrowDown";
+			focused = (focused + (forward ? 1 : codes.length - 1)) % codes.length;
+			show(codes[focused]);
+		});
+
+		// Legend: the range of each step, and the neutral "none".
+		var legend = html("div", "viz-map-legend");
+		var bounds = [0, 1, 2, 3, 4].map(function (k) { return Math.round(Math.exp(k / 4 * Math.log(1 + max)) - 1); });
+		for (var k = 1; k <= 4; k++) {
+			if (max <= 1 && k < 4) continue;
+			var lo = Math.max(1, bounds[k - 1] + 1), hi = Math.max(lo, bounds[k]);
+			var item = html("span", "viz-map-key");
+			item.appendChild(html("span", "viz-map-swatch viz-map-" + k));
+			item.appendChild(document.createTextNode(max <= 1 ? "1" : lo === hi ? compact(lo) : compact(lo) + "–" + compact(hi)));
+			legend.appendChild(item);
+		}
+		var none = html("span", "viz-map-key");
+		none.appendChild(html("span", "viz-map-swatch"));
+		none.appendChild(document.createTextNode("None"));
+		legend.appendChild(none);
+		if (codes.length) container.appendChild(legend);
+	}
+
+	window.PanelCharts = { columns: columns, sparkline: sparkline, compact: compact, map: map };
 })();
