@@ -1,6 +1,15 @@
 CHANGELOG
 =========
 
+Power Mail-in-a-Box v61.18
+--------------------------
+
+* Logging in to the control panel no longer writes the user's password hash to the system log.
+  The daemon checks the password with `doveadm pw -t`, which prints the hash on success and a
+  mismatch message on failure, and that output went to the journal of mailinabox.service. It is
+  now captured and discarded; logins, and the failed-login warning that fail2ban reads, work as
+  before. Hashes already in the journal stay there until it rotates them. New container test.
+
 Power Mail-in-a-Box v61.17
 --------------------------
 
