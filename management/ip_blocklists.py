@@ -680,6 +680,65 @@ def get_status(env):
 	}
 
 
+# Cloudflare: sites behind its proxy only see Cloudflare's addresses, so the firewall
+# can't block their attackers. The control panel offers this list as a CSV file to
+# upload to a Cloudflare IP list (Manage Account > Configurations > Lists), used by a
+# WAF custom rule "ip.src in $list_name" with the action Block.
+
+CLOUDFLARE_MAX_ITEMS = 10000  # the Free plan's limit for all custom lists together
+WEB_JAIL_WORDS = ("web", "nginx", "http", "apache", "roundcube", "owncloud", "nextcloud", "munin", "management", "php")
+
+
+def cloudflare_items(env):
+	# [(address, description)] in Cloudflare's format (IPv4 addresses and /8-/32 networks,
+	# single IPv6 addresses), most useful first: your own list, the addresses fail2ban
+	# bans now in its web jails, the lists that block every port, then the others.
+	items, seen = [], set()
+
+	def add(network, description):
+		if len(items) >= CLOUDFLARE_MAX_ITEMS:
+			return
+		if network.version == 6 and network.num_addresses != 1:
+			return  # only single IPv6 addresses are accepted
+		if network.version == 4 and network.prefixlen < 8:
+			return
+		key = canonical(network)
+		if key in seen:
+			return
+		seen.add(key)
+		items.append((key, description[:500]))
+
+	settings = get_settings(env)
+	for m in settings["manual"]:
+		for n in parse_network(m["entry"]):
+			add(n, "Blocked by you" + (": " + m["note"] if m["note"] else ""))
+	try:
+		import security_metrics
+		for address, jails in sorted(security_metrics.banned_now().items()):
+			web = [j for j in jails if any(w in j.lower() for w in WEB_JAIL_WORDS)]
+			if web:
+				for n in parse_network(address):
+					add(n, "Banned by fail2ban (%s)" % ", ".join(web))
+	except Exception:
+		pass
+	if settings["enabled"]:
+		for fn, description in ((MERGED_ALL_FILE, "Public lists (every port)"), (MERGED_FILE, "Public lists (login ports)")):
+			merged = read_merged_file(fn)
+			for n in merged[4] + merged[6]:
+				add(n, description)
+	return items
+
+
+def cloudflare_csv(env):
+	import csv
+	import io
+	out = io.StringIO()
+	writer = csv.writer(out, lineterminator="\n")
+	for address, description in cloudflare_items(env):
+		writer.writerow([address, description])
+	return out.getvalue()
+
+
 def manual_matcher(env):
 	# A function telling whether an address is on the administrator's own list.
 	networks = manual_networks(get_settings(env))

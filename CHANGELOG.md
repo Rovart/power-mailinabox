@@ -19,6 +19,11 @@ Power Mail-in-a-Box v61.15
   kernel keeps every entry in memory, and millions of entries would need more than a small box
   can spare.
 * The dashboard's attackers show "Blocked by you".
+* Cloudflare: sites behind its proxy only see Cloudflare's addresses, so the box can't block their
+  attackers. Mail > Filtering now offers the blocked addresses as a CSV file for a Cloudflare IP
+  list (your own list first, then the addresses fail2ban bans now in its web jails, then the
+  public lists, up to the Free plan's 10,000 entries), with the steps to create the list and a
+  WAF rule `(ip.src in $pmiab_blocklist)` that blocks them. No Cloudflare credentials are needed.
 
 Power Mail-in-a-Box v61.14
 --------------------------

@@ -397,6 +397,15 @@ def mail_login_protection_get():
 	})
 
 
+@app.route('/mail/login-protection/cloudflare.csv')
+@authorized_personnel_only()
+def mail_login_protection_cloudflare_csv():
+	# The blocked addresses in the format of a Cloudflare IP list (see ip_blocklists.py).
+	import ip_blocklists
+	return Response(ip_blocklists.cloudflare_csv(env), status=200, mimetype='text/csv',
+		headers={'Content-Disposition': 'attachment; filename="cloudflare-blocklist.csv"'})
+
+
 @app.route('/mail/login-protection', methods=['POST'])
 @authorized_personnel_only()
 def mail_login_protection_set():

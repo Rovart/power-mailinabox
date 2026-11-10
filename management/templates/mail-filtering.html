@@ -151,7 +151,26 @@
 							aria-hidden="true"></span>Download the lists now</button>
 					<button type="button" class="btn btn-sm btn-outline-secondary" onclick="protection_reset()">Restore
 						the default lists</button>
+					<button type="button" class="btn btn-sm btn-outline-secondary" onclick="cloudflare_download()"><span
+							class="fa-solid fa-download me-1" aria-hidden="true"></span>Download for Cloudflare (CSV)</button>
 				</div>
+				<details class="mt-3 small">
+					<summary class="text-body-secondary">Block these addresses on Cloudflare too</summary>
+					<div class="mt-2 text-body-secondary">
+						<p class="mb-2">Sites behind Cloudflare&rsquo;s proxy only see Cloudflare&rsquo;s addresses, so the
+							box can&rsquo;t block their attackers. The CSV file has your own list first, then the addresses
+							fail2ban bans now in its web jails, then the public lists, up to 10,000 entries (the limit of
+							Cloudflare&rsquo;s Free plan).</p>
+						<ol class="mb-0">
+							<li>In Cloudflare, go to <b>Manage Account &rsaquo; Configurations &rsaquo; Lists</b> and create an
+								<b>IP</b> list, e.g. <code>pmiab_blocklist</code>.</li>
+							<li>Add items to it by uploading the CSV file. Uploading adds and updates entries but
+								doesn&rsquo;t remove old ones: to start over, delete the list&rsquo;s items first.</li>
+							<li>In each site, go to <b>Security &rsaquo; WAF &rsaquo; Custom rules</b>, create a rule with the
+								expression <code>(ip.src in $pmiab_blocklist)</code> and the action <b>Block</b>.</li>
+						</ol>
+					</div>
+				</details>
 			</div>
 		</div>
 	</div>
@@ -501,6 +520,19 @@
 	function protection_add_source() {
 		var input = $('#blocklists-url');
 		protection_change({ action: 'add_source', url: input.val() }, function () { input.val(''); });
+	}
+
+	function cloudflare_download() {
+		api("/mail/login-protection/cloudflare.csv", "GET", {}, function (csv) {
+			var url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+			var a = document.createElement("a");
+			a.href = url;
+			a.download = "cloudflare-blocklist.csv";
+			document.body.appendChild(a);
+			a.click();
+			a.remove();
+			setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+		});
 	}
 
 	function manual_block() {
