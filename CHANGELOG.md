@@ -1,6 +1,20 @@
 CHANGELOG
 =========
 
+Power Mail-in-a-Box v61.15
+--------------------------
+
+* Roundcube updated to 1.7.6, a security release with 17 fixes, among them IMAP command
+  injection through CRLF in `_uid` (with `messages_cache`), Sieve script injection through a
+  rule operator, SSRF in the CSS proxy, a CSRF bypass for file-only POST requests, an open
+  redirect and attachment content passed to ImageMagick
+  (https://github.com/roundcube/roundcubemail/releases/tag/1.7.6).
+* The duplicity virtualenv is rebuilt when it still carries PyDrive2 from an older install.
+  PyDrive2 (a Google Drive backend the box doesn't offer) pinned `cryptography<44` and
+  `pyOpenSSL<=24.2.1`, so the eager upgrade kept cryptography 43.0.3 (GHSA-jwv3-5hgf-82ww) and
+  pyOpenSSL 24.2.1 (GHSA-5pwr-322w-8jr4). The management daemon's venv keeps dnspython 2.8.0
+  on Python 3.10: 2.9.0 needs Python 3.11.
+
 Power Mail-in-a-Box v61.14
 --------------------------
 
