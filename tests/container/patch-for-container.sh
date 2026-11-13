@@ -20,3 +20,7 @@ sed -i 's|^echo "nameserver 127.0.0.1" > /etc/resolv.conf$|: # (test) keep the c
 if ! grep -q 'host=127.0.0.1' setup/munin.sh; then
 	sed -i 's|^\thost_name=\$PRIMARY_HOSTNAME \\$|&\n\thost=127.0.0.1 \\|' setup/munin.sh
 fi
+# 6. pollinate fails where logger can't reach syslog ("Operation not permitted", as in GitHub
+#    Actions containers since November 2026), and releases up to v61.18 abort the setup when
+#    its fallback fails: carry on, as later releases do.
+sed -i 's|^\tpollinate -q -r -s entropy.ubuntu.com 2> /dev/null$|& \|\| true|' setup/system.sh
