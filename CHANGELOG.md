@@ -1,6 +1,18 @@
 CHANGELOG
 =========
 
+Unreleased
+----------
+
+* On Ubuntu, unattended-upgrades now also installs PHP updates from Ondřej Surý's own repository
+  (packages.sury.org) besides his PPA. He publishes Ubuntu builds there too, sometimes before the
+  PPA, and a box that added that repository (with apt pins limiting it to PHP) to get a security
+  release early never got the following updates automatically. Boxes without that repository are
+  unaffected, and apt pinning still decides which packages may come from it.
+* The setup no longer stops at "Initializing system random number generator..." when pollinate
+  can't seed it (for example when it can't log to syslog, as in some containers). Its fallback
+  was meant to carry on if it failed, but under the setup's strict mode it ended the setup.
+
 Power Mail-in-a-Box v61.18
 --------------------------
 

@@ -281,7 +281,7 @@ dd if=/dev/random of=/dev/urandom bs=1 count=32 2> /dev/null
 if ! pollinate -q -r --strict 2> /dev/null; then
 	# In the case pollinate is ill-configured (e.g. server is example.com), try using a server we know that works
 	# Even if this fails - don't bail and carry on.
-	pollinate -q -r -s entropy.ubuntu.com 2> /dev/null
+	pollinate -q -r -s entropy.ubuntu.com 2> /dev/null || true
 fi
 
 # Between these two, we really ought to be all set.
@@ -306,16 +306,24 @@ EOF
 # unattended-upgrades only installs updates from the distribution's own security repository by
 # default. Also allow the PHP repository we add above, or boxes wouldn't get PHP's security
 # releases until the setup runs again.
+#
+# On Ubuntu, also allow Ondřej Surý's own repository (packages.sury.org, origin deb.sury.org).
+# He publishes Ubuntu builds there as well, sometimes before the PPA, and an admin may add it
+# (with apt pins limiting it to PHP) to get a PHP security release early. Without this, those
+# packages were installed once by hand and then never updated automatically. If the repository
+# isn't configured nothing comes from it, and apt pinning still decides which packages may.
 if [ "$(lsb_release -is)" == "Ubuntu" ]; then
-	PHP_REPO_ORIGIN=LP-PPA-ondrej-php
+	PHP_REPO_ORIGINS="LP-PPA-ondrej-php deb.sury.org"
 else
-	PHP_REPO_ORIGIN=deb.sury.org
+	PHP_REPO_ORIGINS="deb.sury.org"
 fi
-cat > /etc/apt/apt.conf.d/51mailinabox-php-updates <<EOF;
-Unattended-Upgrade::Origins-Pattern {
-	"origin=$PHP_REPO_ORIGIN,codename=\${distro_codename}";
-};
-EOF
+(
+	echo "Unattended-Upgrade::Origins-Pattern {"
+	for origin in $PHP_REPO_ORIGINS; do
+		echo "	\"origin=$origin,codename=\${distro_codename}\";"
+	done
+	echo "};"
+) > /etc/apt/apt.conf.d/51mailinabox-php-updates
 
 # ### Firewall
 

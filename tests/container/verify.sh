@@ -34,7 +34,7 @@ if command -v ufw >/dev/null; then
 fi
 check "php imap extension (CLI and FPM)" 'php$PHP_VER -m | grep -qx imap && php-fpm$PHP_VER -m | grep -qx imap'
 check "php imap_open against Dovecot" '[ "$(php$PHP_VER -r "\$m = imap_open(\"{127.0.0.1:993/imap/ssl/novalidate-cert}INBOX\", \"$U\", \"$P\"); echo \$m ? \"ok\" : imap_last_error();" 2>&1)" == ok ]'
-check "unattended-upgrades installs updates from the PHP repository" 'o=$(sed -n "s/.*\"origin=\([^,]*\),.*/\1/p" /etc/apt/apt.conf.d/51mailinabox-php-updates); c=$(lsb_release -cs); [ -n "$o" ] && apt-cache policy | grep -q "o=$o,a=[^,]*,n=$c," && unattended-upgrade --dry-run --debug 2>&1 | grep -m1 "Allowed origins are:" | grep -q "origin=$o,codename=$c"'
+check "unattended-upgrades installs updates from the PHP repository" '(c=$(lsb_release -cs); a=$(unattended-upgrade --dry-run --debug 2>&1 | grep -m1 "Allowed origins are:"); os=$(sed -n "s/.*\"origin=\([^,]*\),.*/\1/p" /etc/apt/apt.conf.d/51mailinabox-php-updates); [ -n "$os" ] || exit 1; n=0; for o in $os; do echo "$a" | grep -q "origin=$o,codename=$c" || exit 1; apt-cache policy | grep -q "o=$o,a=[^,]*,n=$c," && n=$((n+1)); done; [ $n -ge 1 ])'
 check "php CLI is $PHP_VER" '[ "$(php -r "echo PHP_MAJOR_VERSION.\".\".PHP_MINOR_VERSION;")" == "$PHP_VER" ]'
 check "only php$PHP_VER-fpm running" '[ -z "$(systemctl list-units --type=service --state=running --no-legend | grep -o "php[0-9.]*-fpm" | grep -v php$PHP_VER-fpm)" ]'
 
