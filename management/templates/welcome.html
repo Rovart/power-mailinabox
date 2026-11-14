@@ -81,7 +81,7 @@
 			</div>
 			<div class="col-sm-6 col-xl-3">
 				<div class="metric">
-					<span class="metric-label">Blocked by the IP blocklists</span>
+					<span class="metric-label">Blocked connections</span>
 					<div class="metric-row"><span class="metric-value" id="sec-dropped">&ndash;</span><span
 							class="sec-spark" id="sec-dropped-spark"></span></div>
 					<span class="metric-note" id="sec-dropped-note"></span>
@@ -113,7 +113,7 @@
 			<div class="col-lg-6">
 				<div class="card h-100">
 					<div class="card-header">
-						<h4 class="h6">Connections blocked by the IP blocklists</h4>
+						<h4 class="h6">Connections blocked</h4>
 					</div>
 					<div class="card-body">
 						<div id="sec-dropped-chart"></div>
@@ -393,11 +393,18 @@
 			C.sparkline(document.getElementById("sec-bans-spark"), ban_total);
 			security_delta($("#sec-bans-delta"), r.totals.bans, r.previous.bans, period);
 
-			$("#sec-dropped").text(r.totals.dropped === null ? "–" : C.compact(r.totals.dropped));
-			C.sparkline(document.getElementById("sec-dropped-spark"), r.dropped);
-			$("#sec-dropped-note").text(r.dropped_since
-				? "Counted since " + new Date(r.dropped_since).toLocaleString() + "."
-				: "Counted from the next hourly sample.");
+			var geo_dropped = r.geo_dropped || r.buckets.map(function () { return null; });
+			var blocked = r.dropped.map(function (v, i) {
+				return v === null && geo_dropped[i] === null ? null : (v || 0) + (geo_dropped[i] || 0);
+			});
+			var blocked_total = r.totals.dropped === null && !r.totals.geo_dropped ? null
+				: (r.totals.dropped || 0) + (r.totals.geo_dropped || 0);
+			$("#sec-dropped").text(blocked_total === null ? "–" : C.compact(blocked_total));
+			C.sparkline(document.getElementById("sec-dropped-spark"), blocked);
+			$("#sec-dropped-note").text((r.totals.geo_dropped ? C.compact(r.totals.geo_dropped) + " by country. " : "")
+				+ (r.dropped_since
+					? "Counted since " + new Date(r.dropped_since).toLocaleString() + "."
+					: "Counted from the next hourly sample."));
 
 			C.columns(document.getElementById("sec-failed-chart"), {
 				title: "Failed logins",
@@ -422,7 +429,10 @@
 			C.columns(document.getElementById("sec-dropped-chart"), {
 				title: "Connections blocked",
 				buckets: r.buckets, bucket_seconds: r.bucket_seconds,
-				series: [{ label: "Connections blocked", values: r.dropped, color: "var(--viz-1)" }],
+				series: [
+					{ label: "IP blocklists", values: r.dropped, color: "var(--viz-1)" },
+					{ label: "Countries", values: geo_dropped, color: "var(--viz-2)" },
+				],
 				empty: r.dropped_since ? "No blocked connections in this period." : "Waiting for the first hourly sample."
 			});
 

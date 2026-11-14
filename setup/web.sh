@@ -225,6 +225,12 @@ if [ $WEB_ROOT_OWNER_OK = 0 ]; then
 	echo "Warning: couldn't change the owner of some files in $STORAGE_ROOT/www."
 fi
 
+# The country filter's rules for HTTPS define a variable the sites' configuration checks
+# (see management/geofence.py). Until the management daemon writes them, nothing is filtered.
+if [ ! -f /etc/nginx/conf.d/mailinabox-geofence.conf ]; then
+	printf 'map $host $mailinabox_geofence_drop {\n\tdefault 0;\n}\n' > /etc/nginx/conf.d/mailinabox-geofence.conf
+fi
+
 # Start services.
 restart_service nginx
 restart_service php$PHP_VER-fpm

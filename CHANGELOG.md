@@ -1,6 +1,22 @@
 CHANGELOG
 =========
 
+Enhanced Mail-in-a-Box v61.20
+-----------------------------
+
+* The country filter no longer blocks the websites behind a CDN when it covers HTTPS. A site
+  whose domain doesn't point to the box in public DNS (e.g. Cloudflare's proxied records) is
+  reached from the CDN's addresses, so filtering it by country blocked the CDN itself, and with it
+  every visitor and webhook. HTTPS is now filtered by nginx instead of the firewall, so it can tell
+  the sites apart: the sites behind a CDN aren't filtered, except the box's Exchange ActiveSync on
+  them, and Let's Encrypt's challenges and the MTA-STS policy never are. Which sites are behind a
+  CDN is looked up in public DNS every 6 hours and shown under the filter. Blocked requests get no
+  answer. The login ports are filtered by the firewall, as before.
+* The dashboard counts what the country filter blocks (on the login ports and over HTTPS) apart
+  from the IP blocklists: "Blocked connections" adds both, and its chart shows each. Before, the
+  country filter's drops were counted as the blocklists' and its HTTPS ones weren't counted.
+* Shorter texts in Mail > Filtering > Login protection.
+
 Enhanced Mail-in-a-Box v61.19
 -----------------------------
 

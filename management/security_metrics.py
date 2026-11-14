@@ -6,9 +6,10 @@
 #   failures when sending mail (ports 465 and 587, Postfix) and on IMAP, POP3 and Sieve
 #   (Dovecot, which logs how many attempts each connection made).
 # * Bans, from fail2ban's logs, by jail.
-# * Connections dropped by the IP blocklists (see ip_blocklists.py). nftables only keeps a
-#   running total, so the hourly job (`collect`, see setup/management.sh) samples it and
-#   the chart starts filling from the first sample.
+# * Connections dropped by the IP blocklists (see ip_blocklists.py) and by the country
+#   filter (see geofence.py). nftables only keeps running totals, so the hourly job
+#   (`collect`, see setup/management.sh) samples them and the chart starts filling from
+#   the first sample. The country filter's HTTPS requests come from nginx's log instead.
 # * The addresses behind most failures, with where they are (looked up by `collect` on
 #   RIPEstat, like login_alerts.py, only the address is sent), whether fail2ban bans them
 #   now and whether they are on the blocklists.
@@ -174,22 +175,45 @@ def blocklist_matcher():
 	return matches
 
 
-def dropped_total():
-	# The running total of the blocklists' drop counters, or None.
+def dropped_totals():
+	# The running totals of the drop counters of the blocklists and of the country filter
+	# (login ports), each None if there is none.
+	totals = []
+	for module in ("ip_blocklists", "geofence"):
+		try:
+			totals.append(__import__(module).get_dropped())
+		except Exception:
+			totals.append(None)
+	return totals
+
+
+def web_blocked_series(starts, size):
+	# HTTPS requests the country filter dropped per bucket, from nginx's log.
+	values = [0] * len(starts)
 	try:
-		import ip_blocklists
-		return ip_blocklists.get_dropped()
+		import geofence
+		events = geofence.web_blocked(starts[0])
 	except Exception:
-		return None
+		events = []
+	for stamp, _, _ in events:
+		i = bucket_index(starts, size, stamp)
+		if i is not None:
+			values[i] += 1
+	return values
 
 
 def collect(env):
-	# Run every hour: samples the blocklists' drop counter and looks up where the top
-	# attackers of the last day are.
+	# Run every hour: samples the drop counters and looks up where the top attackers of
+	# the last day are.
 	state = load_state()
-	total = dropped_total()
-	if total is not None:
-		state["samples"].append({"time": now().isoformat(timespec="seconds"), "dropped": total})
+	blocklists, geo = dropped_totals()
+	if blocklists is not None or geo is not None:
+		sample = {"time": now().isoformat(timespec="seconds"), "v": 2}
+		if blocklists is not None:
+			sample["dropped"] = blocklists
+		if geo is not None:
+			sample["geo"] = geo
+		state["samples"].append(sample)
 	limit = (now() - datetime.timedelta(days=KEEP_DAYS)).isoformat(timespec="seconds")
 	state["samples"] = [s for s in state["samples"] if s.get("time", "") >= limit]
 
@@ -233,15 +257,19 @@ def bucket_index(starts, size, stamp):
 	return i if 0 <= i < len(starts) else None
 
 
-def dropped_series(state, starts, size):
+def dropped_series(state, starts, size, key="dropped"):
 	# Connections dropped per bucket, from the samples of the running total (which
-	# restarts from zero when the rules are loaded again).
+	# restarts from zero when the rules are loaded again). key: "dropped" for the IP
+	# blocklists, "geo" for the country filter on the login ports. Samples before v61.20
+	# had both in "dropped" (no "v"), so a pair across that change is skipped.
 	values = [None] * len(starts)
-	samples = sorted(state["samples"], key=lambda s: s["time"])
+	samples = sorted((s for s in state["samples"] if isinstance(s.get(key), int)), key=lambda s: s["time"])
 	for a, b in zip(samples, samples[1:]):
-		delta = b["dropped"] - a["dropped"]
+		if a.get("v") != b.get("v"):
+			continue
+		delta = b[key] - a[key]
 		if delta < 0:
-			delta = b["dropped"]  # the counter was reset
+			delta = b[key]  # the counter was reset
 		i = bucket_index(starts, size, b["time"])
 		if i is not None:
 			values[i] = (values[i] or 0) + delta
@@ -305,6 +333,11 @@ def get_metrics(env, range_name="24h", fresh=False):
 		attacker_services[address].add("ban: " + jail)
 
 	dropped, dropped_since = dropped_series(state, starts, size)
+	# The country filter: the firewall's drops on the login ports and nginx's on HTTPS.
+	geo_dropped, _ = dropped_series(state, starts, size, "geo")
+	for i, n in enumerate(web_blocked_series(starts, size)):
+		if n:
+			geo_dropped[i] = (geo_dropped[i] or 0) + n
 
 	now_banned = banned_now()
 	on_blocklist = blocklist_matcher()
@@ -343,12 +376,14 @@ def get_metrics(env, range_name="24h", fresh=False):
 		"failed": failed,
 		"bans": jail_series,
 		"dropped": dropped,
+		"geo_dropped": geo_dropped,
 		"dropped_since": dropped_since,
 		"totals": {
 			"failed": sum(sum(v) for v in failed.values()),
 			"bans": sum(jails.values()),
 			"attackers": len(attackers),
 			"dropped": sum(v for v in dropped if v) if any(v is not None for v in dropped) else None,
+			"geo_dropped": sum(v for v in geo_dropped if v) if any(v is not None for v in geo_dropped) else None,
 			"banned_now": len(now_banned),
 		},
 		"previous": {

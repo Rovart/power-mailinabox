@@ -6,9 +6,21 @@
 # everywhere else. The administrator chooses some countries and either allows only the
 # connections from them ("allow") or blocks the connections from them ("block"). It
 # applies to the login ports (465 and 587 to send mail, 993, 995, 143 and 110 for IMAP and
-# POP, 4190 for Sieve), and optionally to HTTPS (443: the webmail, Nextcloud, Exchange
-# ActiveSync and the control panel). Never to port 25: mail from other servers comes from
-# anywhere and always arrives. Nor to port 80, which Let's Encrypt needs, nor to DNS.
+# POP, 4190 for Sieve), and optionally to HTTPS (the webmail, Nextcloud, Exchange
+# ActiveSync, the control panel and the websites). Never to port 25: mail from other
+# servers comes from anywhere and always arrives. Nor to port 80, which Let's Encrypt
+# needs, nor to DNS.
+#
+# HTTPS is filtered by nginx, not by the firewall, because only nginx knows which site a
+# request is for. A site behind a CDN or reverse proxy (its domain doesn't resolve to the
+# box in public DNS, e.g. Cloudflare's proxied records) is reached from the CDN's
+# addresses, so filtering it by country would block the CDN itself, and with it every
+# visitor and every webhook. Those sites aren't filtered, except the box's own logins on
+# them (Exchange ActiveSync), which are filtered by the client's address as nginx sees it
+# (the CDN's, unless nginx is set to trust the CDN's header with the visitor's address).
+# Let's Encrypt's challenges and the MTA-STS policy are never filtered: they are public
+# and other servers fetch them from anywhere. Requests blocked over HTTPS get no answer
+# (nginx's 444) and are logged to /var/log/nginx/geofence.log for the dashboard.
 #
 # Never blocked by country, whatever the setting:
 # * Addresses that aren't public internet addresses: the local network, Tailscale and
@@ -35,8 +47,9 @@
 # country (or no country is chosen), nothing is blocked by country, and the control panel
 # says why.
 #
-# The rules are part of the IP blocklists' nftables table (inet mailinabox_ip_blocklists,
-# see ip_blocklists.py), loaded at boot by its service. The settings are in the
+# The login ports' rules are part of the IP blocklists' nftables table (inet
+# mailinabox_ip_blocklists, see ip_blocklists.py), loaded at boot by its service; the
+# HTTPS rules are /etc/nginx/conf.d/mailinabox-geofence.conf. The settings are in the
 # "geofence" key of $STORAGE_ROOT/settings.yaml; the filter is off unless turned on. The
 # "sources" key there can list other addresses for the registries' files (a mirror).
 ########################################################################
@@ -67,6 +80,15 @@ MODES = ("allow", "block")
 SCOPES = ("logins", "web")
 WEB_PORTS = (443,)
 
+# HTTPS (see above).
+NGINX_CONF = "/etc/nginx/conf.d/mailinabox-geofence.conf"
+NGINX_LOG = "/var/log/nginx/geofence.log"
+# The box's logins on every domain it serves (conf/nginx-alldomains.conf), still filtered
+# on the sites behind a CDN.
+CDN_FILTERED_PATHS = r"/(Microsoft-Server-ActiveSync|autodiscover/autodiscover\.xml$)"
+# Public and fetched by other servers from anywhere: never filtered.
+NEVER_FILTERED_PATHS = r"/\.well-known/(acme-challenge/|mta-sts\.txt$)"
+
 # Never filtered by country (see above).
 NOT_PUBLIC = {
 	4: ["0.0.0.0/8", "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12",
@@ -76,6 +98,7 @@ NOT_PUBLIC = {
 
 STATE_DIR = "/var/lib/mailinabox/geofence"
 STATUS_FILE = STATE_DIR + "/status.json"
+PROXIED_FILE = STATE_DIR + "/proxied.json"  # {domain: whether it is behind a CDN}
 COUNTRIES_DIR = STATE_DIR + "/countries"  # XX.txt: the merged networks of each country
 COUNTRY_NAMES_FILE = os.path.join(os.path.dirname(os.path.realpath(__file__)), "csr_country_codes.tsv")
 # Codes the registries use that aren't countries.
@@ -319,7 +342,9 @@ def ports(scope):
 
 def get_rules(env, settings=None):
 	# (rules, reason). rules is None when nothing is blocked by country (reason says why),
-	# else {"mode", "ports", 4: [networks], 6: [networks]} for ip_blocklists.py.
+	# else {"mode", "ports", "web", 4: [networks], 6: [networks]}: "ports" are the login
+	# ports, filtered by the firewall (ip_blocklists.py), and "web" whether nginx filters
+	# HTTPS too (write_nginx).
 	settings = settings or get_settings(env)
 	if not settings["enabled"]:
 		return None, "The country filter is off."
@@ -338,9 +363,11 @@ def get_rules(env, settings=None):
 					"country." % ", ".join(missing))
 	if settings["mode"] == "allow" and not networks[4] and not networks[6]:
 		return None, "The chosen countries have no addresses, so nothing is blocked by country."
+	import ip_blocklists
 	rules = {
 		"mode": settings["mode"],
-		"ports": ports(settings["scope"]),
+		"ports": list(ip_blocklists.PORTS),
+		"web": settings["scope"] == "web",
 		4: list(ipaddress.collapse_addresses(networks[4])),
 		6: list(ipaddress.collapse_addresses(networks[6])),
 	}
@@ -371,6 +398,169 @@ def is_blocked(rules, address):
 		return False
 	listed = any(ip in n for n in rules[ip.version])
 	return not listed if rules["mode"] == "allow" else listed
+
+
+# HTTPS, in nginx (see the top of this file).
+
+def read_proxied():
+	try:
+		with open(PROXIED_FILE) as f:
+			known = json.load(f)
+		return known if isinstance(known, dict) else {}
+	except (OSError, ValueError):
+		return {}
+
+
+def find_proxied(env, refresh=False):
+	# The web domains behind a CDN or reverse proxy: none of their A and AAAA records in
+	# public DNS is the box's address, yet the box serves them, so their requests come
+	# through whatever the DNS points to. Never PRIMARY_HOSTNAME: mail apps connect to it
+	# directly. The answers are kept and looked up again with refresh (every 6 hours, see
+	# ip_blocklists.update) or for a new domain; a lookup that times out keeps the last one.
+	from web_update import get_web_domains
+	from status_checks import query_dns, normalize_ip
+	known = read_proxied()
+	box = {normalize_ip(env[key]) for key in ("PUBLIC_IP", "PUBLIC_IPV6") if env.get(key)}
+	found = {}
+	for domain in get_web_domains(env):
+		if domain == env["PRIMARY_HOSTNAME"]:
+			continue
+		if domain in known and not refresh:
+			found[domain] = known[domain] is True
+			continue
+		addresses, timeout = [], False
+		for rtype in ("A", "AAAA"):
+			answer = query_dns(domain, rtype, nxdomain=None)
+			if answer == "[timeout]":
+				timeout = True
+			elif answer:
+				addresses.extend(answer.split("; "))
+		if timeout and domain in known:
+			found[domain] = known[domain] is True
+		else:
+			found[domain] = bool(addresses) and not any(a in box for a in addresses)
+	if found != known:
+		os.makedirs(STATE_DIR, exist_ok=True)
+		with open(PROXIED_FILE + ".tmp", "w") as f:
+			json.dump(found, f, indent=1, sort_keys=True)
+		os.replace(PROXIED_FILE + ".tmp", PROXIED_FILE)
+	return sorted(domain for domain, proxied in found.items() if proxied)
+
+
+def nginx_conf(env, rules=None, proxied=()):
+	# The variable the HTTPS server of every domain checks (conf/nginx.conf):
+	# $mailinabox_geofence_drop is 1 for a request to drop.
+	lines = [
+		"# Written by Mail-in-a-Box (management/geofence.py): the country filter for HTTPS.",
+		"# Changes made here are lost: use the control panel (Mail > Filtering) instead.",
+		"",
+	]
+	if not rules or not rules.get("web"):
+		return "\n".join(lines + ["map $host $mailinabox_geofence_drop {", "\tdefault 0;", "}"]) + "\n"
+
+	import idna
+	import ip_blocklists
+	exempt = ip_blocklists.get_exempt_networks(env)
+	for version in (4, 6):
+		exempt[version] = list(ipaddress.collapse_addresses(
+			exempt[version] + [ipaddress.ip_network(n) for n in NOT_PUBLIC[version]]))
+	if rules["mode"] == "allow":
+		# Everything is blocked but the chosen countries and the exempt addresses.
+		default, value = 1, 0
+		listed = {v: list(ipaddress.collapse_addresses(rules[v] + exempt[v])) for v in (4, 6)}
+	else:
+		default, value = 0, 1
+		listed = ip_blocklists.subtract({4: rules[4], 6: rules[6]}, exempt)
+	lines += [
+		"# 1: the client's address (as nginx sees it) is blocked by country.",
+		"geo $mailinabox_geofence_client {",
+		"\tdefault %d;" % default,
+	]
+	lines += ["\t%s %d;" % (n, value) for n in listed[4] + listed[6]]
+	lines += ["}", "", "# The sites behind a CDN or reverse proxy (see find_proxied).",
+		"map $host $mailinabox_geofence_site {", "\tdefault direct;"]
+	for domain in proxied:
+		try:
+			domain = idna.encode(domain).decode("ascii")
+		except idna.IDNAError:
+			pass
+		if re.fullmatch(r"[A-Za-z0-9.-]+", domain):
+			lines.append("\t%s proxied;" % domain.lower())
+	lines += [
+		"}",
+		"",
+		"# 1: the request is filtered. Public files never are; on the sites behind a CDN, only",
+		"# the box's logins are.",
+		"map \"$mailinabox_geofence_site:$uri\" $mailinabox_geofence_filtered {",
+		"\tdefault 1;",
+		"\t~^[a-z]+:%s 0;" % NEVER_FILTERED_PATHS,
+		"\t~*^proxied:%s 1;" % CDN_FILTERED_PATHS,
+		"\t~^proxied: 0;",
+		"}",
+		"",
+		"map \"$mailinabox_geofence_filtered$mailinabox_geofence_client\" $mailinabox_geofence_drop {",
+		"\tdefault 0;",
+		"\t11 1;",
+		"}",
+		"",
+		"log_format mailinabox_geofence '$time_iso8601 $remote_addr $host';",
+		"access_log %s mailinabox_geofence if=$mailinabox_geofence_drop;" % NGINX_LOG,
+	]
+	return "\n".join(lines) + "\n"
+
+
+def write_nginx(env, refresh=False, reload=True):
+	# Writes the HTTPS rules and reloads nginx if they changed. Returns whether they
+	# changed. If nginx refuses them, writes rules that drop nothing instead and raises
+	# RuntimeError, so that the websites keep working.
+	import ip_blocklists
+	rules = get_rules(env)[0] if ip_blocklists.is_available() else None
+	proxied = find_proxied(env, refresh) if rules and rules["web"] else []
+	text = nginx_conf(env, rules, proxied)
+	try:
+		with open(NGINX_CONF) as f:
+			if f.read() == text:
+				return False
+	except OSError:
+		pass
+
+	def write(text):
+		with open(NGINX_CONF + ".tmp", "w") as f:
+			f.write(text)
+		os.replace(NGINX_CONF + ".tmp", NGINX_CONF)
+
+	write(text)
+	if not os.path.exists("/usr/sbin/nginx"):
+		return True
+	result = subprocess.run(["/usr/sbin/nginx", "-t"], capture_output=True, text=True)
+	if result.returncode != 0:
+		write(nginx_conf(env))
+		raise RuntimeError("nginx refused the country filter's rules for HTTPS, so HTTPS isn't filtered: "
+						+ result.stderr.strip()[-500:])
+	if reload:
+		subprocess.run(["/usr/sbin/service", "nginx", "reload"], capture_output=True)
+	return True
+
+
+def web_blocked(since):
+	# [(time in UTC, address, host)] of the HTTPS requests dropped since the given time
+	# (an aware datetime), from nginx's log and its rotated copies.
+	import security_metrics
+	since_iso = since.isoformat(timespec="seconds")
+	events = []
+	for fn in security_metrics.rotated(NGINX_LOG):
+		for line in security_metrics.read_lines(fn):
+			fields = line.split()
+			if len(fields) != 3:
+				continue
+			try:
+				stamp = datetime.datetime.fromisoformat(fields[0]).astimezone(datetime.timezone.utc) \
+					.isoformat(timespec="seconds")
+			except ValueError:
+				continue
+			if stamp >= since_iso:
+				events.append((stamp, fields[1], fields[2]))
+	return events
 
 
 def check_client(env, settings, client_address):
@@ -448,6 +638,7 @@ def remove_country(env, code, client_address=None):
 
 
 def get_dropped():
+	# Packets dropped on the login ports since the firewall's rules were last loaded.
 	import ip_blocklists
 	try:
 		out = subprocess.run(["/usr/sbin/nft", "list", "chain", "inet", ip_blocklists.TABLE, "geofence"],
@@ -483,6 +674,8 @@ def get_status(env):
 		"reason": reason,
 		"networks": len(rules[4]) + len(rules[6]) if rules else 0,
 		"dropped": get_dropped() if rules and ip_blocklists.is_available() else None,
+		# The sites HTTPS doesn't filter, as last looked up (no DNS lookups here).
+		"proxied": sorted(d for d, p in read_proxied().items() if p is True) if settings["scope"] == "web" else [],
 	}
 
 

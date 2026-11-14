@@ -43,7 +43,7 @@
 # is disabled). The lists are downloaded again every 6 hours (cron, see
 # setup/management.sh). The settings are in the "ip_blocklists" key of
 # $STORAGE_ROOT/settings.yaml; the blocklists are on unless turned off. The country
-# filter (geofence.py) is part of the same table, in its own chain.
+# filter (geofence.py) is part of the same table for the login ports, in its own chain.
 ########################################################################
 
 import bisect
@@ -653,7 +653,7 @@ def update(env, download=True):
 			except RuntimeError:
 				pass
 	if not settings["enabled"] or not is_available():
-		return apply(env)
+		return apply(env, refresh_proxied=download)
 	sources = [s for s in settings["sources"] if s["enabled"]]
 	scopes = {s["url"]: s["scope"] for s in sources}
 	results = {}
@@ -686,7 +686,7 @@ def update(env, download=True):
 		"sources": {url: s for url, (_, s) in results.items()},
 	}
 	write_status(status)
-	return apply(env, block, block_all)
+	return apply(env, block, block_all, refresh_proxied=download)
 
 
 def subtract(networks, minus):
@@ -731,10 +731,22 @@ def subtract(networks, minus):
 	return result
 
 
-def apply(env, block=None, block_all=None):
+def apply(env, block=None, block_all=None, refresh_proxied=False):
 	# Loads the rules from the last merged lists (without downloading them), e.g. after
 	# the networks of known logins or the administrator's own list changed, or removes
-	# them if the blocklists are off and the administrator's list is empty.
+	# them if the blocklists are off and the administrator's list is empty. Then writes
+	# the country filter's HTTPS rules for nginx (see geofence.py), which exempt the same
+	# addresses; refresh_proxied looks up again which sites are behind a CDN.
+	import geofence
+	text = apply_firewall(env, block, block_all)
+	try:
+		geofence.write_nginx(env, refresh=refresh_proxied)
+	except RuntimeError as e:
+		text += str(e) + "\n"
+	return text
+
+
+def apply_firewall(env, block=None, block_all=None):
 	import geofence
 	settings = get_settings(env)
 	if not is_available():
@@ -757,9 +769,9 @@ def apply(env, block=None, block_all=None):
 	failed = [url for url, s in read_status().get("sources", {}).items() if not s.get("ok")] if settings["enabled"] else []
 	if geo:
 		countries = ", ".join(geofence.get_settings(env)["countries"])
-		geo_text = "%s connections from %s on ports %s.\n" % (
+		geo_text = "%s connections from %s on ports %s%s.\n" % (
 			"Allowing only" if geo["mode"] == "allow" else "Blocking", countries,
-			", ".join(str(p) for p in geo["ports"]))
+			", ".join(str(p) for p in geo["ports"]), " and HTTPS" if geo["web"] else "")
 	else:
 		geo_text = geo_reason + "\n" if geofence.get_settings(env)["enabled"] else ""
 	return "Blocking %d networks on the login ports and %d on every port (%d of them yours)%s.\n%s" % (
@@ -769,13 +781,16 @@ def apply(env, block=None, block_all=None):
 
 
 def get_dropped():
-	# Packets dropped since the rules were last loaded.
-	try:
-		out = subprocess.run(["/usr/sbin/nft", "list", "table", "inet", TABLE],
-							capture_output=True, text=True, timeout=10).stdout
-	except (OSError, subprocess.SubprocessError):
-		return None
-	counts = [int(n) for n in re.findall(r"counter packets (\d+)", out)]
+	# Packets the lists dropped since the rules were last loaded (not the country
+	# filter's, which has its own chain: see geofence.get_dropped).
+	counts = []
+	for chain in ("input", "logins"):
+		try:
+			out = subprocess.run(["/usr/sbin/nft", "list", "chain", "inet", TABLE, chain],
+								capture_output=True, text=True, timeout=10).stdout
+		except (OSError, subprocess.SubprocessError):
+			return None
+		counts += [int(n) for n in re.findall(r"counter packets (\d+)", out)]
 	return sum(counts) if counts else None
 
 
