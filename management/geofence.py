@@ -407,8 +407,9 @@ def set_enabled(env, enabled, client_address=None):
 	if settings["enabled"]:
 		try:
 			update(env)
-		except RuntimeError as e:
-			note = str(e) + "\n"
+		except RuntimeError:
+			# Why is in the status (shown with the filter), not in this answer.
+			note = "Could not download the registries' data; the country filter's status says why.\n"
 	return note + change(env, settings, client_address)
 
 
