@@ -98,9 +98,7 @@
 	<code>sudo management/cli.py mail filtering allow|block add|remove ENTRY</code>.</p>
 
 <h3 class="h4 mt-5" id="protection-title">Login protection</h3>
-<p class="text-body-secondary">Password guessing against the box&rsquo;s logins comes from thousands of addresses
-	that each try a few times. Besides fail2ban, which bans addresses after repeated failed logins, the box can
-	block the addresses already known for these attacks and tell you when an account logs in from somewhere new.</p>
+<p class="text-body-secondary">Stops password guessing against the mail logins, on top of fail2ban.</p>
 
 <div class="row g-4 mb-4">
 	<div class="col-12">
@@ -118,13 +116,9 @@
 				<div class="alert alert-warning d-none" id="blocklists-unavailable" role="status">The blocklists
 					aren&rsquo;t available because the firewall was disabled when the box was set up
 					(<code>DISABLE_FIREWALL</code>).</div>
-				<p class="text-body-secondary">Each list blocks either the <b>login ports</b>
-					(<span id="blocklists-ports"></span>, keeping port 25 open so mail from other servers always
-					arrives, and the web) or <b>every port</b> except DNS (53), for lists of networks that never have a
-					reason to connect. The lists are downloaded every 6 hours and merged without duplicates. A list that
-					fails or has no valid entries adds nothing. The box&rsquo;s own addresses, fail2ban&rsquo;s ignored
-					addresses and the networks your users logged in from in the last 30 days are never blocked. Sites
-					behind a CDN or reverse proxy only see its addresses, so these lists don&rsquo;t protect them.</p>
+				<p class="text-body-secondary">Drops connections from addresses on public lists of attackers, downloaded
+					every 6 hours. Each list covers the login ports (<span id="blocklists-ports"></span>) or every port
+					but DNS. Your users&rsquo; networks of the last 30 days are never blocked.</p>
 				<p id="blocklists-summary" aria-live="polite"></p>
 				<ul class="list-group mb-3" id="blocklists-sources" aria-labelledby="blocklists-title"
 					aria-live="polite"></ul>
@@ -155,8 +149,8 @@
 						aria-haspopup="dialog"><span class="fa-solid fa-download me-1" aria-hidden="true"></span>Download for a
 						CDN or WAF&hellip;</button>
 				</div>
-				<p class="small text-body-secondary mt-2 mb-0">Sites behind a CDN or reverse proxy only see its addresses:
-					to block their attackers there too, download the blocked addresses for your CDN&rsquo;s IP list.</p>
+				<p class="small text-body-secondary mt-2 mb-0">Sites behind a CDN only see its addresses: upload this
+					list to the CDN to block their attackers too.</p>
 			</div>
 		</div>
 	</div>
@@ -176,35 +170,27 @@
 				<div class="alert alert-warning d-none" id="geofence-unavailable" role="status">The country filter
 					isn&rsquo;t available because the firewall was disabled when the box was set up
 					(<code>DISABLE_FIREWALL</code>).</div>
-				<p class="text-body-secondary">Allow only the countries your users connect from, or block the ones you
-					never expect logins from. Port 25 is never filtered, so mail from other servers always arrives, and
-					neither are port 80 (Let&rsquo;s Encrypt) and DNS. Never blocked: addresses that aren&rsquo;t on the
-					internet (your local network, Tailscale and other VPNs: <code>100.64.0.0/10</code> and private IPv6),
-					and the same addresses the blocklists never block, including the networks your users logged in from
-					in the last 30 days. So a user who is abroad now keeps working, but one who travels to a country
-					that isn&rsquo;t allowed is blocked there: add it before the trip. A country is where each block of
-					addresses is registered, from the regional internet registries&rsquo; data, downloaded once a day.
-					If there is no data for a chosen country, nothing is blocked by country.</p>
+				<p class="text-body-secondary">Choose the countries that can log in, or the ones that can&rsquo;t. Mail
+					from other servers always arrives. Your local network, VPNs and your users&rsquo; networks of the last 30 days
+					are never blocked: add a country before travelling there.</p>
 				<div class="row g-3 mb-3">
 					<div class="col-md-6">
-						<label for="geofence-mode" class="form-label">The countries in the list</label>
+						<label for="geofence-mode" class="form-label">Chosen countries</label>
 						<select class="form-select" id="geofence-mode"
 							onchange="protection_change({action: 'geofence_mode', mode: this.value})">
-							<option value="allow">Are the only ones that can connect</option>
+							<option value="allow">Are the only ones allowed</option>
 							<option value="block">Are blocked</option>
 						</select>
 					</div>
 					<div class="col-md-6">
-						<label for="geofence-scope" class="form-label">On</label>
+						<label for="geofence-scope" class="form-label">Applies to</label>
 						<select class="form-select" id="geofence-scope" aria-describedby="geofence-scope-help"
 							onchange="protection_change({action: 'geofence_scope', scope: this.value})">
-							<option value="logins">The login ports (mail apps)</option>
-							<option value="web">The login ports and HTTPS</option>
+							<option value="logins">Mail apps</option>
+							<option value="web">Mail apps and HTTPS</option>
 						</select>
-						<div id="geofence-scope-help" class="form-text">HTTPS is also the webmail, Nextcloud, Exchange
-							ActiveSync, this control panel, the websites this box serves and other mail servers&rsquo;
-							MTA-STS checks. Port 80 is never filtered. You can&rsquo;t choose a setting that blocks your
-							own connection.</div>
+						<div id="geofence-scope-help" class="form-text">HTTPS: webmail, Nextcloud, this panel and the
+							websites that aren&rsquo;t behind a CDN.</div>
 					</div>
 				</div>
 				<p id="geofence-summary" aria-live="polite"></p>
@@ -232,9 +218,8 @@
 					blocked addresses</h4>
 			</div>
 			<div class="card-body">
-				<p class="text-body-secondary">Addresses and networks you block yourself, also from the
-					<b>Block</b> buttons of the dashboard&rsquo;s attackers. They are dropped on every port except DNS
-					(53), even when the public lists above are off. The same addresses as above are never blocked.</p>
+				<p class="text-body-secondary">Dropped on every port but DNS, even with the lists off. The
+					dashboard&rsquo;s <b>Block</b> buttons add them here.</p>
 				<form class="row g-2 mb-3" onsubmit="manual_block(); return false;">
 					<div class="col-sm-4">
 						<label for="manual-entry" class="form-label">Address or network</label>
@@ -285,14 +270,8 @@
 				</div>
 			</div>
 			<div class="card-body">
-				<p class="text-body-secondary">The administrator gets an email when an account logs in (to send mail,
-					or to IMAP or POP) through an internet provider&rsquo;s block of addresses it never used before
-					(another provider, or another country): a stolen password shows up there. Blocks are /16 for IPv4
-					and /32 for IPv6, so a phone that gets a new address every time it connects doesn&rsquo;t send an
-					email each time. Logins from the webmail and the other apps on this box aren&rsquo;t counted.
-					Locations come from RIPEstat (only the address is sent) and are approximate: for mobile
-					connections they show where the operator&rsquo;s network meets the internet, not where the
-					phone is.</p>
+				<p class="text-body-secondary">Emails the administrator when an account logs in from a network it never
+					used before, where a stolen password shows up. Locations come from RIPEstat and are approximate.</p>
 				<div class="filter-row" role="search" aria-label="Filter the logins">
 					<label class="visually-hidden" for="logins-user">Account</label>
 					<select class="form-select" id="logins-user">
@@ -453,8 +432,7 @@
 				$('#blocklists-summary').text(!b.enabled ? "The public lists are off." :
 					"Blocking " + (b.networks4 + b.networks6).toLocaleString() + " networks on the login ports and "
 					+ (b.networks_all || 0).toLocaleString() + " on every port. Last download: "
-					+ protection_date(b.updated) + "."
-					+ (b.dropped !== null ? " Connections dropped since the rules were last loaded: " + b.dropped.toLocaleString() + "." : ""));
+					+ protection_date(b.updated) + ".");
 
 				var list = $('#blocklists-sources').empty();
 				if (!b.sources.length)
@@ -636,12 +614,14 @@
 		var summary = $('#geofence-summary').removeClass('text-warning').empty();
 		if (!g.enabled)
 			summary.text("The country filter is off.");
-		else if (g.active)
-			summary.text((g.mode == 'allow' ? "Only connections from the countries below can reach ports "
-				: "Connections from the countries below can't reach ports ") + g.ports.join(", ") + " ("
-				+ g.networks.toLocaleString() + " networks). Country data from " + protection_date(g.updated) + "."
-				+ (g.dropped !== null ? " Connections dropped since the rules were last loaded: " + g.dropped.toLocaleString() + "." : ""));
-		else
+		else if (g.active) {
+			summary.text((g.mode == 'allow' ? "On: only these countries can connect to the "
+				: "On: these countries can't connect to the ") + (g.scope == 'web' ? "mail apps and HTTPS" : "mail apps")
+				+ ". Country data from " + protection_date(g.updated) + ".");
+			if (g.scope == 'web' && g.proxied && g.proxied.length)
+				summary.append($('<div class="small text-body-secondary"/>').text(
+					"Not filtered (behind a CDN): " + g.proxied.join(", ") + "."));
+		} else
 			summary.addClass('text-warning').text(g.reason);
 		if (g.error)
 			summary.append($('<div class="text-danger"/>').text(g.error));
@@ -652,7 +632,7 @@
 		g.countries.forEach(function (c) {
 			list.append($('<li class="list-group-item d-flex align-items-center gap-2"/>').append(
 				$('<span class="flex-grow-1"/>').text(c.name + " (" + c.code + ")"),
-				$('<span class="small text-body-secondary"/>').text(c.networks === null ? "No data yet"
+				$('<span class="small text-body-secondary"/>').text(c.networks === null ? (g.enabled ? "No data yet" : "")
 					: c.networks.toLocaleString() + " networks"),
 				$('<button type="button" class="btn btn-sm btn-outline-secondary"/>').attr('title', "Remove")
 					.attr('aria-label', "Remove " + c.name)
