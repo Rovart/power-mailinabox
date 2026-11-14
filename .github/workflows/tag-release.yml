@@ -1,7 +1,9 @@
-# Creates the release tags the installer downloads. When a push to main changes
-# setup/bootstrap.sh and the version it names (TAG=vX.Y) has no tag yet, that commit
-# is tagged. It can also be run by hand (Actions > Tag release > Run workflow) to tag
-# a given commit of main.
+# Creates the release tags the installer downloads, and their GitHub releases. When a
+# push to main changes setup/bootstrap.sh and the version it names (TAG=vX.Y) has no tag
+# yet, that commit is tagged. The release gets the version's section of CHANGELOG.md
+# ("Enhanced Mail-in-a-Box vX.Y") as its notes. It can also be run by hand (Actions >
+# Tag release > Run workflow) to tag a given commit of main, or to create a missing
+# release for an existing tag.
 name: Tag release
 
 on:
@@ -48,10 +50,26 @@ jobs:
           fi
           if git ls-remote --exit-code --tags origin "refs/tags/$tag" > /dev/null; then
             echo "$tag already exists."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -a "$tag" -m "Enhanced Mail-in-a-Box $tag" "$commit"
+            git push --quiet origin "refs/tags/$tag"
+            echo "Created $tag at $commit."
+          fi
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "The release $tag already exists."
             exit 0
           fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -a "$tag" -m "Enhanced Mail-in-a-Box $tag" "$commit"
-          git push --quiet origin "refs/tags/$tag"
-          echo "Created $tag at $commit."
+          git show "$commit:CHANGELOG.md" > changelog.md
+          python3 - "$tag" changelog.md > notes.md <<'PY'
+          import re, sys
+          tag, path = sys.argv[1], sys.argv[2]
+          text = open(path).read()
+          # The section whose heading ends with the tag, up to the next heading.
+          m = re.search(r"^[^\n]* " + re.escape(tag) + r"\n-+\n(.*?)(?=^[^\n]+\n-+\n|\Z)", text, re.M | re.S)
+          print(m.group(1).strip() if m else "See CHANGELOG.md.")
+          PY
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --verify-tag \
+            --title "Enhanced Mail-in-a-Box $tag" --notes-file notes.md
+          echo "Created the release $tag."
