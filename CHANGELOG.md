@@ -1,8 +1,8 @@
 CHANGELOG
 =========
 
-Unreleased
-----------
+Enhanced Mail-in-a-Box v61.19
+-----------------------------
 
 * The control panel's API sends its messages as plain text instead of HTML, and refuses changes
   that a browser sends on behalf of another website. A browser that remembered an
@@ -10,10 +10,6 @@ Unreleased
   submit a form to the API from another site, and a message that repeated what was sent could
   run as a script in the control panel. The control panel itself, the API from scripts and the
   setup work as before. Found with CodeQL; new container tests.
-
-Enhanced Mail-in-a-Box v61.19
------------------------------
-
 * This fork is now called Enhanced Mail-in-a-Box, a maintained fork of Power Mail-in-a-Box, and
   its repository is github.com/Rovart/enhanced-mailinabox (the old address redirects there). The
   control panel, the box's default web page, its SMTP greeting and the setup's messages use the

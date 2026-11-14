@@ -18,6 +18,7 @@ Boxes installed from the original repository can switch to Enhanced Mail-in-a-Bo
 
 ## What's new in v61.19
 
+- **Security**: the control panel's API answers in plain text, and refuses changes that another website makes your browser send.
 - **A new name**: this fork is now Enhanced Mail-in-a-Box, at [Rovart/enhanced-mailinabox](https://github.com/Rovart/enhanced-mailinabox). The old address redirects here, and boxes upgrade as usual.
 - **Country filter** (Mail > Filtering > Login protection): allow only the countries your users connect from, or block chosen countries, on the login ports and optionally on HTTPS. Mail from other servers (port 25) is never filtered, and addresses that aren't on the internet (your local network, Tailscale and other VPNs) are never blocked. Off by default.
 - **Rebooting from the control panel** no longer ends with an error: the page waits until the box is back and reloads.
