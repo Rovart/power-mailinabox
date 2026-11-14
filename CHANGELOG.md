@@ -4,6 +4,11 @@ CHANGELOG
 Unreleased
 ----------
 
+* Nextcloud updated to 34.0.6.
+* Rebooting from the control panel (System → Status Checks) no longer ends with "Something went
+  wrong, sorry.": the reboot now starts a few seconds after the control panel has answered, and
+  if the connection is still cut, the page knows the box is restarting. It says so, waits until
+  the box is back, and reloads.
 * On Ubuntu, unattended-upgrades now also installs PHP updates from Ondřej Surý's own repository
   (packages.sury.org) besides his PPA. He publishes Ubuntu builds there too, sometimes before the
   PPA, and a box that added that repository (with apt pins limiting it to PHP) to get a security
