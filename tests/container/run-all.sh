@@ -1,5 +1,5 @@
 #!/bin/bash
-# Installs this copy of Power Mail-in-a-Box in fresh systemd containers, one per
+# Installs this copy of Enhanced Mail-in-a-Box in fresh systemd containers, one per
 # supported operating system (in parallel), and runs the test suites on each:
 #   verify.sh         functional checks (mail, webmail, Nextcloud, Z-Push, panel, backups...)
 #   services-test.sh  turning the optional services off and on

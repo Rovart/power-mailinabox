@@ -1,5 +1,5 @@
 #!/bin/bash
-# Builds the container images the tests install Power Mail-in-a-Box in:
+# Builds the container images the tests install Enhanced Mail-in-a-Box in:
 # pmiab-debian-12, pmiab-debian-13, pmiab-ubuntu-22.04 and pmiab-ubuntu-24.04.
 # usage: build-images.sh [--force] [os...]
 set -e

@@ -1,5 +1,5 @@
 /*
- * Power Mail-in-a-Box control panel.
+ * Enhanced Mail-in-a-Box control panel.
  *
  * The panel's own stylesheet, written from scratch (it replaced Bootstrap in v61.12).
  * The templates keep a small vocabulary of class names (card, btn, form-control, row,
@@ -508,6 +508,13 @@ body.logged-in .if-not-logged-in {
 .topbar .sidebar-brand {
 	padding: 0;
 	flex: 1 1 auto;
+}
+
+/* So that the name fits in the top bar of the narrowest phones. */
+@media (max-width: 359.98px) {
+	.topbar .sidebar-brand .brand-name {
+		font-size: .85rem;
+	}
 }
 
 /* With the sidebar on screen, the top bar is only for the login page. */

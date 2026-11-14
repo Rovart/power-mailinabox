@@ -1,5 +1,5 @@
 /*
- * Power Mail-in-a-Box control panel: the few interactive components the panel needs
+ * Enhanced Mail-in-a-Box control panel: the few interactive components the panel needs
  * (it replaced Bootstrap's JavaScript in v61.12). No dependencies.
  *
  * - Dropdown menus: a button with data-toggle="dropdown" opens the .dropdown-menu next

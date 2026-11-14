@@ -1,5 +1,5 @@
 /*
- * Power Mail-in-a-Box control panel: small SVG charts for the dashboard (no
+ * Enhanced Mail-in-a-Box control panel: small SVG charts for the dashboard (no
  * dependencies). Colors come from CSS tokens (--viz-1, --viz-2... in panel.css), so the
  * light and dark themes each use their own validated steps.
  *

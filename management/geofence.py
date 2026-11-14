@@ -84,7 +84,7 @@ EXTRA_NAMES = {"EU": "European Union (not a single country)", "AP": "Asia-Pacifi
 # Downloads.
 TIMEOUT = 60
 MAX_BYTES = 64 * 1024 * 1024
-USER_AGENT = "Power-Mail-in-a-Box-geofence/1.0"
+USER_AGENT = "Enhanced-Mail-in-a-Box-geofence/1.0"
 MAX_AGE_HOURS = 20  # the registries publish once a day
 MAX_SOURCES = 10
 

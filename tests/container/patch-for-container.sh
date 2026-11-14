@@ -1,5 +1,5 @@
 #!/bin/bash
-# TEST-ONLY adjustments to the copy of Power Mail-in-a-Box inside a test container
+# TEST-ONLY adjustments to the copy of Enhanced Mail-in-a-Box inside a test container
 # (run inside it by run-setup.sh before the setup). Docker containers differ from
 # real servers in a few ways the setup can't handle.
 set -e

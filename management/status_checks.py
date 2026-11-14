@@ -1554,7 +1554,7 @@ def get_latest_miab_version():
 		return re.search(
 			b'TAG=(.*)',
 			urlopen(
-				"https://raw.githubusercontent.com/Rovart/power-mailinabox/main/setup/bootstrap.sh",
+				"https://raw.githubusercontent.com/Rovart/enhanced-mailinabox/main/setup/bootstrap.sh",
 				timeout=5).read()).group(1).decode("utf8")
 	except (HTTPError, URLError, timeout):
 		return None
@@ -1585,7 +1585,7 @@ def check_miab_version(env, output):
 				% this_ver)
 		else:
 			output.print_error(
-				"A new version of Mail-in-a-Box is available. You are running version %s. The latest version is %s. For upgrade instructions, visit https://github.com/Rovart/power-mailinabox"
+				"A new version of Enhanced Mail-in-a-Box is available. You are running version %s. The latest version is %s. For upgrade instructions, visit https://github.com/Rovart/enhanced-mailinabox"
 				% (this_ver, latest_ver))
 
 

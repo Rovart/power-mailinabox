@@ -146,7 +146,7 @@ hide_output apt-get update --allow-releaseinfo-change
 # Make sure the repository has the PHP release we need before upgrading or installing anything.
 PHP_AVAILABLE_VER=$(apt-cache policy php${PHP_VER}-fpm | awk '/Candidate:/ { print $2 }')
 if ! dpkg --compare-versions "$PHP_AVAILABLE_VER" ge "$PHP_MIN_VER" 2> /dev/null; then
-	echo "This version of Power Mail-in-a-Box requires PHP $PHP_MIN_VER or newer, but the newest"
+	echo "This version of Enhanced Mail-in-a-Box requires PHP $PHP_MIN_VER or newer, but the newest"
 	echo "PHP $PHP_VER release available is ${PHP_AVAILABLE_VER:-none}. Please try again later."
 	exit 1
 fi

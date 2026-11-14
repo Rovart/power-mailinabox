@@ -118,7 +118,7 @@ TABLE = "mailinabox_ip_blocklists"
 # Downloads.
 TIMEOUT = 20
 MAX_BYTES = 64 * 1024 * 1024
-USER_AGENT = "Power-Mail-in-a-Box-ip-blocklists/1.0"
+USER_AGENT = "Enhanced-Mail-in-a-Box-ip-blocklists/1.0"
 # A list with more entries than this is treated as broken.
 MAX_ENTRIES_PER_LIST = 500000
 MIN_PREFIX = {4: 8, 6: 16}

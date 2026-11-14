@@ -1,6 +1,6 @@
 # Container tests
 
-These scripts install Power Mail-in-a-Box in Docker containers running systemd, one
+These scripts install Enhanced Mail-in-a-Box in Docker containers running systemd, one
 per supported operating system, and check that everything works: sending and
 receiving mail, IMAP/POP/SMTP logins, spam learning, quotas, webmail, Nextcloud
 (CardDAV/CalDAV), Z-Push (ActiveSync), the control panel and its API, backups, the

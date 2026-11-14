@@ -4,6 +4,10 @@ CHANGELOG
 Unreleased
 ----------
 
+* This fork is now called Enhanced Mail-in-a-Box, a maintained fork of Power Mail-in-a-Box, and
+  its repository is github.com/Rovart/enhanced-mailinabox (the old address redirects there). The
+  control panel, the box's default web page, its SMTP greeting and the setup's messages use the
+  new name. Boxes upgrade as usual: the setup points the box's copy of the code to the new address.
 * New country filter (geo-fence) in Mail > Filtering > Login protection: allow only the
   countries your users connect from (e.g. only Spain), or block chosen countries. It applies to
   the login ports (IMAP, POP, sending mail and Sieve), and optionally to HTTPS too (webmail,

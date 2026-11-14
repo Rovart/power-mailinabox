@@ -1,7 +1,7 @@
 #!/bin/bash
 # Quick checks that don't need a server: syntax of the setup scripts, of the
 # management daemon and of the control panel's JavaScript. Takes seconds.
-# (The full tests, which install Power Mail-in-a-Box in containers, are in
+# (The full tests, which install Enhanced Mail-in-a-Box in containers, are in
 # tests/container/ and are run before releasing a new version.)
 # usage: tests/static-checks.sh
 cd "$(dirname "$0")/.."
