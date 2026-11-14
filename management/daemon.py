@@ -900,8 +900,11 @@ def do_reboot():
 	# To keep the attack surface low, we don't allow a remote reboot if one isn't necessary.
 	from status_checks import is_reboot_needed_due_to_package_installation
 	if is_reboot_needed_due_to_package_installation():
-		return utils.shell("check_output", ["/sbin/shutdown", "-r", "now"],
-						capture_stderr=True)
+		# Reboot a few seconds from now: "shutdown -r now" stopped this daemon (and nginx)
+		# before it could answer, and the control panel showed an error for a reboot that
+		# was in fact starting. systemd-run returns at once and prints nothing with --quiet.
+		return utils.shell("check_output", ["/usr/bin/systemd-run", "--quiet", "--on-active=5",
+						"/sbin/shutdown", "-r", "now"], capture_stderr=True)
 	else:
 		return "No reboot is required, so it is not allowed."
 

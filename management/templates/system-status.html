@@ -289,13 +289,45 @@
 					{},
 					function (r) {
 						// successful reboots don't produce any output; the output is inserted as text
-						var msg;
 						if (r)
-							msg = $("<div></div>").append($("<p></p>").text("The reboot command said:"), $("<pre class=\"mb-0\"></pre>").text(r));
+							show_modal_error("Reboot", $("<div></div>").append($("<p></p>").text("The reboot command said:"), $("<pre class=\"mb-0\"></pre>").text(r)));
 						else
-							msg = $("<p class=\"mb-0\"></p>").text("Please reload this page after a minute or so.");
-						show_modal_error("Reboot", msg);
+							reboot_started();
+					},
+					function (text, xhr) {
+						// If the box went down before answering, the connection is dropped (status 0)
+						// or nginx answers with a gateway error: that's the reboot, not a failure.
+						if (xhr.status == 0 || xhr.status == 502 || xhr.status == 503 || xhr.status == 504)
+							reboot_started();
+						else if (xhr.status != 403)
+							show_modal_error("Error", "Something went wrong, sorry.");
 					});
 			});
+	}
+
+	function reboot_started() {
+		show_modal_error("Reboot", $("<p class=\"mb-0\"></p>").text("The box is restarting. This page will reload when it is back, usually in a minute or two."));
+
+		// Wait until the control panel stops answering and then answers again, and reload.
+		var went_down = false;
+		var started = Date.now();
+		function poll() {
+			if (Date.now() - started > 10 * 60 * 1000)
+				return; // give up after ten minutes; the message already says what to do
+			fetch("/admin/", { cache: "no-store" })
+				.then(function (response) {
+					if (response.ok && went_down)
+						window.location.reload();
+					else {
+						if (!response.ok) went_down = true;
+						setTimeout(poll, 5000);
+					}
+				})
+				.catch(function () {
+					went_down = true;
+					setTimeout(poll, 5000);
+				});
+		}
+		setTimeout(poll, 5000);
 	}
 </script>
