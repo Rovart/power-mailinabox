@@ -1,20 +1,20 @@
-# Power Mail-in-a-Box
+# Enhanced Mail-in-a-Box
 
 A complete, self-hosted mail server that you can deploy on a fresh Debian or Ubuntu machine in a few minutes, and keep up to date with a single command.
 
-This is a maintained, unofficial fork of [Power Mail-in-a-Box](https://github.com/ddavness/power-mailinabox) by David Duque.
+Enhanced Mail-in-a-Box is a maintained fork of [Power Mail-in-a-Box](https://github.com/ddavness/power-mailinabox) by David Duque. Up to v61.18 it was also called Power Mail-in-a-Box.
 
 **Current version: v61.18** · [Install](#installation) · [Upgrade](#upgrading) · [Changelog](CHANGELOG.md)
 
-Power Mail-in-a-Box is based on [Mail-in-a-Box](https://mailinabox.email/). It keeps its promise of sane defaults that work out of the box, and adds the features advanced users ask for: SMTP relays, mailbox quotas, per-domain web server configuration, OpenPGP key publishing, optional services and more.
+Like Power Mail-in-a-Box, it is based on [Mail-in-a-Box](https://mailinabox.email/). It keeps its promise of sane defaults that work out of the box, and adds the features advanced users ask for: SMTP relays, mailbox quotas, per-domain web server configuration, OpenPGP key publishing, optional services and more.
 
 ## About this fork
 
-[Power Mail-in-a-Box](https://github.com/ddavness/power-mailinabox) was created by David Duque, and its repository has not been updated since v60.5 (November 2022). This fork keeps the project maintained: it supports current operating systems, updates the bundled applications, and brings in security fixes and the fixes made to Mail-in-a-Box since then.
+[Power Mail-in-a-Box](https://github.com/ddavness/power-mailinabox) was created by David Duque, and its repository has not been updated since v60.5 (November 2022). Enhanced Mail-in-a-Box keeps the project maintained: it supports current operating systems, updates the bundled applications, and brings in security fixes and the fixes made to Mail-in-a-Box since then.
 
-It is not the official project, nor is it affiliated with or endorsed by its author. Everything here is released under the same public domain dedication as the original (CC0), so any of it can be taken back into the original project.
+It has its own name so that it isn't mistaken for the original project: it is not affiliated with or endorsed by its author. Everything here is released under the same public domain dedication as the original (CC0), so any of it can be taken back into the original project.
 
-Boxes installed from the original repository can switch to this fork with the usual upgrade command (see [Upgrading](#upgrading)).
+Boxes installed from the original repository can switch to Enhanced Mail-in-a-Box with the usual upgrade command (see [Upgrading](#upgrading)). This repository used to be `Rovart/power-mailinabox`: the old address redirects here, and boxes installed from it upgrade as usual.
 
 ## What's new in v61.18
 
@@ -139,7 +139,7 @@ The [changelog](CHANGELOG.md) has the full list.
 - Encrypted backups (duplicity) to the box itself, an rsync server, Amazon S3 or another S3-compatible service, or Backblaze B2.
 - A firewall (ufw) and protection against brute-force logins (fail2ban).
 
-### What Power Mail-in-a-Box adds
+### What it adds to Mail-in-a-Box
 
 - **SMTP relays:** send outgoing mail through an external relay.
 - **Mailbox quotas,** with a default for new users (thanks to [@jrsupplee](https://github.com/jrsupplee/mailinabox)).
@@ -198,7 +198,7 @@ The box configures its own firewall. If it is behind an external firewall or NAT
 2. Run the setup and follow the instructions on the screen:
 
    ```
-   curl -L https://raw.githubusercontent.com/Rovart/power-mailinabox/v61.18/setup/bootstrap.sh | sudo bash
+   curl -L https://raw.githubusercontent.com/Rovart/enhanced-mailinabox/v61.18/setup/bootstrap.sh | sudo bash
    ```
 
 3. Open the control panel at `https://<your box's hostname>/admin` and follow the status checks to finish the DNS configuration.
@@ -210,14 +210,14 @@ The box manages its firewall with `ufw`. Your own rules for SSH are left as they
 Run the same command as for a new installation:
 
 ```
-curl -L https://raw.githubusercontent.com/Rovart/power-mailinabox/v61.18/setup/bootstrap.sh | sudo bash
+curl -L https://raw.githubusercontent.com/Rovart/enhanced-mailinabox/v61.18/setup/bootstrap.sh | sudo bash
 ```
 
 It downloads the new version and runs the setup again, keeping your data and settings. To be told when a new version is out, turn on *Check for new versions* in the control panel's status checks (it is off by default). To run the setup again without upgrading, use `sudo mailinabox`.
 
-**From the original Power Mail-in-a-Box.** The same command works: on a box installed from [ddavness/power-mailinabox](https://github.com/ddavness/power-mailinabox), it switches the box's copy of the code to this fork.
+**From the original Power Mail-in-a-Box.** The same command works: on a box installed from [ddavness/power-mailinabox](https://github.com/ddavness/power-mailinabox), it switches the box's copy of the code to Enhanced Mail-in-a-Box.
 
-**From Mail-in-a-Box.** There is no automatic migration. Install Power Mail-in-a-Box on a new machine and move your mail and settings over.
+**From Mail-in-a-Box.** There is no automatic migration. Install Enhanced Mail-in-a-Box on a new machine and move your mail and settings over.
 
 ### Operating system upgrades
 
@@ -233,7 +233,7 @@ These operating systems are no longer supported. Boxes running them can install 
 ### Installing a specific version
 
 ```
-curl -L https://raw.githubusercontent.com/Rovart/power-mailinabox/<VERSION>/setup/bootstrap.sh | sudo bash
+curl -L https://raw.githubusercontent.com/Rovart/enhanced-mailinabox/<VERSION>/setup/bootstrap.sh | sudo bash
 ```
 
 Where `<VERSION>` is a release tag, such as `v60.5`. Downgrading is not supported and may not work.
@@ -262,8 +262,8 @@ Contributions are welcome as pull requests: see [CONTRIBUTING.md](CONTRIBUTING.m
 
 ## Support and security
 
-Report bugs and request features in the [issues](https://github.com/Rovart/power-mailinabox/issues). Security vulnerabilities must be reported privately instead: see the [security guide](security.md), which also describes the box's security posture.
+Report bugs and request features in the [issues](https://github.com/Rovart/enhanced-mailinabox/issues). Security vulnerabilities must be reported privately instead: see the [security guide](security.md), which also describes the box's security posture.
 
 ## Credits and license
 
-Power Mail-in-a-Box was created by [David Duque](https://github.com/ddavness) as a fork of [Mail-in-a-Box](https://github.com/mail-in-a-box/mailinabox), by Joshua Tauberer and its contributors. This fork is maintained by [Rovart](https://github.com/Rovart). All three are released into the public domain under [CC0 1.0](LICENSE).
+Enhanced Mail-in-a-Box is maintained by [Rovart](https://github.com/Rovart). It is a fork of [Power Mail-in-a-Box](https://github.com/ddavness/power-mailinabox), created by [David Duque](https://github.com/ddavness) as a fork of [Mail-in-a-Box](https://github.com/mail-in-a-box/mailinabox), by Joshua Tauberer and its contributors. All three are released into the public domain under [CC0 1.0](LICENSE).

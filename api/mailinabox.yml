@@ -663,7 +663,7 @@ paths:
               example:
                 daemon:
                   ids:
-                    - Power Mail-in-a-Box Management Daemon <administrator@mailinabox.lan>
+                    - Enhanced Mail-in-a-Box Management Daemon <administrator@mailinabox.lan>
                   master_fpr: 62037B88B743626997E63EFE2469394FBC0CF8DA
                   revoked: false
                   subkeys:
@@ -754,7 +754,7 @@ paths:
                 $ref: '#/components/schemas/PgpKey'
               example:
                 ids:
-                  - Power Mail-in-a-Box Management Daemon <administrator@mailinabox.lan>
+                  - Enhanced Mail-in-a-Box Management Daemon <administrator@mailinabox.lan>
                 master_fpr: 62037B88B743626997E63EFE2469394FBC0CF8DA
                 revoked: false
                 subkeys:
@@ -929,7 +929,7 @@ paths:
               example:
                 keys:
                   - ids:
-                    - Power Mail-in-a-Box Management Daemon <administrator@mailinabox.lan>
+                    - Enhanced Mail-in-a-Box Management Daemon <administrator@mailinabox.lan>
                     master_fpr: 62037B88B743626997E63EFE2469394FBC0CF8DA
                     revoked: false
                     subkeys:

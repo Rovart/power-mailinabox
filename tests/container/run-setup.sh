@@ -1,5 +1,5 @@
 #!/bin/bash
-# Installs (or upgrades) Power Mail-in-a-Box from a directory in a test container,
+# Installs (or upgrades) Enhanced Mail-in-a-Box from a directory in a test container,
 # creating the container if it doesn't exist. The firewall is set up as on a real box,
 # unless DISABLE_FIREWALL=1 is set.
 # usage: run-setup.sh <container> <image> <source directory>

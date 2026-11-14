@@ -2,7 +2,7 @@
 #########################################################
 # This script is intended to be run like this:
 #
-#   curl -L https://raw.githubusercontent.com/Rovart/power-mailinabox/v61.18/setup/bootstrap.sh | sudo bash
+#   curl -L https://raw.githubusercontent.com/Rovart/enhanced-mailinabox/v61.18/setup/bootstrap.sh | sudo bash
 #
 #########################################################
 
@@ -99,10 +99,10 @@ if [ -z "$TAG" ]; then
 	fi
 fi
 
-# The repository to download Power Mail-in-a-Box from. It can be
+# The repository to download Enhanced Mail-in-a-Box from. It can be
 # overridden (e.g. to test a fork) with the SOURCE environment variable.
 if [ -z "$SOURCE" ]; then
-	SOURCE=https://github.com/Rovart/power-mailinabox
+	SOURCE=https://github.com/Rovart/enhanced-mailinabox
 fi
 
 # Clone the Mail-in-a-Box repository if it doesn't exist.

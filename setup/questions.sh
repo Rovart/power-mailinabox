@@ -17,8 +17,8 @@ if [ -z "${NONINTERACTIVE:-}" ]; then
 	# so we use the distribution's package (installing packages with a system-wide pip
 	# is no longer allowed on modern distributions, see PEP 668).
 
-	message_box "Mail-in-a-Box Installation" \
-		"Hello and thanks for deploying a (Power) Mail-in-a-Box!
+	message_box "Enhanced Mail-in-a-Box Installation" \
+		"Hello and thanks for deploying an Enhanced Mail-in-a-Box!
 		\n\nI'm going to ask you a few questions.
 		\n\nTo change your answers later, just run 'sudo mailinabox' from the command line.
 		\n\nNOTE: You should only install this on a brand new Debian/Ubuntu installation 100% dedicated to Mail-in-a-Box. Mail-in-a-Box will, for example, remove apache2."

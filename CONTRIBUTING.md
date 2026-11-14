@@ -1,10 +1,10 @@
 # Contributing
 
-Power Mail-in-a-Box is an open source project, and contributions are welcome: bug reports, fixes, tests and new features.
+Enhanced Mail-in-a-Box is an open source project, and contributions are welcome: bug reports, fixes, tests and new features.
 
 ## Reporting bugs
 
-Open an [issue](https://github.com/Rovart/power-mailinabox/issues) with the version you're running (shown in the status checks), the operating system and what you see (the setup's output, or the error in the control panel).
+Open an [issue](https://github.com/Rovart/enhanced-mailinabox/issues) with the version you're running (shown in the status checks), the operating system and what you see (the setup's output, or the error in the control panel).
 
 Security vulnerabilities must not be reported in public issues: see the [security guide](security.md#reporting-security-vulnerabilities).
 
@@ -12,7 +12,7 @@ Security vulnerabilities must not be reported in public issues: see the [securit
 
 Clone the repository:
 
-    $ git clone https://github.com/Rovart/power-mailinabox
+    $ git clone https://github.com/Rovart/enhanced-mailinabox
 
 ### Vagrant
 

@@ -7,7 +7,7 @@
 		<meta name="robots" content="noindex, nofollow">
 		<meta name="color-scheme" content="light dark">
 
-		<title>Power Mail-in-a-Box · {{hostname}}</title>
+		<title>Enhanced Mail-in-a-Box · {{hostname}}</title>
 		<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232f6fb4'/%3E%3Cpath d='M7 10h18v12H7z' fill='none' stroke='%23fff' stroke-width='2'/%3E%3Cpath d='M7 10l9 7 9-7' fill='none' stroke='%23fff' stroke-width='2'/%3E%3C/svg%3E">
 
 		<script>
@@ -51,9 +51,9 @@
 
 		<div class="app">
 			<aside class="sidebar if-logged-in" id="sidebar" aria-label="Sidebar">
-				<a class="sidebar-brand" href="#welcome" aria-label="Power Mail-in-a-Box, dashboard">
+				<a class="sidebar-brand" href="#welcome" aria-label="Enhanced Mail-in-a-Box, dashboard">
 					<span class="brand-mark" aria-hidden="true"><span class="fa-solid fa-envelope"></span></span>
-					<span class="text-truncate"><span class="brand-name">Power Mail-in-a-Box</span><span
+					<span class="text-truncate"><span class="brand-name">Enhanced Mail-in-a-Box</span><span
 							class="brand-sub">by Rovart</span></span>
 				</a>
 				<div class="host-chip" title="This box"><span class="host-dot" aria-hidden="true"></span><span>{{hostname}}</span></div>
@@ -139,9 +139,9 @@
 						aria-controls="sidebar" aria-expanded="false" aria-label="Menu">
 						<span class="fa-solid fa-bars" aria-hidden="true"></span>
 					</button>
-					<a class="sidebar-brand" href="#welcome" aria-label="Power Mail-in-a-Box, dashboard">
+					<a class="sidebar-brand" href="#welcome" aria-label="Enhanced Mail-in-a-Box, dashboard">
 					<span class="brand-mark" aria-hidden="true"><span class="fa-solid fa-envelope"></span></span>
-					<span class="text-truncate"><span class="brand-name">Power Mail-in-a-Box</span><span
+					<span class="text-truncate"><span class="brand-name">Enhanced Mail-in-a-Box</span><span
 							class="brand-sub">by Rovart</span></span>
 				</a>
 					<div class="dropdown">
@@ -243,7 +243,7 @@
 				</main>
 
 				<footer class="app-footer">
-					<span>This is a <a href="https://github.com/Rovart/power-mailinabox" target="_blank" rel="noopener">Power
+					<span>This is an <a href="https://github.com/Rovart/enhanced-mailinabox" target="_blank" rel="noopener">Enhanced
 							Mail-in-a-Box</a><span id="footer-version"></span>.</span>
 					<span>{{hostname}}</span>
 				</footer>
@@ -568,7 +568,7 @@
 
 				// Use the panel's heading as the page title.
 				var heading = $('#panel_' + panelid + ' h2').first().text().trim();
-				document.title = (heading && panelid != 'welcome' ? heading + ' · ' : '') + 'Power Mail-in-a-Box · ' + {{ hostname|tojson }};
+				document.title = (heading && panelid != 'welcome' ? heading + ' · ' : '') + 'Enhanced Mail-in-a-Box · ' + {{ hostname|tojson }};
 
 				// The sidebar section of the panel, shown above its title.
 				var section = $('.sidebar .nav-link[href="#' + panelid + '"]').first().closest('ul').prev('.nav-section').text();

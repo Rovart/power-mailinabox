@@ -1,4 +1,4 @@
-# A minimal Debian/Ubuntu system running systemd, to install Power Mail-in-a-Box in.
+# A minimal Debian/Ubuntu system running systemd, to install Enhanced Mail-in-a-Box in.
 # Built by build-images.sh.
 ARG BASE
 FROM ${BASE}

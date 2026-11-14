@@ -1,14 +1,14 @@
-Power Mail-in-a-Box Security Guide
-==================================
+Enhanced Mail-in-a-Box Security Guide
+=====================================
 
-Power Mail-in-a-Box turns a fresh Debian or Ubuntu machine (see the [README](README.md#requirements) for the supported releases) into a mail server appliance by installing and configuring various components. It is a fork of Mail-in-a-Box, and most of what follows applies to both.
+Enhanced Mail-in-a-Box turns a fresh Debian or Ubuntu machine (see the [README](README.md#requirements) for the supported releases) into a mail server appliance by installing and configuring various components. It is a fork of Power Mail-in-a-Box, itself a fork of Mail-in-a-Box, and most of what follows applies to Mail-in-a-Box too.
 
-This page documents the security posture of Power Mail-in-a-Box. The term “box” is used below to mean a configured Power Mail-in-a-Box.
+This page documents the security posture of Enhanced Mail-in-a-Box. The term “box” is used below to mean a configured Enhanced Mail-in-a-Box.
 
 Reporting Security Vulnerabilities
 ----------------------------------
 
-Please don't report security vulnerabilities in public issues. Report them privately through [GitHub's private vulnerability reporting](https://github.com/Rovart/power-mailinabox/security/advisories/new) (*Security* tab → *Report a vulnerability*). You'll get an answer there, and the fix will be published in a new release.
+Please don't report security vulnerabilities in public issues. Report them privately through [GitHub's private vulnerability reporting](https://github.com/Rovart/enhanced-mailinabox/security/advisories/new) (*Security* tab → *Report a vulnerability*). You'll get an answer there, and the fix will be published in a new release.
 
 Supported Versions
 ------------------

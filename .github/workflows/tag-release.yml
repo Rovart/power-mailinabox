@@ -52,6 +52,6 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -a "$tag" -m "Power Mail-in-a-Box $tag" "$commit"
+          git tag -a "$tag" -m "Enhanced Mail-in-a-Box $tag" "$commit"
           git push --quiet origin "refs/tags/$tag"
           echo "Created $tag at $commit."

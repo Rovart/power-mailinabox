@@ -4,6 +4,10 @@ CHANGELOG
 Unreleased
 ----------
 
+* This fork is now called Enhanced Mail-in-a-Box, a maintained fork of Power Mail-in-a-Box, and
+  its repository is github.com/Rovart/enhanced-mailinabox (the old address redirects there). The
+  control panel, the box's default web page, its SMTP greeting and the setup's messages use the
+  new name. Boxes upgrade as usual: the setup points the box's copy of the code to the new address.
 * On Ubuntu, unattended-upgrades now also installs PHP updates from Ondřej Surý's own repository
   (packages.sury.org) besides his PPA. He publishes Ubuntu builds there too, sometimes before the
   PPA, and a box that added that repository (with apt pins limiting it to PHP) to get a security

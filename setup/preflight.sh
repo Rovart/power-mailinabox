@@ -15,12 +15,12 @@ case $(get_os_code) in
 		;;
 
 	$OS_DEBIAN_10 | $OS_DEBIAN_11 | $OS_UBUNTU_2004)
-		echo "You're trying to install Power Mail-in-a-Box on $(lsb_release -ds), which is no longer supported."
+		echo "You're trying to install Enhanced Mail-in-a-Box on $(lsb_release -ds), which is no longer supported."
 		echo "This version requires PHP $PHP_VER, which is not available for your operating system."
 		echo
 		echo "You can install the latest version of Power Mail-in-a-Box supporting it by running the following command:"
 		echo
-		echo "curl -L https://raw.githubusercontent.com/Rovart/power-mailinabox/v60.5/setup/bootstrap.sh | sudo bash"
+		echo "curl -L https://raw.githubusercontent.com/Rovart/enhanced-mailinabox/v60.5/setup/bootstrap.sh | sudo bash"
 		echo
 		echo "Then upgrade your operating system to one of the following releases and run this setup again:"
 		echo "* Debian 12 (bookworm)"
@@ -31,7 +31,7 @@ case $(get_os_code) in
 		;;
 
 	*)
-		echo "This version of Power Mail-in-a-Box only supports being installed on one of these operating systems:"
+		echo "This version of Enhanced Mail-in-a-Box only supports being installed on one of these operating systems:"
 		echo "* Debian 12 (bookworm)"
 		echo "* Debian 13 (trixie)"
 		echo "* Ubuntu 22.04 LTS (Jammy Jellyfish)"

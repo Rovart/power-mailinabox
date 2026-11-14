@@ -178,7 +178,7 @@ InstallNextcloud() {
 # application version than the database.
 # If config.php exists, get version number, otherwise CURRENT_NEXTCLOUD_VER is empty.
 #
-# Config unlocking, power-mailinabox#86
+# Config unlocking, ddavness/power-mailinabox#86
 # If a configuration file already exists, remove the "readonly" tag before starting the upgrade. This is
 # necessary (otherwise upgrades will fail).
 #
@@ -231,7 +231,7 @@ if [ ! -d /usr/local/lib/owncloud/ ] || [[ ! ${CURRENT_NEXTCLOUD_VER} =~ ^$nextc
 		# Nextcloud versions older than 23 can't run on any PHP version we can install, so we can't
 		# migrate their database.
 		if [[ ${CURRENT_NEXTCLOUD_VER} =~ ^([89]|1[0-9]|2[0-2])\. ]]; then
-			echo "Upgrades from Nextcloud $CURRENT_NEXTCLOUD_VER are not supported by this version of Power Mail-in-a-Box,"
+			echo "Upgrades from Nextcloud $CURRENT_NEXTCLOUD_VER are not supported by this version of Enhanced Mail-in-a-Box,"
 			echo "since that Nextcloud version is too old to run on PHP $LEGACY_PHP_VER or newer. Upgrade to Power Mail-in-a-Box"
 			echo "v60.5 first (on an operating system it supports). Setup will continue, but skip the Nextcloud migration."
 			return 0
@@ -511,7 +511,7 @@ chmod +x /etc/cron.d/mailinabox-nextcloud
 # Or else the reminders will just be sent as soon as possible when the background jobs run.
 hide_output occ config:app:set dav sendEventRemindersMode --value occ
 
-# Now set the config to read-only (power-mailinabox#86).
+# Now set the config to read-only (ddavness/power-mailinabox#86).
 # Do this only at the very bottom when no further occ commands are needed.
 sed -i'' "s/'config_is_read_only'\s*=>\s*false/'config_is_read_only' => true/" $STORAGE_ROOT/owncloud/config.php
 

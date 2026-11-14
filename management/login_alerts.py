@@ -58,7 +58,7 @@ STATE_FILE = STATE_DIR + "/known-logins.json"
 FORGET_DAYS = 180
 TRUST_DAYS = 30
 FAIL2BAN_JAIL = "miab-postfix-slow"
-RIPESTAT = "https://stat.ripe.net/data/%s/data.json?resource=%s&sourceapp=power-mailinabox"
+RIPESTAT = "https://stat.ripe.net/data/%s/data.json?resource=%s&sourceapp=enhanced-mailinabox"
 LOOKUPS_PER_RUN = 40
 LOOKUP_TIMEOUT = 8
 
@@ -376,7 +376,7 @@ def ripestat(call, resource):
 	import time
 	import urllib.request
 	request = urllib.request.Request(RIPESTAT % (call, resource),
-									headers={"User-Agent": "Power-Mail-in-a-Box-login-alerts/1.0"})
+									headers={"User-Agent": "Enhanced-Mail-in-a-Box-login-alerts/1.0"})
 	for attempt in range(2):
 		try:
 			with urllib.request.urlopen(request, timeout=LOOKUP_TIMEOUT) as response:
