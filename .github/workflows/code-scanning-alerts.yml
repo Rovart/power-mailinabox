@@ -1,0 +1,50 @@
+# Lists the repository's open code scanning alerts, or dismisses some of them with a
+# reason and a comment that stays in each alert's history. Run by hand: Actions > Code
+# scanning alerts > Run workflow. With no alert numbers it only lists the open alerts.
+name: Code scanning alerts
+
+on:
+  workflow_dispatch:
+    inputs:
+      alerts:
+        description: "Alert numbers to dismiss, separated by spaces. Empty: only list the open alerts."
+        required: false
+      reason:
+        description: "Why they're dismissed."
+        type: choice
+        options: ["false positive", "won't fix", "used in tests"]
+        default: "false positive"
+      comment:
+        description: "The explanation recorded with each dismissal (up to 280 characters)."
+        required: false
+
+permissions:
+  security-events: write
+
+concurrency:
+  group: code-scanning-alerts
+
+jobs:
+  alerts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dismiss the given alerts, then list the open ones
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ALERTS: ${{ inputs.alerts }}
+          REASON: ${{ inputs.reason }}
+          COMMENT: ${{ inputs.comment }}
+        run: |
+          set -euo pipefail
+          for n in $ALERTS; do
+            if ! [[ "$n" =~ ^[0-9]+$ ]]; then
+              echo "::error::Not an alert number: $n"
+              exit 1
+            fi
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/code-scanning/alerts/$n" \
+              -f state=dismissed -f dismissed_reason="$REASON" -f dismissed_comment="$COMMENT" \
+              --jq '"Dismissed #\(.number) \(.rule.id) \(.most_recent_instance.location.path):\(.most_recent_instance.location.start_line)"'
+          done
+          echo "Open alerts:"
+          gh api --paginate "repos/$GITHUB_REPOSITORY/code-scanning/alerts?state=open&per_page=100" \
+            --jq '.[] | "#\(.number)\t\(.rule.security_severity_level // .rule.severity)\t\(.rule.id)\t\(.most_recent_instance.location.path):\(.most_recent_instance.location.start_line)\t\(.most_recent_instance.message.text | gsub("\n"; " "))"'
