@@ -2,126 +2,56 @@
 
 A complete, self-hosted mail server that you can deploy on a fresh Debian or Ubuntu machine in a few minutes, and keep up to date with a single command.
 
-Enhanced Mail-in-a-Box is a maintained fork of [Power Mail-in-a-Box](https://github.com/ddavness/power-mailinabox) by David Duque. Up to v61.18 it was also called Power Mail-in-a-Box.
+Enhanced Mail-in-a-Box is a maintained fork of [Power Mail-in-a-Box](https://github.com/ddavness/power-mailinabox) by David Duque, itself based on [Mail-in-a-Box](https://mailinabox.email/). Up to v61.18 it was also called Power Mail-in-a-Box.
 
-**Current version: v61.19** · [Install](#installation) · [Upgrade](#upgrading) · [Changelog](CHANGELOG.md)
+**Current version: v61.19** · [Install](#installation) · [Upgrade](#upgrading) · [Changelog](CHANGELOG.md) · [Releases](https://github.com/Rovart/enhanced-mailinabox/releases)
 
-Like Power Mail-in-a-Box, it is based on [Mail-in-a-Box](https://mailinabox.email/). It keeps its promise of sane defaults that work out of the box, and adds the features advanced users ask for: SMTP relays, mailbox quotas, per-domain web server configuration, OpenPGP key publishing, optional services and more.
+## What it adds
+
+Mail-in-a-Box gives you a mail server with sane defaults that work out of the box. Power Mail-in-a-Box added the features advanced users ask for. Enhanced Mail-in-a-Box keeps it all up to date and protects the box against the attacks every mail server gets.
+
+**Up to date**
+- Debian 12 and 13, Ubuntu 22.04 and 24.04, all with **PHP 8.4**. PHP security releases are installed automatically every day, like the operating system's own.
+- Current versions of the bundled applications: Nextcloud 34, Roundcube 1.7 and Z-Push 2.7, with existing installations upgraded automatically.
+- The fixes made to Mail-in-a-Box since the original project stopped (up to v77, including protection against SMTP smuggling), and security fixes released as soon as they're out.
+- Works behind a reverse proxy or CDN (e.g. Cloudflare's proxy) and with DNS hosted elsewhere, without false alarms in the status checks.
+
+**Protection against attacks**
+- **IP blocklists**, on by default: public lists of attackers (blocklist.de, Spamhaus DROP, and more you can add with one click) and your own list, each for the login ports only or for every port. Your users' own networks are never blocked.
+- **Country filter**: allow only the countries your users connect from, or block the ones you choose. Your local network, Tailscale and other VPNs always get through.
+- **An email when an account logs in from a new place** (another internet provider or country), so a stolen password shows up. A table of every login, with the approximate city, country and provider.
+- **A security dashboard**: failed logins, bans and blocked connections over 24 hours, 7 or 30 days, a world map of where attacks come from, the most active attackers with a Block button, and the blocked addresses downloadable for any CDN or WAF.
+- Slower fail2ban rules for password guessing spread over time, a limit on login attempts per address, and a firewall that keeps your own SSH rules.
+
+**Control panel**
+- A new design: a sidebar with every section in view, light and dark themes, usable on phones and with the keyboard.
+- **Mail filtering**: let the mail servers you trust skip greylisting, and refuse mail from senders, domains or servers you block.
+- **Optional services**: turn Nextcloud, Exchange ActiveSync, Roundcube or Munin off and back on. Their data is kept and backed up.
+- **Local-only access**: make the control panel, webmail, Nextcloud or Exchange ActiveSync reachable only from the box itself (e.g. through an SSH tunnel or a VPN) and from trusted networks.
+- Backups on demand.
+
+**From Power Mail-in-a-Box**
+- **SMTP relays:** send outgoing mail through an external relay.
+- **Mailbox quotas,** with a default for new users (thanks to [@jrsupplee](https://github.com/jrsupplee/mailinabox)).
+- **Custom TTLs** for custom DNS records.
+- **OpenPGP keys:** keep a keyring and publish keys for your domains through Web Key Directory (WKD).
+- **Per-domain web server configuration:** `/home/user-data/www/<domain>.conf` is included in that domain's nginx configuration, so you can add PHP, proxies or anything else nginx supports.
+- **Debian support,** besides Ubuntu.
+
+## Latest release: v61.19
+
+- **Country filter** (Mail > Filtering > Login protection), off by default.
+- **A new name**: Enhanced Mail-in-a-Box, at [Rovart/enhanced-mailinabox](https://github.com/Rovart/enhanced-mailinabox). The old address redirects here, and boxes upgrade as usual.
+- **Security**: the control panel's API answers in plain text, and refuses changes that another website makes your browser send.
+- Rebooting from the control panel no longer ends with an error; Nextcloud 34.0.6; on Ubuntu, PHP updates from packages.sury.org are installed automatically too.
+
+Earlier versions are described in the [changelog](CHANGELOG.md) and the [releases](https://github.com/Rovart/enhanced-mailinabox/releases).
 
 ## About this fork
 
-[Power Mail-in-a-Box](https://github.com/ddavness/power-mailinabox) was created by David Duque, and its repository has not been updated since v60.5 (November 2022). Enhanced Mail-in-a-Box keeps the project maintained: it supports current operating systems, updates the bundled applications, and brings in security fixes and the fixes made to Mail-in-a-Box since then.
-
-It has its own name so that it isn't mistaken for the original project: it is not affiliated with or endorsed by its author. Everything here is released under the same public domain dedication as the original (CC0), so any of it can be taken back into the original project.
+[Power Mail-in-a-Box](https://github.com/ddavness/power-mailinabox) was created by David Duque, and its repository has not been updated since v60.5 (November 2022). Enhanced Mail-in-a-Box keeps the project maintained. It has its own name so that it isn't mistaken for the original project: it is not affiliated with or endorsed by its author. Everything here is released under the same public domain dedication as the original (CC0), so any of it can be taken back into the original project.
 
 Boxes installed from the original repository can switch to Enhanced Mail-in-a-Box with the usual upgrade command (see [Upgrading](#upgrading)). This repository used to be `Rovart/power-mailinabox`: the old address redirects here, and boxes installed from it upgrade as usual.
-
-## What's new in v61.19
-
-- **Security**: the control panel's API answers in plain text, and refuses changes that another website makes your browser send.
-- **A new name**: this fork is now Enhanced Mail-in-a-Box, at [Rovart/enhanced-mailinabox](https://github.com/Rovart/enhanced-mailinabox). The old address redirects here, and boxes upgrade as usual.
-- **Country filter** (Mail > Filtering > Login protection): allow only the countries your users connect from, or block chosen countries, on the login ports and optionally on HTTPS. Mail from other servers (port 25) is never filtered, and addresses that aren't on the internet (your local network, Tailscale and other VPNs) are never blocked. Off by default.
-- **Rebooting from the control panel** no longer ends with an error: the page waits until the box is back and reloads.
-- Nextcloud 34.0.6. On Ubuntu, PHP updates from packages.sury.org are also installed automatically, and the setup no longer stops when pollinate can't seed the random number generator.
-
-## What's new in v61.18
-
-- **Security fix**: logging in to the control panel no longer writes your password hash to the system log.
-
-## What's new in v61.17
-
-- **Security update for backups**: duplicity's environment now really has current `cryptography` and `pyOpenSSL` (v61.16's rebuild didn't do it, because duplicity itself pulls in the Google Drive library that held them back).
-- **Blocking or unblocking an address takes about a second**, and the dashboard only updates that attacker's row.
-- "Download for a CDN or WAF..." opens a dialog with its options, and dialogs no longer flash out of shape while they close.
-
-## What's new in v61.16
-
-- **Security update**: Roundcube 1.7.6, with 17 security fixes (IMAP command injection, Sieve script injection, SSRF, a CSRF bypass and more).
-- **Adding or changing an IP blocklist is fast again** (seconds, not minutes or a 504 error).
-- **A world map** of where the attacks come from on the dashboard, and clearer statuses for the most active attackers (no Block button for an address a blocklist already drops).
-- The blocked addresses can be downloaded **for any CDN or WAF** (one per line or CSV, with the number of entries and the IPv6 entries your list accepts), instead of only for Cloudflare.
-- The backup tool's environment is rebuilt without the leftover Google Drive library that held back `cryptography` and `pyOpenSSL`.
-
-## What's new in v61.15
-
-- **Block an address yourself**, from the dashboard's most active attackers or in Mail > Filtering: your own list, dropped on every port.
-- Each IP blocklist can block **only the login ports or every port**; Spamhaus DROP now blocks every port. And a few **suggested lists** (FireHOL level 1, IPsum, GreenSnow...) can be added with one click.
-
-## What's new in v61.14
-
-- **Security on the dashboard**: failed logins, bans and connections blocked by the IP blocklists over the last 24 hours, 7 days or 30 days, with charts, the most active attackers (where they are, whether they are banned or on a blocklist) and the countries the attacks come from.
-- The logins table in Mail > Filtering can be filtered by account, period and text, and sorted by any column.
-
-## What's new in v61.13
-
-- The logins table in Mail > Filtering shows when each network was really first and last used (it showed when the box first read the mail log).
-
-## What's new in v61.12
-
-- **A new control panel design**, without Bootstrap: a sidebar with every section in view, the Inter typeface (served by your box), light and dark themes, and dialogs and menus that work with the keyboard. It is branded Power Mail-in-a-Box, with your box's name beside it.
-
-## What's new in v61.11
-
-- **Fewer emails about logins from new places.** They now report a login through an internet provider's block of addresses the account never used (another provider or another country), not every new address: mobile phones get a new one, and a new IPv6 /64, almost every time they connect.
-- The emails and the logins table in Mail > Filtering show the approximate city, country and internet provider of each address.
-
-## What's new in v61.10
-
-- **Protection against password guessing.** Botnets try a few passwords from each of thousands of addresses, too slowly for the existing fail2ban rules. Now:
-  - **IP blocklists**, on by default: connections to the login ports from addresses on public lists of attackers (blocklist.de and Spamhaus DROP to start with) are dropped. Like an ad blocker, you can add or remove lists in the control panel (Mail > Filtering). Port 25 is never blocked, a list that fails adds nothing, and your users' own networks are never blocked.
-  - **An email when an account logs in from a new place**, so a stolen password shows up.
-  - A slower fail2ban jail for sending mail (10 failed logins in a day ban the address for a day), and a limit of 10 login attempts a minute per address.
-- Nextcloud Contacts and Calendar updated to 8.9.5 and 6.6.5.
-
-## What's new in v61.9
-
-- **Security update.** The firewall drops incoming TCP packets with IPv4 options, which legitimate traffic doesn't use, to block attacks on the Linux kernel's CVE-2026-98432 (a remotely triggerable flaw in the TCP handshake). The real fix is a kernel update: Debian already has it (reboot your box if the status checks ask for it); Ubuntu hasn't released it yet.
-
-## What's new in v61.8
-
-- **Security update.** PHP security releases are now installed automatically every day, like the distribution's own security updates. PHP 8.4.27 fixes "PHP2Shell", remote code execution that is being actively exploited: if your box still runs an older PHP, upgrade it right away (see [Upgrading](#upgrading)), then reboot if the status checks ask for it.
-- The webmail's CardDAV plugin is updated to 5.1.5 (security fixes), and Nextcloud Contacts and Calendar to 8.9.3 and 6.6.4.
-- The control panel no longer needs Pillow, and the Python packages of the control panel and the backups are upgraded with their dependencies on every setup run.
-
-## What's new in v61.7
-
-- **Your SSH firewall rules are kept.** The setup no longer opens SSH to everyone each time it runs, so SSH restricted to some addresses or to a VPN (Tailscale, WireGuard) stays that way. A rule is only added on a new box, and the setup asks before opening SSH on a firewall that has none.
-- Dovecot's quota service for Postfix listens only on 127.0.0.1.
-
-## What's new in v61.6
-
-- **Mail filtering** in the control panel (Mail > Filtering): let the mail servers you trust skip greylisting, so notifications and verification codes arrive at once instead of up to an hour later, and refuse mail from senders, domains or servers you block. The page suggests the servers whose mail was held back by greylisting. Also in the API and on the command line.
-
-## What's new in v61.3 – v61.5
-
-Fixes found upgrading a production box from v60.5:
-
-- Upgrading Nextcloud no longer stops PHP-FPM, so other PHP sites on the box stay online.
-- The setup no longer changes the owner of the files of the sites in the web root, and leaves the custom nginx configuration alone.
-- Custom MX records without a preference are rejected instead of breaking DNSSEC signing.
-- Fixed the setup stopping at the PHP imap extension check on boxes with many PHP extensions.
-
-## What's new in v61.2
-
-- Security update of Z-Push (Exchange ActiveSync) to 2.7.7.
-- Nextcloud Contacts 8.9.2 and Calendar 6.6.3, and the Nextcloud apps are now kept up to date on existing boxes too.
-
-## What's new in v61.1
-
-- Boxes behind a reverse proxy or CDN (e.g. Cloudflare's proxy) get TLS certificates for the proxied domains, and the status checks recognize them.
-- Domains whose DNS is hosted elsewhere no longer get errors about nameservers or DNSSEC when they point to the box; boxes using an SMTP relay no longer get errors about port 25 or reverse DNS.
-- The setup no longer fails when the PHP-FPM `[www]` pool was turned off.
-- Optionally, the setup can skip the web applications that are turned off instead of keeping them up to date.
-
-## What's new in v61.0
-
-- Runs on Debian 12 and 13 and Ubuntu 22.04 and 24.04, with **PHP 8.4** on every one of them.
-- Nextcloud 34, Roundcube 1.7 and Z-Push 2.7.6. Existing Nextcloud installations (23 or later) are upgraded automatically.
-- A redesigned control panel: light and dark themes, usable on phones, pages you can bookmark, security fixes and better accessibility.
-- Nextcloud, Exchange ActiveSync, webmail and Munin can be turned off, and the web applications can be restricted to local access.
-- The fixes made to Mail-in-a-Box up to v77, including protection against SMTP smuggling.
-
-The [changelog](CHANGELOG.md) has the full list.
 
 ## What's in the box
 
@@ -146,19 +76,6 @@ The [changelog](CHANGELOG.md) has the full list.
 - System status checks, with a daily email when something needs attention, and Munin monitoring.
 - Encrypted backups (duplicity) to the box itself, an rsync server, Amazon S3 or another S3-compatible service, or Backblaze B2.
 - A firewall (ufw) and protection against brute-force logins (fail2ban).
-
-### What it adds to Mail-in-a-Box
-
-- **SMTP relays:** send outgoing mail through an external relay.
-- **Mailbox quotas,** with a default for new users (thanks to [@jrsupplee](https://github.com/jrsupplee/mailinabox)).
-- **Custom TTLs** for custom DNS records.
-- **OpenPGP keys:** keep a keyring and publish keys for your domains through Web Key Directory (WKD).
-- **Per-domain web server configuration:** `/home/user-data/www/<domain>.conf` is included in that domain's nginx configuration, so you can add PHP, proxies or anything else nginx supports.
-- **Mail filtering** (new in this fork): allow trusted mail servers to skip greylisting, and block senders, domains or servers.
-- **Optional services** (new in this fork): turn Nextcloud, Exchange ActiveSync, Roundcube or Munin off and back on. Their data is kept and backed up.
-- **Local-only access** (new in this fork): make the control panel, webmail, Nextcloud or Exchange ActiveSync reachable only from the box itself (e.g. through an SSH tunnel or a VPN) and from trusted networks. Everyone else gets a 403.
-- **Backups on demand** from the control panel.
-- **Debian support,** besides Ubuntu.
 
 ### Who it's for
 
