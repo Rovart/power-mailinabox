@@ -4,7 +4,7 @@ A complete, self-hosted mail server that you can deploy on a fresh Debian or Ubu
 
 Enhanced Mail-in-a-Box is a maintained fork of [Power Mail-in-a-Box](https://github.com/ddavness/power-mailinabox) by David Duque. Up to v61.18 it was also called Power Mail-in-a-Box.
 
-**Current version: v61.18** · [Install](#installation) · [Upgrade](#upgrading) · [Changelog](CHANGELOG.md)
+**Current version: v61.19** · [Install](#installation) · [Upgrade](#upgrading) · [Changelog](CHANGELOG.md)
 
 Like Power Mail-in-a-Box, it is based on [Mail-in-a-Box](https://mailinabox.email/). It keeps its promise of sane defaults that work out of the box, and adds the features advanced users ask for: SMTP relays, mailbox quotas, per-domain web server configuration, OpenPGP key publishing, optional services and more.
 
@@ -15,6 +15,13 @@ Like Power Mail-in-a-Box, it is based on [Mail-in-a-Box](https://mailinabox.emai
 It has its own name so that it isn't mistaken for the original project: it is not affiliated with or endorsed by its author. Everything here is released under the same public domain dedication as the original (CC0), so any of it can be taken back into the original project.
 
 Boxes installed from the original repository can switch to Enhanced Mail-in-a-Box with the usual upgrade command (see [Upgrading](#upgrading)). This repository used to be `Rovart/power-mailinabox`: the old address redirects here, and boxes installed from it upgrade as usual.
+
+## What's new in v61.19
+
+- **A new name**: this fork is now Enhanced Mail-in-a-Box, at [Rovart/enhanced-mailinabox](https://github.com/Rovart/enhanced-mailinabox). The old address redirects here, and boxes upgrade as usual.
+- **Country filter** (Mail > Filtering > Login protection): allow only the countries your users connect from, or block chosen countries, on the login ports and optionally on HTTPS. Mail from other servers (port 25) is never filtered, and addresses that aren't on the internet (your local network, Tailscale and other VPNs) are never blocked. Off by default.
+- **Rebooting from the control panel** no longer ends with an error: the page waits until the box is back and reloads.
+- Nextcloud 34.0.6. On Ubuntu, PHP updates from packages.sury.org are also installed automatically, and the setup no longer stops when pollinate can't seed the random number generator.
 
 ## What's new in v61.18
 
@@ -198,7 +205,7 @@ The box configures its own firewall. If it is behind an external firewall or NAT
 2. Run the setup and follow the instructions on the screen:
 
    ```
-   curl -L https://raw.githubusercontent.com/Rovart/enhanced-mailinabox/v61.18/setup/bootstrap.sh | sudo bash
+   curl -L https://raw.githubusercontent.com/Rovart/enhanced-mailinabox/v61.19/setup/bootstrap.sh | sudo bash
    ```
 
 3. Open the control panel at `https://<your box's hostname>/admin` and follow the status checks to finish the DNS configuration.
@@ -210,7 +217,7 @@ The box manages its firewall with `ufw`. Your own rules for SSH are left as they
 Run the same command as for a new installation:
 
 ```
-curl -L https://raw.githubusercontent.com/Rovart/enhanced-mailinabox/v61.18/setup/bootstrap.sh | sudo bash
+curl -L https://raw.githubusercontent.com/Rovart/enhanced-mailinabox/v61.19/setup/bootstrap.sh | sudo bash
 ```
 
 It downloads the new version and runs the setup again, keeping your data and settings. To be told when a new version is out, turn on *Check for new versions* in the control panel's status checks (it is off by default). To run the setup again without upgrading, use `sudo mailinabox`.

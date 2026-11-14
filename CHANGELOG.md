@@ -1,8 +1,8 @@
 CHANGELOG
 =========
 
-Unreleased
-----------
+Enhanced Mail-in-a-Box v61.19
+-----------------------------
 
 * This fork is now called Enhanced Mail-in-a-Box, a maintained fork of Power Mail-in-a-Box, and
   its repository is github.com/Rovart/enhanced-mailinabox (the old address redirects there). The
