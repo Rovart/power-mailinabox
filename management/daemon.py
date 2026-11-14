@@ -1170,6 +1170,7 @@ def smtp_relay_set():
 		# to be aware of this detail.
 		try:
 			ctx = ssl.create_default_context()
+			ctx.minimum_version = ssl.TLSVersion.TLSv1_2
 			with socket.create_connection(
 				(newconf.get("host"), int(newconf.get("port"))), 5) as sock:
 				with ctx.wrap_socket(sock,
