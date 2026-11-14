@@ -42,7 +42,8 @@
 # mailinabox-ip-blocklists service (created by setup/system.sh, unless the firewall
 # is disabled). The lists are downloaded again every 6 hours (cron, see
 # setup/management.sh). The settings are in the "ip_blocklists" key of
-# $STORAGE_ROOT/settings.yaml; the blocklists are on unless turned off.
+# $STORAGE_ROOT/settings.yaml; the blocklists are on unless turned off. The country
+# filter (geofence.py) is part of the same table, in its own chain.
 ########################################################################
 
 import bisect
@@ -471,8 +472,10 @@ def nft_set(name, version, networks):
 	return lines
 
 
-def nft_rules(block, allow, block_all=None):
-	# block: networks blocked on the login ports; block_all: on every port but DNS.
+def nft_rules(block, allow, block_all=None, geo=None):
+	# block: networks blocked on the login ports; block_all: on every port but DNS;
+	# geo: the country filter's rules (see geofence.py), or None.
+	import geofence
 	block_all = block_all or {4: [], 6: []}
 	lines = [
 		"# Written by Mail-in-a-Box (management/ip_blocklists.py). Changes made here are lost:",
@@ -484,6 +487,9 @@ def nft_rules(block, allow, block_all=None):
 	lines += nft_set("allow4", 4, allow[4]) + nft_set("allow6", 6, allow[6])
 	lines += nft_set("block4", 4, block[4]) + nft_set("block6", 6, block[6])
 	lines += nft_set("all4", 4, block_all[4]) + nft_set("all6", 6, block_all[6])
+	if geo:
+		lines += nft_set("geo4", 4, geo[4]) + nft_set("geo6", 6, geo[6])
+		lines += geofence.nft_chain(geo)
 	lines += [
 		"\tchain logins {",
 		"\t\tip saddr @block4 counter drop",
@@ -500,6 +506,10 @@ def nft_rules(block, allow, block_all=None):
 		"\t\tudp dport %d return" % DNS_PORT,
 		"\t\tip saddr @all4 counter drop",
 		"\t\tip6 saddr @all6 counter drop",
+	]
+	if geo:
+		lines.append("\t\ttcp dport { %s } jump geofence" % ", ".join(str(p) for p in geo["ports"]))
+	lines += [
 		"\t\ttcp dport { %s } jump logins" % ", ".join(str(p) for p in PORTS),
 		"\t}",
 		"}",
@@ -514,14 +524,14 @@ def remove_table():
 		os.unlink(NFT_FILE)
 
 
-def load_rules(block, allow, block_all=None):
+def load_rules(block, allow, block_all=None, geo=None):
 	# Loading the file is a single transaction: the old table is replaced atomically, and a
 	# file nftables refuses changes nothing. Only rules that loaded become the file loaded
 	# at boot, so a bad file never replaces the rules in use. (One pass of nftables instead
 	# of a check and then a load: the file has every network of the lists.)
 	tmp = NFT_FILE + ".tmp"
 	with open(tmp, "w") as f:
-		f.write(nft_rules(block, allow, block_all))
+		f.write(nft_rules(block, allow, block_all, geo))
 	os.chmod(tmp, 0o600)
 	result = subprocess.run(["/usr/sbin/nft", "-f", tmp], capture_output=True, text=True)
 	if result.returncode != 0:
@@ -633,6 +643,15 @@ def update(env, download=True):
 	# download yet (e.g. one just added) and takes the others from their last download,
 	# so that a change in the control panel answers in seconds.
 	settings = get_settings(env)
+	if download and is_available():
+		# The country filter's data, at most once a day (see geofence.py). A failed download
+		# keeps the previous data, and the control panel shows the error.
+		import geofence
+		if geofence.get_settings(env)["enabled"]:
+			try:
+				geofence.update(env)
+			except RuntimeError:
+				pass
 	if not settings["enabled"] or not is_available():
 		return apply(env)
 	sources = [s for s in settings["sources"] if s["enabled"]]
@@ -716,15 +735,17 @@ def apply(env, block=None, block_all=None):
 	# Loads the rules from the last merged lists (without downloading them), e.g. after
 	# the networks of known logins or the administrator's own list changed, or removes
 	# them if the blocklists are off and the administrator's list is empty.
+	import geofence
 	settings = get_settings(env)
 	if not is_available():
 		return "The blocklists are not available because the firewall was disabled at setup.\n"
 	manual = manual_networks(settings)
+	geo, geo_reason = geofence.get_rules(env)
 	if not settings["enabled"]:
 		block, block_all = {4: [], 6: []}, {4: [], 6: []}
-		if not manual[4] and not manual[6]:
+		if not manual[4] and not manual[6] and not geo:
 			remove_table()
-			return "The blocklists are off.\n"
+			return "The blocklists are off.\n" + (geo_reason + "\n" if geofence.get_settings(env)["enabled"] else "")
 	else:
 		if block is None:
 			block = read_merged_file(MERGED_FILE)
@@ -732,11 +753,19 @@ def apply(env, block=None, block_all=None):
 			block_all = read_merged_file(MERGED_ALL_FILE)
 	every = merge(block_all[4] + block_all[6] + manual[4] + manual[6])
 	allow = get_exempt_networks(env)
-	load_rules(block, allow, every)
+	load_rules(block, allow, every, geo)
 	failed = [url for url, s in read_status().get("sources", {}).items() if not s.get("ok")] if settings["enabled"] else []
-	return "Blocking %d networks on the login ports and %d on every port (%d of them yours)%s.\n" % (
+	if geo:
+		countries = ", ".join(geofence.get_settings(env)["countries"])
+		geo_text = "%s connections from %s on ports %s.\n" % (
+			"Allowing only" if geo["mode"] == "allow" else "Blocking", countries,
+			", ".join(str(p) for p in geo["ports"]))
+	else:
+		geo_text = geo_reason + "\n" if geofence.get_settings(env)["enabled"] else ""
+	return "Blocking %d networks on the login ports and %d on every port (%d of them yours)%s.\n%s" % (
 		len(block[4]) + len(block[6]), len(every[4]) + len(every[6]), len(settings["manual"]),
-		" (%d of the lists failed and add nothing: %s)" % (len(failed), ", ".join(failed)) if failed else "")
+		" (%d of the lists failed and add nothing: %s)" % (len(failed), ", ".join(failed)) if failed else "",
+		geo_text)
 
 
 def get_dropped():

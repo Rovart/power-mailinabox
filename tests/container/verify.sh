@@ -188,6 +188,42 @@ if [ -f /etc/systemd/system/mailinabox-ip-blocklists.service ]; then
 	check "API: change a list to every port" '$C -u "$U:$KEY" -X POST -d "action=source_scope&url=https://lists.blocklist.de/lists/imap.txt&scope=all" $H/admin/mail/login-protection | grep -q "on every port" && $C -u "$U:$KEY" $H/admin/mail/login-protection | python3 -c "import json, sys; s = [x for x in json.load(sys.stdin)[\"blocklists\"][\"sources\"] if x[\"url\"].endswith(\"imap.txt\")]; sys.exit(0 if s and s[0][\"scope\"] == \"all\" else 1)" && $C -u "$U:$KEY" -X POST -d "action=source_scope&url=https://lists.blocklist.de/lists/imap.txt&scope=logins" $H/admin/mail/login-protection >/dev/null'
 fi
 
+if [ -f /etc/systemd/system/mailinabox-ip-blocklists.service ]; then
+	echo "== country filter"
+	# A small registry file (real RIPE NCC allocations of Spain and France) instead of the
+	# five registries' files (46 MB).
+	GF=$(mktemp -d)
+	cat > $GF/rir.txt <<-'EOF'
+		2|ripencc|1794610799|5|19700101|20261113|+0100
+		ripencc|*|ipv4|*|3|summary
+		ripencc|ES|ipv4|2.56.64.0|1024|20190313|allocated
+		ripencc|ES|ipv4|2.57.2.0|256|20230307|allocated
+		ripencc|ES|ipv6|2001:720::|29|20010521|allocated
+		ripencc|FR|ipv4|1.178.224.0|8192|20100625|allocated
+		ripencc|FR|ipv6|2001:660::|29|20000321|allocated
+		ripencc|ZZ|ipv4|5.1.2.0|256||available
+	EOF
+	(cd $GF && timeout 300 python3 -m http.server 8766 --bind 127.0.0.1 >/dev/null 2>&1 &)
+	sleep 1
+	GFPY="/usr/local/lib/mailinabox/env/bin/python"
+	$GFPY -c "import sys; sys.path.insert(0, '/root/mailinabox/management'); import utils; env = utils.load_environment(); c = utils.load_settings(env); c['geofence'] = {'sources': ['http://127.0.0.1:8766/rir.txt']}; utils.write_settings(c, env)"
+	check "country filter: off by default, no chain" '$C -u "$U:$KEY" $H/admin/mail/login-protection | python3 -c "import json, sys; g = json.load(sys.stdin)[\"geofence\"]; sys.exit(0 if not g[\"enabled\"] and not g[\"active\"] else 1)" && ! nft list chain inet mailinabox_ip_blocklists geofence >/dev/null 2>&1'
+	check "API: allow only Spain on the login ports" '$C -u "$U:$KEY" -X POST -d "action=geofence&enabled=1" $H/admin/mail/login-protection | grep -q "No country is chosen" && $C -u "$U:$KEY" -X POST -d "action=geofence_add&country=es" $H/admin/mail/login-protection | grep -q "Allowing only connections from ES" && nft get element inet mailinabox_ip_blocklists geo4 "{ 2.56.64.1 }" >/dev/null 2>&1 && ! nft get element inet mailinabox_ip_blocklists geo4 "{ 1.178.224.1 }" >/dev/null 2>&1 && nft get element inet mailinabox_ip_blocklists geo6 "{ 2001:720::1 }" >/dev/null 2>&1'
+	check "country filter: login ports only, never port 25, Tailscale and private addresses pass" 'nft list chain inet mailinabox_ip_blocklists input | grep "jump geofence" | grep -q "465, 587" && ! nft list chain inet mailinabox_ip_blocklists input | grep "jump geofence" | grep -qE "[{ ]25[,}]|443" && nft list chain inet mailinabox_ip_blocklists geofence | grep -q "100.64.0.0/10" && nft list chain inet mailinabox_ip_blocklists geofence | grep -q "fc00::/7"'
+	check "country filter: loopback logins still work" 'python3 -c "import imaplib, ssl; m = imaplib.IMAP4_SSL(\"127.0.0.1\", 993, ssl_context=ssl._create_unverified_context()); m.login(\"$U\", \"$P\"); m.logout()"'
+	check "API: unknown countries are refused" '[ "$($C -o /dev/null -w "%{http_code}" -u "$U:$KEY" -X POST -d "action=geofence_add&country=DE" $H/admin/mail/login-protection)" = 400 ] && [ "$($C -o /dev/null -w "%{http_code}" -u "$U:$KEY" -X POST -d "action=geofence_add&country=ZZ" $H/admin/mail/login-protection)" = 400 ]'
+	check "country filter: HTTPS can't be filtered against the administrator's own address" '$GFPY -c "import sys; sys.path.insert(0, \"/root/mailinabox/management\"); import utils, geofence; env = utils.load_environment(); s = geofence.get_settings(env); s[\"scope\"] = \"web\"; geofence.check_client(env, s, \"2.56.64.9\")
+try:
+    geofence.check_client(env, s, \"1.178.224.9\"); sys.exit(1)
+except ValueError:
+    pass"'
+	check "API: HTTPS too, then back to the login ports" '$C -u "$U:$KEY" -X POST -d "action=geofence_scope&scope=web" $H/admin/mail/login-protection | grep -q "on ports .*443" && nft list chain inet mailinabox_ip_blocklists input | grep "jump geofence" | grep -q 443 && $C -u "$U:$KEY" -X POST -d "action=geofence_scope&scope=logins" $H/admin/mail/login-protection | grep -q "Allowing only"'
+	check "API: block France instead" '$C -u "$U:$KEY" -X POST -d "action=geofence_mode&mode=block" $H/admin/mail/login-protection | grep -q "Blocking connections from ES" && $C -u "$U:$KEY" -X POST -d "action=geofence_add&country=FR" $H/admin/mail/login-protection >/dev/null && $C -u "$U:$KEY" -X POST -d "action=geofence_remove&country=ES" $H/admin/mail/login-protection | grep -q "Blocking connections from FR" && nft list chain inet mailinabox_ip_blocklists geofence | grep -q "ip saddr @geo4 counter packets [0-9]* bytes [0-9]* drop" && nft get element inet mailinabox_ip_blocklists geo4 "{ 1.178.224.1 }" >/dev/null 2>&1'
+	check "country filter: fails open without a country's data" 'mv /var/lib/mailinabox/geofence/countries/FR.txt $GF/ && /root/mailinabox/management/ip_blocklists.py apply | grep -q "no data for FR" && ! nft list chain inet mailinabox_ip_blocklists geofence >/dev/null 2>&1; r=$?; mv $GF/FR.txt /var/lib/mailinabox/geofence/countries/ && /root/mailinabox/management/ip_blocklists.py apply >/dev/null; [ $r = 0 ]'
+	check "country filter: a failed download keeps the data and is reported" '$GFPY -c "import sys; sys.path.insert(0, \"/root/mailinabox/management\"); import utils; env = utils.load_environment(); c = utils.load_settings(env); c[\"geofence\"][\"sources\"] = [\"http://127.0.0.1:8766/missing.txt\"]; utils.write_settings(c, env)" && [ "$($C -o /dev/null -w "%{http_code}" -u "$U:$KEY" -X POST -d "action=geofence_update" $H/admin/mail/login-protection)" = 400 ] && $C -u "$U:$KEY" $H/admin/mail/login-protection | python3 -c "import json, sys; g = json.load(sys.stdin)[\"geofence\"]; sys.exit(0 if g[\"error\"] and g[\"active\"] else 1)"'
+	check "API: country filter off, blocklists still loaded" '$C -u "$U:$KEY" -X POST -d "action=geofence&enabled=0" $H/admin/mail/login-protection | grep -q "Blocking" && ! nft list chain inet mailinabox_ip_blocklists geofence >/dev/null 2>&1 && nft list set inet mailinabox_ip_blocklists block4 | grep -q "/"'
+fi
+
 echo "== security dashboard"
 check "security metrics: hourly sample" '/root/mailinabox/management/security_metrics.py collect && python3 -c "import json; s = json.load(open(\"/var/lib/mailinabox/security-metrics.json\")); assert \"samples\" in s"'
 echo "$(LC_ALL=C date "+%b %e %H:%M:%S") box postfix/submission/smtpd[1]: warning: unknown[198.51.100.77]: SASL LOGIN authentication failed: UGFzc3dvcmQ6" >> /var/log/mail.log
