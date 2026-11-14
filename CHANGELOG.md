@@ -4,6 +4,7 @@ CHANGELOG
 Unreleased
 ----------
 
+* Nextcloud updated to 34.0.6.
 * On Ubuntu, unattended-upgrades now also installs PHP updates from Ondřej Surý's own repository
   (packages.sury.org) besides his PPA. He publishes Ubuntu builds there too, sometimes before the
   PPA, and a box that added that repository (with apt pins limiting it to PHP) to get a security
