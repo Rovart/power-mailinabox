@@ -3225,7 +3225,7 @@ components:
           example: apikey
         key:
           type: string
-          example: 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
+          example: your-sendgrid-api-key
       description: SMTP Configuration form
     PgpKey:
       type: object
