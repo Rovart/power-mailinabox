@@ -292,8 +292,13 @@ def update(env, force=False):
 def read_country(code):
 	# {4: [networks], 6: [networks]} of a country, or None if there is no data for it.
 	networks = {4: [], 6: []}
+	# Codes are checked when they're added and when the settings are read; this keeps any
+	# other value out of the path whoever calls it.
+	path = os.path.normpath(os.path.join(COUNTRIES_DIR, "%s.txt" % code))
+	if not re.fullmatch(r"[A-Z]{2}", code or "") or not path.startswith(COUNTRIES_DIR + os.sep):
+		return None
 	try:
-		with open(os.path.join(COUNTRIES_DIR, code + ".txt")) as f:
+		with open(path) as f:
 			for line in f:
 				try:
 					n = ipaddress.ip_network(line.strip())
