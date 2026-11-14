@@ -162,6 +162,70 @@
 	</div>
 
 	<div class="col-12">
+		<div class="card h-100">
+			<div class="card-header d-flex align-items-center gap-3">
+				<h4 class="h5 mb-0 flex-grow-1" id="geofence-title"><span class="fa-solid fa-globe me-2"
+						aria-hidden="true"></span>Countries</h4>
+				<div class="form-check form-switch mb-0">
+					<input class="form-check-input" type="checkbox" role="switch" id="geofence-enabled"
+						onchange="protection_change({action: 'geofence', enabled: this.checked ? 1 : 0})">
+					<label class="form-check-label" for="geofence-enabled">On</label>
+				</div>
+			</div>
+			<div class="card-body">
+				<div class="alert alert-warning d-none" id="geofence-unavailable" role="status">The country filter
+					isn&rsquo;t available because the firewall was disabled when the box was set up
+					(<code>DISABLE_FIREWALL</code>).</div>
+				<p class="text-body-secondary">Allow only the countries your users connect from, or block the ones you
+					never expect logins from. Port 25 is never filtered, so mail from other servers always arrives, and
+					neither are port 80 (Let&rsquo;s Encrypt) and DNS. Never blocked: addresses that aren&rsquo;t on the
+					internet (your local network, Tailscale and other VPNs: <code>100.64.0.0/10</code> and private IPv6),
+					and the same addresses the blocklists never block, including the networks your users logged in from
+					in the last 30 days. So a user who is abroad now keeps working, but one who travels to a country
+					that isn&rsquo;t allowed is blocked there: add it before the trip. A country is where each block of
+					addresses is registered, from the regional internet registries&rsquo; data, downloaded once a day.
+					If there is no data for a chosen country, nothing is blocked by country.</p>
+				<div class="row g-3 mb-3">
+					<div class="col-md-6">
+						<label for="geofence-mode" class="form-label">The countries in the list</label>
+						<select class="form-select" id="geofence-mode"
+							onchange="protection_change({action: 'geofence_mode', mode: this.value})">
+							<option value="allow">Are the only ones that can connect</option>
+							<option value="block">Are blocked</option>
+						</select>
+					</div>
+					<div class="col-md-6">
+						<label for="geofence-scope" class="form-label">On</label>
+						<select class="form-select" id="geofence-scope" aria-describedby="geofence-scope-help"
+							onchange="protection_change({action: 'geofence_scope', scope: this.value})">
+							<option value="logins">The login ports (mail apps)</option>
+							<option value="web">The login ports and HTTPS</option>
+						</select>
+						<div id="geofence-scope-help" class="form-text">HTTPS is also the webmail, Nextcloud, Exchange
+							ActiveSync, this control panel, the websites this box serves and other mail servers&rsquo;
+							MTA-STS checks. Port 80 is never filtered. You can&rsquo;t choose a setting that blocks your
+							own connection.</div>
+					</div>
+				</div>
+				<p id="geofence-summary" aria-live="polite"></p>
+				<ul class="list-group mb-3" id="geofence-countries" aria-labelledby="geofence-title"
+					aria-live="polite"></ul>
+				<form class="mb-3" onsubmit="geofence_add(); return false;">
+					<label for="geofence-country" class="form-label">Add a country</label>
+					<div class="input-group">
+						<select class="form-select" id="geofence-country" required></select>
+						<button type="submit" class="btn btn-primary"><span class="fa-solid fa-plus me-1"
+								aria-hidden="true"></span>Add</button>
+					</div>
+				</form>
+				<button type="button" class="btn btn-sm btn-outline-primary"
+					onclick="protection_change({action: 'geofence_update'})"><span class="fa-solid fa-rotate me-1"
+						aria-hidden="true"></span>Download the country data now</button>
+			</div>
+		</div>
+	</div>
+
+	<div class="col-12">
 		<div class="card h-100" id="manual-block-card">
 			<div class="card-header">
 				<h4 class="h5 mb-0" id="manual-title"><span class="fa-solid fa-hand me-2" aria-hidden="true"></span>Your
@@ -457,6 +521,8 @@
 								}))));
 				});
 
+				show_geofence(r.geofence);
+
 				var l = r.login_alerts;
 				$('#login-alerts-enabled').prop('checked', l.enabled);
 				$('#login-locate-enabled').prop('checked', l.locate);
@@ -559,6 +625,51 @@
 				show_modal_error("Login protection", r || "Something went wrong, sorry.");
 				show_login_protection();
 			});
+	}
+
+	function show_geofence(g) {
+		$('#geofence-enabled').prop('checked', g.enabled).prop('disabled', !g.available);
+		$('#geofence-unavailable').toggleClass('d-none', g.available);
+		$('#geofence-mode').val(g.mode);
+		$('#geofence-scope').val(g.scope);
+
+		var summary = $('#geofence-summary').removeClass('text-warning').empty();
+		if (!g.enabled)
+			summary.text("The country filter is off.");
+		else if (g.active)
+			summary.text((g.mode == 'allow' ? "Only connections from the countries below can reach ports "
+				: "Connections from the countries below can't reach ports ") + g.ports.join(", ") + " ("
+				+ g.networks.toLocaleString() + " networks). Country data from " + protection_date(g.updated) + "."
+				+ (g.dropped !== null ? " Connections dropped since the rules were last loaded: " + g.dropped.toLocaleString() + "." : ""));
+		else
+			summary.addClass('text-warning').text(g.reason);
+		if (g.error)
+			summary.append($('<div class="text-danger"/>').text(g.error));
+
+		var list = $('#geofence-countries').empty();
+		if (!g.countries.length)
+			list.append($('<li class="list-group-item text-body-secondary"/>').text("No country is chosen."));
+		g.countries.forEach(function (c) {
+			list.append($('<li class="list-group-item d-flex align-items-center gap-2"/>').append(
+				$('<span class="flex-grow-1"/>').text(c.name + " (" + c.code + ")"),
+				$('<span class="small text-body-secondary"/>').text(c.networks === null ? "No data yet"
+					: c.networks.toLocaleString() + " networks"),
+				$('<button type="button" class="btn btn-sm btn-outline-secondary"/>').attr('title', "Remove")
+					.attr('aria-label', "Remove " + c.name)
+					.append($('<span class="fa-solid fa-xmark" aria-hidden="true"/>'))
+					.on('click', function () { protection_change({ action: 'geofence_remove', country: c.code }); })));
+		});
+
+		var chosen = {};
+		g.countries.forEach(function (c) { chosen[c.code] = true; });
+		var select = $('#geofence-country').empty();
+		g.choices.filter(function (c) { return !chosen[c.code]; })
+			.sort(function (a, b) { return a.name.localeCompare(b.name); })
+			.forEach(function (c) { select.append($('<option/>').val(c.code).text(c.name + " (" + c.code + ")")); });
+	}
+
+	function geofence_add() {
+		protection_change({ action: 'geofence_add', country: $('#geofence-country').val() });
 	}
 
 	function protection_add_source() {

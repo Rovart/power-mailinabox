@@ -390,9 +390,10 @@ def system_security_metrics():
 @app.route('/mail/login-protection')
 @authorized_personnel_only()
 def mail_login_protection_get():
-	import ip_blocklists, login_alerts
+	import geofence, ip_blocklists, login_alerts
 	return json_response({
 		"blocklists": ip_blocklists.get_status(env),
+		"geofence": geofence.get_status(env),
 		"login_alerts": login_alerts.get_status(env),
 	})
 
@@ -423,9 +424,9 @@ def mail_login_protection_blocked_addresses():
 @app.route('/mail/login-protection', methods=['POST'])
 @authorized_personnel_only()
 def mail_login_protection_set():
-	# The public IP blocklists (see ip_blocklists.py) and the emails about logins from
-	# new places (see login_alerts.py).
-	import ip_blocklists, login_alerts
+	# The public IP blocklists (see ip_blocklists.py), the country filter (see geofence.py)
+	# and the emails about logins from new places (see login_alerts.py).
+	import geofence, ip_blocklists, login_alerts
 	action = request.form.get('action', '')
 	url = request.form.get('url', '')
 	enabled = request.form.get('enabled', '') in ("1", "true", "yes", "on")
@@ -448,6 +449,21 @@ def mail_login_protection_set():
 			return ip_blocklists.remove_manual(env, request.form.get('entry', ''))
 		if action == "update":
 			return ip_blocklists.update(env)
+		# The country filter. Changes that could block the control panel (HTTPS) are
+		# checked against the address the administrator is using now.
+		country = request.form.get('country', '')
+		if action == "geofence":
+			return geofence.set_enabled(env, enabled, get_client_ip())
+		if action == "geofence_mode":
+			return geofence.set_mode(env, request.form.get('mode', ''), get_client_ip())
+		if action == "geofence_scope":
+			return geofence.set_scope(env, request.form.get('scope', ''), get_client_ip())
+		if action == "geofence_add":
+			return geofence.add_country(env, country, get_client_ip())
+		if action == "geofence_remove":
+			return geofence.remove_country(env, country, get_client_ip())
+		if action == "geofence_update":
+			return geofence.update(env, force=True) + ip_blocklists.apply(env)
 		if action == "login_alerts":
 			return login_alerts.set_alerts_enabled(env, enabled)
 		if action == "login_locate":
@@ -900,8 +916,11 @@ def do_reboot():
 	# To keep the attack surface low, we don't allow a remote reboot if one isn't necessary.
 	from status_checks import is_reboot_needed_due_to_package_installation
 	if is_reboot_needed_due_to_package_installation():
-		return utils.shell("check_output", ["/sbin/shutdown", "-r", "now"],
-						capture_stderr=True)
+		# Reboot a few seconds from now: "shutdown -r now" stopped this daemon (and nginx)
+		# before it could answer, and the control panel showed an error for a reboot that
+		# was in fact starting. systemd-run returns at once and prints nothing with --quiet.
+		return utils.shell("check_output", ["/usr/bin/systemd-run", "--quiet", "--on-active=5",
+						"/sbin/shutdown", "-r", "now"], capture_stderr=True)
 	else:
 		return "No reboot is required, so it is not allowed."
 

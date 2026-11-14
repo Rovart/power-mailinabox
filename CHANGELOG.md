@@ -8,6 +8,19 @@ Unreleased
   its repository is github.com/Rovart/enhanced-mailinabox (the old address redirects there). The
   control panel, the box's default web page, its SMTP greeting and the setup's messages use the
   new name. Boxes upgrade as usual: the setup points the box's copy of the code to the new address.
+* New country filter (geo-fence) in Mail > Filtering > Login protection: allow only the
+  countries your users connect from (e.g. only Spain), or block chosen countries. It applies to
+  the login ports (IMAP, POP, sending mail and Sieve), and optionally to HTTPS too (webmail,
+  Nextcloud, Exchange ActiveSync and the control panel). Port 25 is never filtered, so mail from
+  other servers always arrives, nor are port 80 and DNS. Never blocked: addresses that aren't on
+  the internet (local network, Tailscale and other VPNs) and the networks your users logged in
+  from in the last 30 days. Countries come from the regional internet registries' daily data. If
+  that data is missing for a chosen country, nothing is blocked by country. Off unless turned on.
+* Nextcloud updated to 34.0.6.
+* Rebooting from the control panel (System → Status Checks) no longer ends with "Something went
+  wrong, sorry.": the reboot now starts a few seconds after the control panel has answered, and
+  if the connection is still cut, the page knows the box is restarting. It says so, waits until
+  the box is back, and reloads.
 * On Ubuntu, unattended-upgrades now also installs PHP updates from Ondřej Surý's own repository
   (packages.sury.org) besides his PPA. He publishes Ubuntu builds there too, sometimes before the
   PPA, and a box that added that repository (with apt pins limiting it to PHP) to get a security
