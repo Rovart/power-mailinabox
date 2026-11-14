@@ -55,6 +55,9 @@ check "API: ssl status" '$C -u "$U:$KEY" $H/admin/ssl/status | grep -q "can_prov
 MC=$(mktemp)
 check "API: 2FA QR code is a PNG, drawn without Pillow" '$C -u "$U:$KEY" -X POST $H/admin/mfa/status | python3 -c "import base64, json, sys; png = base64.b64decode(json.load(sys.stdin)[\"new_mfa\"][\"totp\"][\"qr_code_base64\"]); sys.exit(0 if png[:8] == b\"\\x89PNG\\r\\n\\x1a\\n\" else 1)" && ! /usr/local/lib/mailinabox/env/bin/python -c "import PIL" 2>/dev/null'
 check "API: munin" '$C -c $MC -u "$U:$KEY" $H/admin/munin/ | grep -q OK && $C -b $MC -o /dev/null -w "%{http_code}" $H/admin/munin/index.html | grep -q 200'
+check "admin page is HTML, API messages are plain text" '$C -o /dev/null -w "%{content_type}" $H/admin/ | grep -q "^text/html" && $C -u "$U:$KEY" -o /dev/null -w "%{content_type}" -X POST --data-urlencode "email=<b>x</b>" -d "password=x" $H/admin/mail/users/add | grep -q "^text/plain"'
+check "API: changes a browser sends for another site are refused" '[ "$($C -u "$U:$KEY" -H "Sec-Fetch-Site: cross-site" -o /dev/null -w "%{http_code}" -X POST -d "email=csrf@example.com" -d "password=Secret123!pw" $H/admin/mail/users/add)" == 403 ] && ! $C -u "$U:$KEY" "$H/admin/mail/users?format=json" | grep -q csrf@example.com'
+check "API: same-origin requests (the control panel) still work" '$C -u "$U:$KEY" -H "Sec-Fetch-Site: same-origin" -X POST $H/admin/system/status | grep -q "\"type\""'
 
 echo "== webmail"
 check "roundcube login page" '$C $H/mail/ | grep -qi "rcmloginuser"'

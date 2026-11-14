@@ -54,6 +54,28 @@ app = Flask(__name__,
 			template_folder=os.path.abspath(
 				os.path.join(os.path.dirname(me), "templates")))
 
+
+class TextResponse(Response):
+	# What the views return is text, never HTML for a browser to render: messages can
+	# repeat what was sent (an address, a domain name). The control panel's page says
+	# it's HTML itself.
+	default_mimetype = "text/plain"
+
+
+app.response_class = TextResponse
+
+
+@app.before_request
+def refuse_cross_site_changes():
+	# Changes come from the control panel itself or from clients that aren't browsers
+	# (the API, the setup, Roundcube's password plugin). A browser that remembers an
+	# administrator's Basic authentication (after its login prompt) sends it with every
+	# request, also with a form another site makes it submit: those are refused. Browsers
+	# say where a request comes from in Sec-Fetch-Site.
+	if request.method not in ("GET", "HEAD", "OPTIONS") and \
+			request.headers.get("Sec-Fetch-Site") in ("cross-site", "same-site"):
+		return Response("Requests from other sites are refused.\n", status=403, mimetype="text/plain")
+
 # Decorator to protect views that require a user with 'admin' privileges.
 
 def authorized_personnel_only(admin = True):
@@ -151,7 +173,7 @@ def index():
 
 	from services import get_served_services
 
-	return render_template(
+	return Response(render_template(
 		'index.html',
 		hostname=env['PRIMARY_HOSTNAME'],
 		storage_root=env['STORAGE_ROOT'],
@@ -161,7 +183,7 @@ def index():
 		csr_country_codes=csr_country_codes,
 		services=get_served_services(env),
 		assets_version=get_panel_assets_version(),
-	)
+	), mimetype="text/html")
 
 
 def get_panel_assets_version():
